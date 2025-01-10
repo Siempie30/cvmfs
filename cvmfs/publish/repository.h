@@ -128,13 +128,12 @@ class __attribute__((visibility("default"))) Repository : SingleCopy {
   std::string meta_info() const { return meta_info_; }
 
 public:
-  void ReDownloadRootObjects();
-
- protected:
   void DownloadRootObjects(
     const std::string &url,
     const std::string &fqrn,
     const std::string &tmp_dir);
+
+ protected:
   catalog::SimpleCatalogManager *GetSimpleCatalogManager();
 
   const SettingsRepository settings_;

@@ -25,11 +25,6 @@ namespace publish {
 
 
 void Publisher::TransactionRetry() {
-  if (managed_node_.IsValid()) {
-    int rvi = managed_node_->Check(false /* is_quiet */);
-    if (rvi != 0) throw EPublish("cannot establish writable mountpoint");
-  }
-
   BackoffThrottle throttle(500, 5000, 10000);
   // Negative timeouts (i.e.: no retry) will result in a deadline that has
   // already passed and thus has the correct effect
@@ -39,12 +34,11 @@ void Publisher::TransactionRetry() {
     deadline = uint64_t(-1);
 
   while (true) {
+    if (managed_node_.IsValid()) {
+      int rvi = managed_node_->Check(false /* is_quiet */);
+      if (rvi != 0) throw EPublish("cannot establish writable mountpoint");
+    }
     try {
-      if (managed_node_.IsValid()) {
-        std::cout << "Checking repo in transaction loop\n";
-        int rvi = managed_node_->Check(false /* is_quiet */);
-        if (rvi != 0) throw EPublish("cannot establish writable mountpoint");
-      }
       TransactionImpl();
       break;
     } catch (const publish::EPublish& e) {

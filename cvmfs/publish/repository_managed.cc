@@ -95,8 +95,8 @@ int Publisher::ManagedNode::Check(bool is_quiet) {
 
   int result = kFailOk;
 
-  // Redownload root, so that expected hash is updated correctly
-  publisher_->ReDownloadRootObjects();
+  // Redownload root, so that hash is updated in case a new rev has been published
+  publisher_->DownloadRootObjects();
 
   shash::Any expected_hash = publisher_->manifest()->catalog_hash();
   UniquePtr<CheckoutMarker> marker(CheckoutMarker::CreateFrom(
@@ -115,9 +115,6 @@ int Publisher::ManagedNode::Check(bool is_quiet) {
       shash::Any root_hash = shash::MkFromHexPtr(shash::HexPtr(root_hash_str),
                                                shash::kSuffixCatalog);
       std::cout << "Expected hash: " << expected_hash.ToString() << ", root hash: " << root_hash.ToString() << std::endl;
-      // These hashes are the same when a transaction is started after
-      // waiting for another publisher to finish its transaction.
-      // I don't think this should be the case??
       if (expected_hash != root_hash) {
         std::cout << "Expect hash != root hash\n";
         if (marker.IsValid()) {
