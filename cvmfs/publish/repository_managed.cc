@@ -83,6 +83,9 @@ void Publisher::ManagedNode::ClearScratch() {
 
 
 int Publisher::ManagedNode::Check(bool is_quiet) {
+  // Redownload root, so that hash is updated in case a new rev has been published
+  publisher_->DownloadRootObjects();
+
   ServerLockFileCheck publish_check(publisher_->is_publishing_);
   const std::string rdonly_mnt =
     publisher_->settings_.transaction().spool_area().readonly_mnt();
@@ -93,9 +96,6 @@ int Publisher::ManagedNode::Check(bool is_quiet) {
     publisher_->settings_.transaction().spool_area().repair_mode();
 
   int result = kFailOk;
-
-  // Redownload root, so that hash is updated in case a new rev has been published
-  publisher_->DownloadRootObjects();
 
   shash::Any expected_hash = publisher_->manifest()->catalog_hash();
   UniquePtr<CheckoutMarker> marker(CheckoutMarker::CreateFrom(
