@@ -6,7 +6,6 @@
 #include "publish/repository.h"
 
 #include <cstdio>
-#include <iostream>
 
 #include "crypto/hash.h"
 #include "manifest.h"
@@ -114,9 +113,7 @@ int Publisher::ManagedNode::Check(bool is_quiet) {
     if (retval) {
       shash::Any root_hash = shash::MkFromHexPtr(shash::HexPtr(root_hash_str),
                                                shash::kSuffixCatalog);
-      std::cout << "Expected hash: " << expected_hash.ToString() << ", root hash: " << root_hash.ToString() << std::endl;
       if (expected_hash != root_hash) {
-        std::cout << "Expect hash != root hash\n";
         if (marker.IsValid()) {
           result |= kFailRdOnlyWrongRevision;
         } else {

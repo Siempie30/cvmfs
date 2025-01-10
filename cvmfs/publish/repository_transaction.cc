@@ -6,7 +6,6 @@
 #include "publish/repository.h"
 
 #include <string>
-#include <iostream>
 
 #include "backoff.h"
 #include "catalog_mgr_ro.h"
