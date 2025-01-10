@@ -128,6 +128,7 @@ class __attribute__((visibility("default"))) Repository : SingleCopy {
   std::string meta_info() const { return meta_info_; }
 
 public:
+  void DownloadRootObjects();
   void DownloadRootObjects(
     const std::string &url,
     const std::string &fqrn,

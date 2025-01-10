@@ -129,6 +129,13 @@ catalog::SimpleCatalogManager *Repository::GetSimpleCatalogManager() {
   return simple_catalog_mgr_;
 }
 
+/**
+ * @brief Calls DownloadRootObjects(const string&, const string&, const string&) using the url, fqrn and temp dir from settings_.
+ */
+void Repository::DownloadRootObjects() {
+  DownloadRootObjects(settings_.url(), settings_.fqrn(), settings_.tmp_dir());
+}
+
 void Repository::DownloadRootObjects(
   const std::string &url, const std::string &fqrn, const std::string &tmp_dir)
 {
