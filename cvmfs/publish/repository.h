@@ -127,6 +127,9 @@ class __attribute__((visibility("default"))) Repository : SingleCopy {
   const history::History *history() const;
   std::string meta_info() const { return meta_info_; }
 
+public:
+  void ReDownloadRootObjects();
+
  protected:
   void DownloadRootObjects(
     const std::string &url,

@@ -6,6 +6,7 @@
 #include "publish/repository.h"
 
 #include <string>
+#include <iostream>
 
 #include "backoff.h"
 #include "catalog_mgr_ro.h"
@@ -39,6 +40,11 @@ void Publisher::TransactionRetry() {
 
   while (true) {
     try {
+      if (managed_node_.IsValid()) {
+        std::cout << "Checking repo in transaction loop\n";
+        int rvi = managed_node_->Check(false /* is_quiet */);
+        if (rvi != 0) throw EPublish("cannot establish writable mountpoint");
+      }
       TransactionImpl();
       break;
     } catch (const publish::EPublish& e) {
