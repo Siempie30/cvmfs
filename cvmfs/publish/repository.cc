@@ -130,7 +130,8 @@ catalog::SimpleCatalogManager *Repository::GetSimpleCatalogManager() {
 }
 
 /**
- * @brief Calls DownloadRootObjects(const string&, const string&, const string&) using the url, fqrn and temp dir from settings_.
+ * @brief Calls DownloadRootObjects(const string&, const string&, const string&) using the url, fqrn and temp dir from settings_. 
+ * This can _not_ be done using default argument in DownloadRootObjects(const string&, const string&, const string&), because is settings_ is not static.
  */
 void Repository::DownloadRootObjects() {
   DownloadRootObjects(settings_.url(), settings_.fqrn(), settings_.tmp_dir());

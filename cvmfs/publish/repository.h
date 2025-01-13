@@ -127,14 +127,14 @@ class __attribute__((visibility("default"))) Repository : SingleCopy {
   const history::History *history() const;
   std::string meta_info() const { return meta_info_; }
 
-public:
   void DownloadRootObjects();
+
+ protected:
   void DownloadRootObjects(
     const std::string &url,
     const std::string &fqrn,
     const std::string &tmp_dir);
 
- protected:
   catalog::SimpleCatalogManager *GetSimpleCatalogManager();
 
   const SettingsRepository settings_;

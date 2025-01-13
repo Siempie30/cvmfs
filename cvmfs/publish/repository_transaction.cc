@@ -6,6 +6,8 @@
 #include "publish/repository.h"
 
 #include <string>
+#include <chrono>
+#include <cstdint>
 
 #include "backoff.h"
 #include "catalog_mgr_ro.h"
