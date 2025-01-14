@@ -66,7 +66,7 @@ static AnchorPid EnterRootContainer() {
   rvb = CreatePidNamespace(&fd);
   if (!rvb) throw publish::EPublish("cannot create pid namespace");
   AnchorPid anchor_pid;
-  int rvi = SafeRead(fd, &anchor_pid.parent_pid, sizeof(pid_t));
+  ssize_t rvi = SafeRead(fd, &anchor_pid.parent_pid, sizeof(pid_t));
   if (rvi != sizeof(pid_t))
     throw publish::EPublish("cannot initialize pid namespace");
   rvi = SafeRead(fd, &anchor_pid.init_pid, sizeof(pid_t));
@@ -92,10 +92,12 @@ static void RemoveSingle(const std::string &path) {
   }
 
   int rv = 0;
-  if (S_ISDIR(info.st_mode))
+  if (S_ISDIR(info.st_mode)) {
     rv = rmdir(path.c_str());
-  else
+  }
+  else {
     rv = unlink(path.c_str());
+  }
 
   if (rv == 0 || errno == ENOENT)
     return;
@@ -408,8 +410,7 @@ void CmdEnter::CleanupSession(
                                "user.pid", &pid_xattr);
   if (!rvb)
     throw EPublish("cannot find CernVM-FS process");
-  pid_t pid_cvmfs = String2Uint64(GetCvmfsXattr("pid"));
-
+  pid_t pid_cvmfs = static_cast<pid_t>(String2Uint64(GetCvmfsXattr("pid")));
   const std::string union_mnt = rootfs_dir_ + settings_spool_area_.union_mnt();
   rvb = platform_umount_lazy(union_mnt.c_str());
   if (!rvb)
@@ -455,6 +456,8 @@ void CmdEnter::CleanupSession(
   }
 
   rvb = RemoveTree(settings_spool_area_.log_dir());
+  if (!rvb)
+    throw EPublish("cannot remove " + settings_spool_area_.log_dir());
   RemoveSingle(session_dir_ + "/session_pid");
   RemoveSingle(session_dir_ + "/" + fqrn_ + "/server.conf");
   RemoveSingle(session_dir_ + "/" + fqrn_);
@@ -651,6 +654,8 @@ int CmdEnter::Main(const Options &options) {
                       false /* drop_credentials */, false /* clear_env */,
                       false /* double_fork */,
                       &pid_child);
+    if (!rvb)
+      throw EPublish("Failed to start " + cmdline.at(0));
     std::string s = StringifyInt(pid_child);
     SafeWriteToFile(s, session_dir_ + "/session_pid", 0600);
 

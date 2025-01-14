@@ -34,8 +34,8 @@ int CmdMkfs::Main(const Options &options) {
     LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "Owner of %s [%s]: ",
              fqrn.c_str(), user_name.c_str());
     std::string input;
-    int c;
-    while ((c = getchar()) != EOF) {
+    char c;
+    while ((c = static_cast<char>(getchar())) != EOF) {
       if (c == '\n') break;
       input.push_back(c);
     }
