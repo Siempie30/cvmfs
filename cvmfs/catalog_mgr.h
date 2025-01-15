@@ -405,7 +405,7 @@ class AbstractCatalogManager : public SingleCopy {
     int retval = pthread_rwlock_wrlock(rwlock_);
     assert(retval == 0);
     perf::Inc(statistics_.n_write_lock);
-    uint64_t duration = platform_monotonic_time_ns() - timestamp;
+    int64_t duration = static_cast<int64_t>(platform_monotonic_time_ns() - timestamp);
     perf::Xadd(statistics_.ns_write_lock, duration);
   }
   inline void Unlock() const {

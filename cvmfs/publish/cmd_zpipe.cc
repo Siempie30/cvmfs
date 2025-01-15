@@ -26,6 +26,8 @@
 #include <cassert>
 #include <cstring>
 
+#include "util/logging.h"
+
 #include "duplex_zlib.h"
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
@@ -158,28 +160,43 @@ int inf(FILE *source, FILE *dest)
     return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
 }
 
+void fputsErr(int ret) {
+    if (ret == EOF) {
+        LogCvmfs(kLogCvmfs, kLogStdout, "error while writing to stream");
+    }
+}
+
 /* report a zlib or i/o error */
 void zerr(int ret)
 {
-    fputs("zpipe: ", stderr);
+    int result = fputs("zpipe: ", stderr);
+    fputsErr(ret);
     switch (ret) {
     case Z_ERRNO:
-        if (ferror(stdin))
-            fputs("error reading stdin\n", stderr);
-        if (ferror(stdout))
-            fputs("error writing stdout\n", stderr);
+        if (ferror(stdin)) {
+            result = fputs("error reading stdin\n", stderr);
+            fputsErr(result);
+        }
+        if (ferror(stdout)) {
+            result = fputs("error writing stdout\n", stderr);
+            fputsErr(result);
+        }
         break;
     case Z_STREAM_ERROR:
-        fputs("invalid compression level\n", stderr);
+        result = fputs("invalid compression level\n", stderr);
+        fputsErr(result);
         break;
     case Z_DATA_ERROR:
-        fputs("invalid or incomplete deflate data\n", stderr);
+        result = fputs("invalid or incomplete deflate data\n", stderr);
+        fputsErr(result);
         break;
     case Z_MEM_ERROR:
-        fputs("out of memory\n", stderr);
+        result = fputs("out of memory\n", stderr);
+        fputsErr(result);
         break;
     case Z_VERSION_ERROR:
-        fputs("zlib version mismatch!\n", stderr);
+        result = fputs("zlib version mismatch!\n", stderr);
+        fputsErr(result);
     }
 }
 

@@ -365,7 +365,11 @@ Publisher::Session::~Session() {
   if (keep_alive_)
     return;
 
-  Drop();
+  try {
+    Drop();
+  } catch (EPublish &e) {
+    LogCvmfs(kLogCvmfs, LogFacilities::kLogStderr, "failed to drop session: %s", e.what());
+  }
 }
 
 }  // namespace publish

@@ -23,9 +23,11 @@ CVMFS_EXPORT
 void LogCvmfs(const LogSource source, const int mask, const char *format, ...);
 // Ensure that pure debug messages are not compiled except in DEBUGMSG mode
 #ifndef DEBUGMSG
+  // NOLINTBEGIN
 #define LogCvmfs(source, mask, ...) \
   (((mask) == static_cast<int>(kLogDebug)) ? \
-    ((void)0) : LogCvmfs(source, mask, __VA_ARGS__));  // NOLINT
+    ((void)0) : LogCvmfs(source, mask, __VA_ARGS__));
+  // NOLINTEND
 #endif
 
 #ifdef CVMFS_NAMESPACE_GUARD

@@ -161,7 +161,10 @@ void Repository::DownloadRootObjects(
   download::JobInfo download_reflog(&reflog_url, false /* compressed */,
                                     false /* probe hosts */, NULL, &filesink);
   download::Failures rv_dl = download_mgr_->Fetch(&download_reflog);
-  fclose(reflog_fd);
+  int ret = fclose(reflog_fd);
+  if (ret == EOF) {
+    LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", reflog_path.c_str());
+  }
   if (rv_dl == download::kFailOk) {
     delete reflog_;
     reflog_ = manifest::Reflog::Open(reflog_path);
@@ -186,13 +189,19 @@ void Repository::DownloadRootObjects(
                                     true /* probe hosts */, &tags_hash,
                                     &filesink);
     rv_dl = download_mgr_->Fetch(&download_tags);
-    fclose(tags_fd);
+    ret = fclose(tags_fd);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", tags_path.c_str());
+    }
     if (rv_dl != download::kFailOk) throw EPublish("cannot load tag database");
     delete history_;
     history_ = history::SqliteHistory::OpenWritable(tags_path);
     if (history_ == NULL) throw EPublish("cannot open tag database");
   } else {
-    fclose(tags_fd);
+    ret = fclose(tags_fd);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", reflog_path.c_str());
+    }
     delete history_;
     history_ = history::SqliteHistory::Create(tags_path, fqrn);
     if (history_ == NULL) throw EPublish("cannot create tag database");

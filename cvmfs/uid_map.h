@@ -150,7 +150,10 @@ class IntegerMap {
       if (components.size() != 2                ||
           !int_sanitizer.IsValid(components[1]) ||
           (components[0] != "*" && !int_sanitizer.IsValid(components[0]))) {
-        fclose(fmap);
+        int ret = fclose(fmap);
+        if (ret == EOF) {
+          LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
+        }
         LogCvmfs(kLogUtility, kLogDebug, "failed to read line %d in %s",
                  line_number, path.c_str());
         return false;
@@ -166,7 +169,10 @@ class IntegerMap {
       Set(from, to);
     }
 
-    fclose(fmap);
+    int ret = fclose(fmap);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
+    }
     return true;
   }
 

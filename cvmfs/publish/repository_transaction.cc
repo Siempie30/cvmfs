@@ -35,7 +35,7 @@ void Publisher::TransactionRetry() {
   uint64_t deadline = platform_monotonic_time() +
                       settings_.transaction().GetTimeoutS();
   if (settings_.transaction().GetTimeoutS() == 0)
-    deadline = uint64_t(-1);
+    deadline = static_cast<uint64_t>(-1);
 
   while (true) {
     try {
@@ -106,10 +106,12 @@ void Publisher::TransactionImpl() {
   UniquePtr<CheckoutMarker> marker(CheckoutMarker::CreateFrom(
     settings_.transaction().spool_area().checkout_marker()));
   // TODO(jblomer): take root hash from r/o mountpoint?
-  if (marker.IsValid())
+  if (marker.IsValid()) {
     settings_.GetTransaction()->SetBaseHash(marker->hash());
-  else
+  }
+  else {
     settings_.GetTransaction()->SetBaseHash(manifest_->catalog_hash());
+  }
 
   if (settings_.transaction().HasTemplate()) {
     LogCvmfs(kLogCvmfs, llvl_ | kLogStdout | kLogNoLinebreak,

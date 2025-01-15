@@ -44,7 +44,7 @@ static void Usage(const std::string &progname,
     "Supported Commands\n"
     "-------------------\n",
     CVMFS_VERSION, progname.c_str());
-    const vector<publish::Command *> commands = clist.commands();
+    const vector<publish::Command *> &commands = clist.commands();
 
   string::size_type max_len = 0;
   for (unsigned i = 0; i < commands.size(); ++i) {
@@ -56,8 +56,9 @@ static void Usage(const std::string &progname,
     if (commands[i]->IsHidden()) continue;
     LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "  %s",
              commands[i]->GetName().c_str());
-    for (unsigned p = commands[i]->GetName().length(); p < max_len; ++p)
+    for (unsigned p = commands[i]->GetName().length(); p < max_len; ++p) {
       LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, " ");
+    }
     LogCvmfs(kLogCvmfs, kLogStdout, "   %s", commands[i]->GetBrief().c_str());
   }
 

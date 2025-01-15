@@ -31,7 +31,10 @@ CheckoutMarker *CheckoutMarker::CreateFrom(const std::string &path) {
     throw publish::EPublish("cannot open checkout marker");
   std::string line;
   bool retval = GetLineFile(f, &line);
-  fclose(f);
+  int ret = fclose(f);
+  if (ret == EOF) {
+    LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
+  }
   if (!retval)
     throw publish::EPublish("empty checkout marker");
   line = Trim(line, true /* trim_newline */);
@@ -190,7 +193,7 @@ std::string SendTalkCommand(const std::string &socket, const std::string &cmd) {
 
   std::string result;
   char buf;
-  int retval;
+  ssize_t retval;
   while ((retval = read(fd, &buf, 1)) == 1) {
     result.push_back(buf);
   }

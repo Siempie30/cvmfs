@@ -75,9 +75,10 @@ class MallocArena {
    * Returns the MallocArena that houses the destination of ptr.
    */
   static inline MallocArena *GetMallocArena(void *ptr, unsigned arena_size) {
-    // NOLINTNEXTLINE(performance-no-int-to-ptr)
+    // NOLINTBEGIN (performance-no-int-to-ptr)
     void *arena = reinterpret_cast<void *>(
       uintptr_t(ptr) & ~(uintptr_t(arena_size) - uintptr_t(1)));
+    // NOLINTEND (performance-no-int-to-ptr)
     return *reinterpret_cast<MallocArena **>(arena);
   }
 

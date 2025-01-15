@@ -49,7 +49,7 @@ Command::Options Command::ParseOptions(int argc, char **argv) {
     longopts[i].name = strdup(params[i].key.c_str());
     longopts[i].has_arg = params[i].is_switch ? no_argument : required_argument;
     longopts[i].flag = NULL;
-    longopts[i].val = params[i].short_key;
+    longopts[i].val = static_cast<unsigned char>(params[i].short_key);
   }
 
   int idx;

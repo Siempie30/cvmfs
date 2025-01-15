@@ -349,8 +349,9 @@ void Publisher::ManagedNode::AlterMountpoint(
     RunSuidHelper(suid_helper_verb, publisher_->settings_.fqrn());
     LogCvmfs(kLogCvmfs, (log_level & ~kLogStdout), "%s... success",
              info_msg.c_str());
-    if (log_level & kLogStdout)
+    if (log_level & kLogStdout) {
       LogCvmfs(kLogCvmfs, kLogStdout, "success");
+    }
   } catch (const EPublish&) {
     LogCvmfs(kLogCvmfs, kLogStderr | kLogSyslogErr, "%s... fail",
              info_msg.c_str());

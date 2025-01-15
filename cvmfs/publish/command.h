@@ -131,7 +131,7 @@ class Command {
       return default_value;
     }
     int GetInt(const std::string &key) const {
-      return map_.find(Parameter(key))->second.value_int;
+      return static_cast<int>(map_.find(Parameter(key))->second.value_int);
     }
     unsigned GetSize() const { return map_.size(); }
     const std::vector<Argument>& plain_args() const { return plain_args_; }

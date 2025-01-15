@@ -15,7 +15,7 @@
 #include "util/logging.h"
 #include "util/posix.h"
 
-const uint64_t kLastInode = uint64_t(-1);
+const uint64_t kLastInode = static_cast<uint64_t>(-1);
 
 inline void AppendFirstEntry(catalog::DirectoryEntryList* entry_list) {
   catalog::DirectoryEntry empty_entry;

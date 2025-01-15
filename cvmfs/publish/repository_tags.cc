@@ -37,7 +37,7 @@ void Publisher::EditTags(const std::vector<history::History::Tag> &add_tags,
   }
 
   for (unsigned i = 0; i < rm_tags.size(); ++i) {
-    std::string name = rm_tags[i];
+    const std::string& name = rm_tags[i];
     CheckTagName(name);
     if (history_->Exists(name)) {
       bool retval = history_->Remove(name);
