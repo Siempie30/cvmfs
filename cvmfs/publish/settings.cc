@@ -23,10 +23,12 @@
 namespace publish {
 
 void SettingsSpoolArea::UseSystemTempDir() {
-  if (getenv("TMPDIR") != NULL)
-    tmp_dir_ = getenv("TMPDIR");
-  else
+  if (getenv("TMPDIR") != NULL) {
+    tmp_dir_ = getenv("TMPDIR"); // NOLINT
+  }
+  else {
     tmp_dir_ = "/tmp";
+  }
 }
 
 void SettingsSpoolArea::SetSpoolArea(const std::string &path) {
@@ -162,7 +164,7 @@ void SettingsTransaction::SetTimeout(unsigned seconds) {
 int SettingsTransaction::GetTimeoutS() const {
   if (timeout_s_.is_default())
     return -1;
-  return timeout_s_();
+  return static_cast<int>(timeout_s_());
 }
 
 void SettingsTransaction::SetLeasePath(const std::string &path) {
@@ -211,7 +213,7 @@ void SettingsStorage::MakeGateway(
 {
   type_ = upload::SpoolerDefinition::Gateway;
   endpoint_ = "http://" + host + ":" + StringifyInt(port) + "/api/v1";
-  tmp_dir_ = tmp_dir_;
+  tmp_dir_ = tmp_dir;
 }
 
 void SettingsStorage::SetLocator(const std::string &locator) {

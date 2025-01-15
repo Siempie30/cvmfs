@@ -291,7 +291,7 @@ void Publisher::CreateKeychain() {
   whitelist_ = new whitelist::Whitelist(settings_.fqrn(), NULL, signature_mgr_);
   std::string whitelist_str = whitelist::Whitelist::CreateString(
     settings_.fqrn(),
-    settings_.whitelist_validity_days(),
+    static_cast<int>(settings_.whitelist_validity_days()),
     settings_.transaction().hash_algorithm(),
     signature_mgr_);
   whitelist::Failures rv_wl = whitelist_->LoadMem(whitelist_str);
@@ -336,7 +336,7 @@ void Publisher::CreateRootObjects() {
   history::History::Tag tag_trunk(
     "trunk",
     manifest_->catalog_hash(), manifest_->catalog_size(), manifest_->revision(),
-    manifest_->publish_timestamp(), "empty repository", "" /* branch */);
+    static_cast<time_t>(manifest_->publish_timestamp()), "empty repository", "" /* branch */);
   history_->Insert(tag_trunk);
 
   // Meta information, TODO(jblomer)
@@ -414,7 +414,7 @@ void Publisher::PushManifest() {
         spooler_files_->PlaceBootstrappingShortcut(manifest_->history())) &&
       (manifest_->meta_info().IsNull() ||
         spooler_files_->PlaceBootstrappingShortcut(manifest_->meta_info()));
-    if (!rvb) EPublish("cannot place VOMS bootstrapping symlinks");
+    if (!rvb) throw EPublish("cannot place VOMS bootstrapping symlinks");
   }
 
   upload::Spooler::CallbackPtr callback =
@@ -776,7 +776,7 @@ void Publisher::ExitShell() {
   if (fd_session_pid < 0) throw EPublish("Session pid cannot be retrieved");
   SafeReadToString(fd_session_pid, &session_pid);
 
-  pid_t pid_child = String2Uint64(session_pid);
+  pid_t pid_child = static_cast<pid_t>(String2Uint64(session_pid));
   kill(pid_child, SIGUSR1);
 }
 

@@ -95,7 +95,7 @@ class SyncUnionTarball : public SyncUnion {
    */
   Signal *read_archive_signal_;
 
-  static const size_t kBlockSize = 4096 * 4;
+  static const size_t kBlockSize = static_cast<const size_t>(4096 * 4);
 
   /**
    * create missing directory and all the ancestors
