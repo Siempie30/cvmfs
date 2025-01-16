@@ -5,7 +5,7 @@
  * to the user.
  */
 
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 
 #include "swissknife_info.h"
 
@@ -245,8 +245,9 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
   if (args.count('M') > 0) {
     shash::Any meta_info(manifest->meta_info());
     if (meta_info.IsNull()) {
-      if (human_readable)
+      if (human_readable) {
         LogCvmfs(kLogCvmfs, kLogStderr, "no meta info available");
+      }
       return 0;
     }
     const string url = repository + "/data/" + meta_info.MakePath();
@@ -255,10 +256,11 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
                                         &metainfo_memsink);
     download::Failures retval = download_manager()->Fetch(&download_metainfo);
     if (retval != download::kFailOk) {
-      if (human_readable)
+      if (human_readable) {
         LogCvmfs(kLogCvmfs, kLogStderr,
                  "failed to download meta info (%d - %s)", retval,
                  download::Code2Ascii(retval));
+      }
       return 1;
     }
     string info(reinterpret_cast<char*>(metainfo_memsink.data()),
@@ -276,7 +278,7 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
 
 //------------------------------------------------------------------------------
 
-int CommandVersion::Main(const ArgumentList &args) {
+int CommandVersion::Main(const ArgumentList &args) { // NOLINT
   LogCvmfs(kLogCvmfs, kLogStdout, "%s", CVMFS_VERSION);
   return 0;
 }

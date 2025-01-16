@@ -83,7 +83,7 @@ class CommandTag : public Command {
 
   catalog::Catalog* GetCatalog(const std::string  &repository_url,
                                const shash::Any   &catalog_hash,
-                               const std::string   catalog_path,
+                               const std::string  &catalog_path,
                                const bool          read_write) const;
 
   void PrintTagMachineReadable(const history::History::Tag &tag) const;

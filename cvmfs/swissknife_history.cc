@@ -388,7 +388,7 @@ history::History *CommandTag::GetHistory(const manifest::Manifest *manifest,
 
 catalog::Catalog *CommandTag::GetCatalog(const std::string &repository_url,
                                          const shash::Any &catalog_hash,
-                                         const std::string catalog_path,
+                                         const std::string &catalog_path,
                                          const bool read_write) const {
   assert(shash::kSuffixCatalog == catalog_hash.suffix);
   if (!FetchObject(repository_url, catalog_hash, catalog_path)) {
@@ -490,7 +490,7 @@ int CommandEditTag::AddNewTag(const ArgumentList &args, Environment *env) {
   const std::string previous_branch_name =
     (args.find('P') != args.end()) ? *args.find('P')->second : "";
 
-  if (tag_name.find(" ") != std::string::npos) {
+  if (tag_name.find(' ') != std::string::npos) {
     LogCvmfs(kLogCvmfs, kLogStderr, "tag names must not contain spaces");
     return 1;
   }
@@ -536,7 +536,7 @@ int CommandEditTag::AddNewTag(const ArgumentList &args, Environment *env) {
   tag_template.root_hash = root_hash;
   tag_template.size = GetFileSize(catalog_path.path());
   tag_template.revision = catalog->GetRevision();
-  tag_template.timestamp = catalog->GetLastModified();
+  tag_template.timestamp = static_cast<time_t>(catalog->GetLastModified());
   tag_template.branch = branch_name;
   tag_template.description = tag_description;
 
@@ -768,7 +768,7 @@ void CommandListTags::PrintHumanReadableTagList(
   size_t max_branch_len = branch_label.size();
   for (; i != iend; ++i) {
     max_name_len = std::max(max_name_len, i->name.size());
-    max_rev_len = std::max(max_rev_len, StringifyInt(i->revision).size());
+    max_rev_len = std::max(max_rev_len, StringifyUint(i->revision).size());
     max_time_len =
         std::max(max_time_len, StringifyTime(i->timestamp, true).size());
     max_branch_len = std::max(max_branch_len, i->branch.size());
@@ -957,7 +957,7 @@ std::string CommandInfoTag::HumanReadableFilesize(const size_t filesize) const {
   } else if (filesize > kiB) {
     return StringifyDouble(static_cast<double>(filesize) / kiB) + " kiB";
   } else {
-    return StringifyInt(filesize) + " Byte";
+    return StringifyUint(filesize) + " Byte";
   }
 }
 
@@ -1113,7 +1113,7 @@ int CommandRollbackTag::Main(const ArgumentList &args) {
   updated_target_tag.root_hash = env->manifest->catalog_hash();
   updated_target_tag.size = env->manifest->catalog_size();
   updated_target_tag.revision = env->manifest->revision();
-  updated_target_tag.timestamp = env->manifest->publish_timestamp();
+  updated_target_tag.timestamp = static_cast<time_t>(env->manifest->publish_timestamp());
   if (!env->history->Rollback(updated_target_tag)) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to rollback history to '%s'",
              updated_target_tag.name.c_str());

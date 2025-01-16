@@ -123,7 +123,10 @@ int CommandLease::Main(const ArgumentList& args) {
       if (MakeEndRequest("DELETE", key_id, secret, session_token,
                          params.repo_service_url, "", &buffer)) {
         if (kLeaseReplySuccess == ParseDropReply(buffer)) {
-          std::fclose(token_file);
+          int result = std::fclose(token_file);
+          if (result == EOF) {
+            LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", token_file_name.c_str());
+          }
           if (unlink(token_file_name.c_str())) {
             LogCvmfs(kLogCvmfs, kLogStderr,
                      "Warning - Could not delete session token file.");
@@ -138,7 +141,10 @@ int CommandLease::Main(const ArgumentList& args) {
         ret = kLeaseCurlReqError;
       }
 
-      std::fclose(token_file);
+      int result = std::fclose(token_file);
+      if (result == EOF) {
+        LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", token_file_name.c_str());
+      }
     } else {
       LogCvmfs(kLogCvmfs, kLogStderr, "Error reading session token from file");
       ret = kLeaseFileOpenError;

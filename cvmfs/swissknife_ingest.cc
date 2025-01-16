@@ -223,7 +223,7 @@ int swissknife::Ingest::Main(const swissknife::ArgumentList &args) {
 
   perf::Counter *revision_counter = statistics()->Register("publish.revision",
                                                   "Published revision number");
-  revision_counter->Set(catalog_manager.GetRootCatalog()->revision());
+  revision_counter->Set(static_cast<int64_t>(catalog_manager.GetRootCatalog()->revision()));
 
   // finalize the spooler
   LogCvmfs(kLogCvmfs, kLogStdout,
