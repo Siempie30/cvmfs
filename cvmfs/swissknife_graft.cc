@@ -179,7 +179,7 @@ int swissknife::CommandGraft::Main(const swissknife::ArgumentList &args) {
       return 1;
     }
   }
-  chunk_size_ *= 1024 * 1024;  // Convert to MB.
+  chunk_size_ *= static_cast<uint64_t>(1024 * 1024);  // Convert to MB.
 
   platform_stat64 sbuf;
   bool output_file_is_dir = output_file.size() &&
@@ -285,7 +285,7 @@ int swissknife::CommandGraft::Publish(const std::string &input_file,
   }
   const bool with_suffix = true;
   std::string graft_contents =
-    "size=" + StringifyInt(processed_size) + "\n" +
+    "size=" + StringifyInt(static_cast<int64_t>(processed_size)) + "\n" +
     "checksum=" + file_hash.ToString(with_suffix) + "\n" +
     "compression=" + zlib::AlgorithmName(compression_alg_) + "\n";
   if (!chunk_offsets.empty()) {
@@ -294,7 +294,7 @@ int swissknife::CommandGraft::Publish(const std::string &input_file,
     std::vector<std::string> chunk_ck_str;
     chunk_ck_str.reserve(chunk_offsets.size());
     for (unsigned idx = 0; idx < chunk_offsets.size(); idx++) {
-      chunk_off_str.push_back(StringifyInt(chunk_offsets[idx]));
+      chunk_off_str.push_back(StringifyInt(static_cast<int64_t>(chunk_offsets[idx])));
       chunk_ck_str.push_back(chunk_checksums[idx].ToStringWithSuffix());
     }
     graft_contents += "chunk_offsets=" + JoinStrings(chunk_off_str, ",") + "\n";

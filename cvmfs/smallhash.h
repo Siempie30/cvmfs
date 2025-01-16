@@ -175,14 +175,14 @@ class SmallHashBase {
 
   void AllocMemory() {
     keys_ = static_cast<Key *>(smmap(capacity_ * sizeof(Key)));
-    values_ = static_cast<Value *>(smmap(capacity_ * sizeof(Value)));
+    values_ = static_cast<Value *>(smmap(capacity_ * sizeof(Value))); // NOLINT
     for (uint32_t i = 0; i < capacity_; ++i) {
       /*keys_[i] =*/ new (keys_ + i) Key();
     }
     for (uint32_t i = 0; i < capacity_; ++i) {
       /*values_[i] =*/ new (values_ + i) Value();
     }
-    bytes_allocated_ = (sizeof(Key) + sizeof(Value)) * capacity_;
+    bytes_allocated_ = (sizeof(Key) + sizeof(Value)) * capacity_; // NOLINT
   }
 
   void DeallocMemory(Key *k, Value *v, uint32_t c) {

@@ -405,7 +405,10 @@ class LocalObjectFetcher :
     const bool success = (decompress)
       ? zlib::DecompressPath2File(source, f)
       : CopyPath2File(source, f);
-    fclose(f);
+    int ret = fclose(f);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", file_path->c_str());
+    }
 
     // check the decompression success and remove the temporary file otherwise
     if (!success) {
@@ -588,7 +591,10 @@ class HttpObjectFetcher :
     download_job.SetForceNocache(nocache);
     download::Failures retval = download_manager_->Fetch(&download_job);
     const bool success = (retval == download::kFailOk);
-    fclose(f);
+    int ret = fclose(f);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", file_path->c_str());
+    }
 
     // check if download worked and remove temporary file if not
     if (!success) {

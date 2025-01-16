@@ -17,6 +17,7 @@
 #include "reflog.h"
 #include "statistics_database.h"
 #include "upload_facility.h"
+#include "util/logging.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -221,7 +222,10 @@ int CommandGc::Main(const ArgumentList &args) {
                                       "# Garbage Collection finished at %s\n\n",
                                       StringifyTime(time(NULL), true).c_str());
     assert(bytes_written >= 0);
-    fclose(deletion_log_file);
+    int ret = fclose(deletion_log_file);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", deletion_log_path.c_str());
+    }
   }
 
   reflog->CommitTransaction();

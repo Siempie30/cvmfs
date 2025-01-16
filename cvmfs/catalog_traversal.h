@@ -187,7 +187,7 @@ class CatalogTraversalBase
    * @return       true, when all catalogs were successfully processed. On
    *               failure the traversal is cancelled and false is returned.
    */
-  virtual bool Traverse(const TraversalType type = kBreadthFirst) = 0;
+  virtual bool Traverse(const TraversalType type = kBreadthFirst) = 0; // NOLINT
 
   /**
    * Starts the traversal process at the catalog pointed to by the given hash
@@ -196,7 +196,7 @@ class CatalogTraversalBase
    * @param type               breadths or depth first traversal
    * @return                   true when catalogs were successfully traversed
    */
-  virtual bool Traverse(const shash::Any &root_catalog_hash,
+  virtual bool Traverse(const shash::Any &root_catalog_hash, // NOLINT
                         const TraversalType type = kBreadthFirst) = 0;
 
   /**
@@ -208,7 +208,7 @@ class CatalogTraversalBase
    * @param type          breadth- or depth- first traversal
    * @return              true on success
    */
-  virtual bool TraverseList(const std::vector<shash::Any> &catalog_list,
+  virtual bool TraverseList(const std::vector<shash::Any> &catalog_list, // NOLINT
     const TraversalType type = kBreadthFirst) = 0;
 
   /**
@@ -220,7 +220,7 @@ class CatalogTraversalBase
    * @param type               breadths or depth first traversal
    * @return                   true when catalogs were successfully traversed
    */
-  virtual bool TraverseRevision(const shash::Any     &root_catalog_hash,
+  virtual bool TraverseRevision(const shash::Any     &root_catalog_hash, // NOLINT
                         const TraversalType type = kBreadthFirst) = 0;
 
   /**
@@ -230,7 +230,7 @@ class CatalogTraversalBase
    * @param type  breadths or depth first traversal
    * @return      true when catalog traversal successfully finished
    */
-  virtual bool TraverseNamedSnapshots(
+  virtual bool TraverseNamedSnapshots( // NOLINT
     const TraversalType type = kBreadthFirst)
   {
     typedef std::vector<shash::Any> HashList;
@@ -423,7 +423,7 @@ class CatalogTraversalBase
     assert(timestamp_threshold >= 0);
     const bool t =
       catalog_info_shim_->GetLastModified(job.catalog) <
-      unsigned(timestamp_threshold);
+      static_cast<unsigned>(timestamp_threshold);
 
     return t || h;
   }
@@ -543,7 +543,7 @@ class CatalogTraversal
     : CatalogTraversalBase<ObjectFetcherT>(params)
   { }
 
-  bool Traverse(const TraversalType type = Base::kBreadthFirst) {
+  bool Traverse(const TraversalType type = Base::kBreadthFirst) { // NOLINT
     const shash::Any root_catalog_hash = this->GetRepositoryRootCatalogHash();
     if (root_catalog_hash.IsNull()) {
       return false;

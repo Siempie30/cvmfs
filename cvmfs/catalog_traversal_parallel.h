@@ -84,7 +84,7 @@ class CatalogTraversalParallel : public CatalogTraversalBase<ObjectFetcherT> {
    * @return       true, when all catalogs were successfully processed. On
    *               failure the traversal is cancelled and false is returned.
    */
-  bool Traverse(const TraversalType type = Base::kBreadthFirst) {
+  bool Traverse(const TraversalType type = Base::kBreadthFirst) { // NOLINT
     const shash::Any root_catalog_hash = this->GetRepositoryRootCatalogHash();
     if (root_catalog_hash.IsNull()) {
       return false;
@@ -171,7 +171,7 @@ class CatalogTraversalParallel : public CatalogTraversalBase<ObjectFetcherT> {
  protected:
   static uint32_t hasher(const shash::Any &key) {
     // Don't start with the first bytes, because == is using them as well
-    return (uint32_t) *(reinterpret_cast<const uint32_t *>(key.digest) + 1);
+    return *(reinterpret_cast<const uint32_t *>(key.digest) + 1);
   }
 
   bool DoTraverse() {
@@ -182,7 +182,9 @@ class CatalogTraversalParallel : public CatalogTraversalBase<ObjectFetcherT> {
     for (unsigned int i = 0; i < num_threads_; ++i) {
       int retval = pthread_create(&threads_process_[i], NULL,
                                   MainProcessQueue, this);
-      if (retval != 0) PANIC(kLogStderr, "failed to create thread");
+      if (retval != 0) {
+        PANIC(kLogStderr, "failed to create thread");
+      }
     }
 
     for (unsigned int i = 0; i < num_threads_; ++i) {
@@ -393,7 +395,7 @@ class CatalogTraversalParallel : public CatalogTraversalBase<ObjectFetcherT> {
     delete job;
   }
 
-  void OnChildFinished(const int &a, CatalogJob *job) {
+  void OnChildFinished(const int &a, CatalogJob *job) { // NOLINT
     // atomic_xadd32 returns value before subtraction -> needs to equal 1
     if (atomic_xadd32(&job->children_unprocessed, -1) == 1) {
       post_job_queue_.EnqueueFront(job);

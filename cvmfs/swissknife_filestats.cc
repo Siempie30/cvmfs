@@ -135,7 +135,7 @@ void *CommandFileStats::MainProcessing(void *data) {
 
 
 
-void CommandFileStats::ProcessCatalog(string db_path) {
+void CommandFileStats::ProcessCatalog(const string& db_path) {
   sqlite::Database<catalog::CatalogDatabase> *cat_db;
   cat_db = sqlite::Database<catalog::CatalogDatabase>::Open(
            db_path,
@@ -146,7 +146,7 @@ void CommandFileStats::ProcessCatalog(string db_path) {
   sqlite::Sql *catalog_count = new sqlite::Sql(cat_db->sqlite_db(),
                                                "SELECT count(*) FROM catalog;");
   catalog_count->Execute();
-  int cur_catalog_id = db_->StoreCatalog(catalog_count->RetrieveInt64(0),
+  int64_t cur_catalog_id = db_->StoreCatalog(catalog_count->RetrieveInt64(0),
                                          file_size);
   delete catalog_count;
 
@@ -173,7 +173,7 @@ void CommandFileStats::ProcessCatalog(string db_path) {
       if ((flags & catalog::SqlDirent::kFlagFileChunk) !=
            catalog::SqlDirent::kFlagFileChunk)
       {
-        int object_id = db_->StoreObject(hash, num_bytes, size);
+        int64_t object_id = db_->StoreObject(hash, num_bytes, size);
         db_->StoreFile(cur_catalog_id, object_id);
       } else {
         // Bulk hashes in addition to chunks
@@ -185,7 +185,7 @@ void CommandFileStats::ProcessCatalog(string db_path) {
 
   int old_md5path_1 = 0, old_md5path_2 = 0;
   int md5path_1 = 0, md5path_2 = 0;
-  int cur_file_id = 0;
+  int64_t cur_file_id = 0;
   while (chunks_list->FetchRow()) {
     md5path_1 = chunks_list->RetrieveInt(0);
     md5path_2 = chunks_list->RetrieveInt(1);
@@ -284,7 +284,7 @@ int64_t FileStatsDatabase::StoreFile(int64_t catalog_id, int64_t object_id) {
   query_insert_file->Reset();
   query_insert_file->BindInt64(1, catalog_id);
   query_insert_file->Execute();
-  int file_id = sqlite3_last_insert_rowid(sqlite_db());
+  sqlite3_int64 file_id = sqlite3_last_insert_rowid(sqlite_db());
 
   query_insert_file_object->Reset();
   query_insert_file_object->BindInt64(1, file_id);
@@ -302,7 +302,7 @@ int64_t FileStatsDatabase::StoreChunkedFile(int64_t catalog_id) {
 
 int64_t FileStatsDatabase::StoreChunk(const void *hash, int hash_size,
                                   int64_t size, int64_t file_id) {
-  int object_id = StoreObject(hash, hash_size, size);
+  int64_t object_id = StoreObject(hash, hash_size, size);
 
   query_insert_file_object->Reset();
   query_insert_file_object->BindInt64(1, file_id);
