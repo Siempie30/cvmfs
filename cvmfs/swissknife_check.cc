@@ -4,7 +4,7 @@
  * This tool checks a cvmfs repository for file catalog errors.
  */
 
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 
 
 #include "swissknife_check.h"
@@ -211,7 +211,10 @@ string CommandCheck::FetchPath(const string &path) {
     }
   }
 
-  fclose(f);
+  int ret = fclose(f);
+  if (ret == EOF) {
+    LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
+  }
   return tmp_path;
 }
 
@@ -488,7 +491,7 @@ bool CommandCheck::Find(const catalog::Catalog *catalog,
           computed_counters->self.nested_catalogs++;
         shash::Any tmp;
         uint64_t tmp2;
-        PathString mountpoint(full_path);
+        const PathString& mountpoint(full_path);
         if (!catalog->FindNested(mountpoint, &tmp, &tmp2)) {
           LogCvmfs(kLogCvmfs, kLogStderr, "nested catalog at %s not registered",
                    full_path.c_str());
@@ -536,7 +539,7 @@ bool CommandCheck::Find(const catalog::Catalog *catalog,
       }
     } else if (entries[i].IsRegular()) {
       computed_counters->self.regular_files++;
-      computed_counters->self.file_size += entries[i].size();
+      computed_counters->self.file_size += static_cast<catalog::DeltaCounters_t>(entries[i].size());
     } else if (entries[i].IsSpecial()) {
       computed_counters->self.specials++;
       // Size zero for special files
@@ -570,7 +573,7 @@ bool CommandCheck::Find(const catalog::Catalog *catalog,
 
     if (entries[i].IsExternalFile()) {
       computed_counters->self.externals++;
-      computed_counters->self.external_file_size += entries[i].size();
+      computed_counters->self.external_file_size += static_cast<catalog::DeltaCounters_t>(entries[i].size());
       if (!entries[i].IsRegular()) {
         LogCvmfs(kLogCvmfs, kLogStderr,
                  "only regular files can be external: %s", full_path.c_str());
@@ -584,8 +587,8 @@ bool CommandCheck::Find(const catalog::Catalog *catalog,
       catalog->ListPathChunks(full_path, entries[i].hash_algorithm(), &chunks);
 
       computed_counters->self.chunked_files++;
-      computed_counters->self.chunked_file_size += entries[i].size();
-      computed_counters->self.file_chunks       += chunks.size();
+      computed_counters->self.chunked_file_size += static_cast<catalog::DeltaCounters_t>(entries[i].size());
+      computed_counters->self.file_chunks       += static_cast<catalog::DeltaCounters_t>(chunks.size());
 
       // do we find file chunks for the chunked file in this catalog?
       if (chunks.size() == 0) {
@@ -605,7 +608,7 @@ bool CommandCheck::Find(const catalog::Catalog *catalog,
                    full_path.c_str());
           retval = false;
         }
-        next_offset = this_chunk.offset() + this_chunk.size();
+        next_offset = this_chunk.offset() + static_cast<off_t>(this_chunk.size());
         aggregated_file_size += this_chunk.size();
 
         // are all data chunks in the data store?
@@ -683,7 +686,7 @@ bool CommandCheck::Find(const catalog::Catalog *catalog,
 
 string CommandCheck::DownloadPiece(const shash::Any catalog_hash) {
   string source = "data/" + catalog_hash.MakePath();
-  const string dest = temp_directory_ + "/" + catalog_hash.ToString();
+  string dest = temp_directory_ + "/" + catalog_hash.ToString();
   const string url = repo_base_path_ + "/" + source;
 
   cvmfs::PathSink pathsink(dest);
@@ -702,7 +705,7 @@ string CommandCheck::DownloadPiece(const shash::Any catalog_hash) {
 
 string CommandCheck::DecompressPiece(const shash::Any catalog_hash) {
   string source = "data/" + catalog_hash.MakePath();
-  const string dest = temp_directory_ + "/" + catalog_hash.ToString();
+  string dest = temp_directory_ + "/" + catalog_hash.ToString();
   if (!zlib::DecompressPath2Path(source, dest))
     return "";
 
@@ -714,10 +717,12 @@ catalog::Catalog* CommandCheck::FetchCatalog(const string      &path,
                                              const shash::Any  &catalog_hash,
                                              const uint64_t     catalog_size) {
   string tmp_file;
-  if (!is_remote_)
+  if (!is_remote_) {
     tmp_file = DecompressPiece(catalog_hash);
-  else
+  }
+  else {
     tmp_file = DownloadPiece(catalog_hash);
+  }
 
   if (tmp_file == "") {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to load catalog %s",
@@ -736,7 +741,7 @@ catalog::Catalog* CommandCheck::FetchCatalog(const string      &path,
   }
   unlink(tmp_file.c_str());
 
-  if ((catalog_size > 0) && (uint64_t(catalog_file_size) != catalog_size)) {
+  if ((catalog_size > 0) && (static_cast<uint64_t>(catalog_file_size) != catalog_size)) {
     LogCvmfs(kLogCvmfs, kLogStderr, "catalog file size mismatch, "
              "expected %" PRIu64 ", got %" PRIu64,
              catalog_size, catalog_file_size);
@@ -1029,10 +1034,12 @@ int CommandCheck::Main(const swissknife::ArgumentList &args) {
   // Check meta-info object
   if (!manifest->meta_info().IsNull()) {
     string tmp_file;
-    if (!is_remote_)
+    if (!is_remote_) {
       tmp_file = DecompressPiece(manifest->meta_info());
-    else
+    }
+    else {
       tmp_file = DownloadPiece(manifest->meta_info());
+    }
     if (tmp_file == "") {
       LogCvmfs(kLogCvmfs, kLogStderr, "failed to load repository metainfo %s",
                manifest->meta_info().ToString().c_str());
@@ -1080,10 +1087,12 @@ int CommandCheck::Main(const swissknife::ArgumentList &args) {
   UniquePtr<history::History> tag_db;
   if (!manifest->history().IsNull()) {
     string tmp_file;
-    if (!is_remote_)
+    if (!is_remote_) {
       tmp_file = DecompressPiece(manifest->history());
-    else
+    }
+    else {
       tmp_file = DownloadPiece(manifest->history());
+    }
     if (tmp_file == "") {
       LogCvmfs(kLogCvmfs, kLogStderr, "failed to load history database %s",
                manifest->history().ToString().c_str());

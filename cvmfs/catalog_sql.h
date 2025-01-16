@@ -17,7 +17,7 @@
 #define CVMFS_CATALOG_SQL_H_
 
 #ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 #endif
 
 #include <inttypes.h>
