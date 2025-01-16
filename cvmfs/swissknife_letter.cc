@@ -23,7 +23,7 @@ using namespace std;  // NOLINT
 
 
 static void ReadStdinBytes(unsigned char *buf, const uint16_t num_bytes) {
-  int read_chunk;
+  ssize_t read_chunk;
   unsigned read_all = 0;
 
   do {
@@ -40,7 +40,7 @@ static void ReadStdinBytes(unsigned char *buf, const uint16_t num_bytes) {
 static void WriteStdoutBytes(const unsigned char *buf,
                              const uint16_t num_bytes)
 {
-  int wrote_chunk;
+  ssize_t wrote_chunk;
   unsigned wrote_all = 0;
 
   do {
@@ -64,7 +64,7 @@ static uint16_t ReadErlang(unsigned char *buf) {
 }
 
 
-static void WriteErlang(const unsigned char *buf, int len) {
+static void WriteErlang(const unsigned char *buf, size_t len) {
   unsigned char li;
 
   li = (len >> 8) & 0xff;
@@ -154,7 +154,7 @@ int swissknife::CommandLetter::Main(const swissknife::ArgumentList &args) {
       } else {
         if (text == "") {
           char c;
-          int num_read;
+          ssize_t num_read;
           while ((num_read = read(0, &c, 1)) == 1) {
             if (c == '\n')
               break;
@@ -164,7 +164,7 @@ int swissknife::CommandLetter::Main(const swissknife::ArgumentList &args) {
         }
       }
 
-      if ((time(NULL) + 3600*24*3) > whitelist.expires()) {
+      if ((time(NULL) + static_cast<time_t>(3600*24*3)) > whitelist.expires()) {
         LogCvmfs(kLogCvmfs, kLogStderr, "reloading whitelist");
         whitelist::Whitelist refresh(fqrn, download_manager(),
                                      signature_manager());
@@ -200,13 +200,15 @@ int swissknife::CommandLetter::Main(const swissknife::ArgumentList &args) {
         if ((exit_code == 0) && (message.length() > 60000))
           exit_code = 6;
         WriteErlang(reinterpret_cast<unsigned char *>(&exit_code), 1);
-        if (exit_code == 0)
+        if (exit_code == 0) {
           WriteErlang(reinterpret_cast<const unsigned char *>(message.data()),
                       message.length());
+        }
       } else {
-        if (exit_code == 0)
+        if (exit_code == 0) {
           LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "%s",
                    message.c_str());
+        }
       }
       text = "";
     } while (erlang);

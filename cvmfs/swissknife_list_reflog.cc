@@ -92,7 +92,7 @@ int CommandListReflog::Main(const ArgumentList &args) {
 
 template <class ObjectFetcherT>
 bool CommandListReflog::Run(ObjectFetcherT *object_fetcher, string repo_name,
-                            string output_path, shash::Any reflog_hash)
+                            const string& output_path, shash::Any reflog_hash)
 {
   typename ObjectFetcherT::ReflogTN *reflog;
   reflog = FetchReflog(object_fetcher, repo_name, reflog_hash);
@@ -160,7 +160,10 @@ bool CommandListReflog::Run(ObjectFetcherT *object_fetcher, string repo_name,
     assert(fd);
     FILE *stream = fdopen(fd, "w");
     DumpObjects(stream);
-    fclose(stream);  // no need to call close after fclose
+    int ret = fclose(stream);  // no need to call close after fclose
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", output_path.c_str());
+    }
   }
 
   return success;
@@ -193,7 +196,10 @@ void CommandListReflog::DumpObjects(FILE *stream)
   shash::Any *hashes = objects_->keys();
   for (uint32_t i = 0; i < objects_->capacity(); ++i) {
     if (hashes[i] != empty_key) {
-      fprintf(stream, "%s\n", hashes[i].ToString().c_str());
+      int ret = fprintf(stream, "%s\n", hashes[i].ToString().c_str());
+      if (ret < 0) {
+        LogCvmfs(kLogUtility, kLogDebug, "failed to print to file");
+      }
     }
   }
 }

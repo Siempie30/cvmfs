@@ -105,11 +105,11 @@ void CommandListCatalogs::CatalogCallback(
   }
 
   if (print_size_) {
-    clg_size = StringifyInt(data.file_size) + "B ";
+    clg_size = StringifyUint(data.file_size) + "B ";
   }
 
   if (print_entries_) {
-    clg_entries = StringifyInt(data.catalog->GetNumEntries()) + " ";
+    clg_entries = StringifyUint(data.catalog->GetNumEntries()) + " ";
   }
 
   path = data.catalog->mountpoint().ToString();

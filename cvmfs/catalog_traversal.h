@@ -551,7 +551,7 @@ class CatalogTraversal
     return Traverse(root_catalog_hash, type);
   }
 
-  bool Traverse(const shash::Any     &root_catalog_hash,
+  bool Traverse(const shash::Any     &root_catalog_hash, // NOLINT
                 const TraversalType   type = Base::kBreadthFirst) {
     // add the root catalog of the repository as the first element on the job
     // stack
