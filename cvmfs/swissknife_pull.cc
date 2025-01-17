@@ -201,7 +201,10 @@ static void Store(
         PANIC(kLogStderr, "Failed to preload %s to %s", local_path.c_str(),
               remote_path.c_str());
       }
-      fclose(fdest);
+      int ret = fclose(fdest);
+      if (ret == EOF) {
+        LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", tmp_dest.c_str());
+      }
       retval = rename(tmp_dest.c_str(), remote_path.c_str());
       assert(retval == 0);
       unlink(local_path.c_str());
@@ -233,7 +236,10 @@ static void StoreBuffer(const unsigned char *buffer, const unsigned size,
     retval = CopyMem2File(buffer, size, ftmp);
   }
   assert(retval);
-  fclose(ftmp);
+  int ret = fclose(ftmp);
+  if (ret == EOF) {
+    LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", tmp_file.c_str());
+  }
   Store(tmp_file, dest_path, true);
 }
 
@@ -285,13 +291,17 @@ static void *MainWorker(void *data) {
         ReportDownloadError(download_chunk);
         PANIC(kLogStderr, "Download error");
       }
-      fclose(fchunk);
+      int ret = fclose(fchunk);
+      if (ret == EOF) {
+        LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", tmp_file.c_str());
+      }
       Store(tmp_file, chunk_hash,
             (compression_alg == zlib::kZlibDefault) ? true : false);
       atomic_inc64(&overall_new);
     }
-    if (atomic_xadd64(&overall_chunks, 1) % 1000 == 0)
+    if (atomic_xadd64(&overall_chunks, 1) % 1000 == 0) {
       LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, ".");
+    }
     atomic_dec64(&chunk_queue);
   }
   return NULL;
@@ -388,7 +398,10 @@ bool CommandPull::Pull(const shash::Any   &catalog_hash,
     LogCvmfs(kLogCvmfs, kLogStderr, "I/O error");
     return false;
   }
-  fclose(fcatalog);
+  int ret = fclose(fcatalog);
+  if (ret == EOF) {
+    LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", file_catalog.c_str());
+  }
   FILE *fcatalog_vanilla = CreateTempFile(*temp_dir + "/cvmfs", 0600, "w",
                                           &file_catalog_vanilla);
   if (!fcatalog_vanilla) {
@@ -401,7 +414,10 @@ bool CommandPull::Pull(const shash::Any   &catalog_hash,
   download::JobInfo download_catalog(&url_catalog, false, false,
                                      &catalog_hash, &filesink);
   dl_retval = download_manager()->Fetch(&download_catalog);
-  fclose(fcatalog_vanilla);
+  ret = fclose(fcatalog_vanilla);
+  if (ret == EOF) {
+    LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", file_catalog_vanilla.c_str());
+  }
   if (dl_retval != download::kFailOk) {
     if (path == "" && is_garbage_collectable) {
       LogCvmfs(kLogCvmfs, kLogStdout, "skipping missing root catalog %s - "
@@ -435,7 +451,7 @@ bool CommandPull::Pull(const shash::Any   &catalog_hash,
 
   // Always pull the HEAD root catalog and nested catalogs
   if (apply_timestamp_threshold && (path == "") &&
-      (catalog->GetLastModified() < timestamp_threshold))
+      (catalog->GetLastModified() < static_cast<time_t>(timestamp_threshold)))
   {
     LogCvmfs(kLogCvmfs, kLogStdout,
              "  Pruning at root catalog from %s due to threshold at %s",

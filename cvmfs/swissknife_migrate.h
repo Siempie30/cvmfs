@@ -132,7 +132,7 @@ class CommandMigrate : public Command {
     void operator()(const expected_data &data);
 
    protected:
-    bool RunMigration(PendingCatalog *data) const { return false; }
+    bool RunMigration(PendingCatalog *data) const { return false; } // NOLINT
 
     bool UpdateNestedCatalogReferences(PendingCatalog *data) const;
     bool UpdateCatalogMetadata(PendingCatalog *data) const;

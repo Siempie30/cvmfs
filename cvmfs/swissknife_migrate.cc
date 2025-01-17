@@ -667,8 +667,8 @@ void CommandMigrate::AnalyzeCatalogStatistics() const {
 
   // Hardlink statistics
   const float average_linkcount = (aggregated_hardlink_count > 0)
-                                  ? aggregated_linkcounts /
-                                    aggregated_hardlink_count
+                                  ? static_cast<float>(aggregated_linkcounts) /
+                                    static_cast<float>(aggregated_hardlink_count)
                                   : 0.0f;
   LogCvmfs(kLogCatalog, kLogStdout, "Generated Hardlink Groups:     %d\n"
                                     "Average Linkcount per Group:   %.1f\n",
@@ -759,9 +759,9 @@ bool CommandMigrate::AbstractMigrationWorker<DerivedT>::
       continue;
     }
 
-    const std::string &root_path    = nested_catalog->root_path();
-    const shash::Any   catalog_hash = nested_catalog->new_catalog_hash;
-    const size_t       catalog_size = nested_catalog->new_catalog_size;
+    const std::string  &root_path    = nested_catalog->root_path();
+    const shash::Any    catalog_hash = nested_catalog->new_catalog_hash;
+    const sqlite3_int64 catalog_size = static_cast<sqlite3_int64>(nested_catalog->new_catalog_size);
 
     // insert the updated nested catalog reference into the new catalog
     const bool retval =
@@ -1621,7 +1621,7 @@ bool CommandMigrate::MigrationWorker_20x::GenerateCatalogStatistics(
   stats_counters.self.regular_files    = count_regular_files.RetrieveInt64(0);
   stats_counters.self.symlinks         = count_symlinks.RetrieveInt64(0);
   stats_counters.self.directories      = count_directories.RetrieveInt64(0);
-  stats_counters.self.nested_catalogs  = data->nested_catalogs.size();
+  stats_counters.self.nested_catalogs  = static_cast<catalog::DeltaCounters_t>(data->nested_catalogs.size());
   stats_counters.self.file_size        = aggregate_file_size.RetrieveInt64(0);
 
   // Write back the generated statistics counters into the catalog database
@@ -2160,7 +2160,7 @@ bool CommandMigrate::StatsMigrationWorker::RepairStatisticsCounters(
   stats_counters.self.symlinks            = count_symlink.RetrieveInt64(0);
   stats_counters.self.specials            = count_special.RetrieveInt64(0);
   stats_counters.self.directories         = count_dir.RetrieveInt64(0);
-  stats_counters.self.nested_catalogs     = data->nested_catalogs.size();
+  stats_counters.self.nested_catalogs     = static_cast<catalog::DeltaCounters_t>(data->nested_catalogs.size());
   stats_counters.self.chunked_files       = count_chunk.RetrieveInt64(0);
   stats_counters.self.file_chunks         = count_chunk_blobs.RetrieveInt64(0);
   stats_counters.self.file_size           = count_regular.RetrieveInt64(1);

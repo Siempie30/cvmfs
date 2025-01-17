@@ -53,7 +53,7 @@ class IntegerMap {
   IntegerMap()
     : valid_(true)
     , has_default_value_(false)
-    , default_value_(T(0)) {}
+    , default_value_(static_cast<T>(0)) {}
 
   /**
    * Define a mapping from k to v

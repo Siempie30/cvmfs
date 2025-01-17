@@ -63,8 +63,9 @@ void Usage() {
       for (unsigned j = 0; j < params.size(); ++j) {
         LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "  -%c    %s",
                  params[j].key(), params[j].description().c_str());
-        if (params[j].optional())
+        if (params[j].optional()) {
           LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, " (optional)");
+        }
         LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "\n");
       }
     }  // Parameter list
@@ -150,8 +151,8 @@ int main(int argc, char **argv) {
   // Now adding the generic -+ extra option command
   option_string.push_back(swissknife::Command::kGenericParam);
   option_string.push_back(':');
-  int c;
-  while ((c = getopt(argc, argv, option_string.c_str())) != -1) {
+  char c;
+  while ((c = static_cast<char>(getopt(argc, argv, option_string.c_str()))) != -1) {
     bool valid_option = false;
     for (unsigned j = 0; j < params.size(); ++j) {
       if (c == params[j].key()) {
