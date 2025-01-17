@@ -166,7 +166,7 @@ class SmallHashBase {
       (static_cast<double>(hasher_(key)) * static_cast<double>(capacity_) /
       static_cast<double>(static_cast<uint32_t>(-1)));
     if (capacity_ == 0) {
-      LogCvmfs(LogSource::kLogHash, LogFacilities::kLogStderr, "capacity should not be zero in scale hash, this causes undefined behaviour for modulo. Assuming capacit = 1");
+      LogCvmfs(kLogHash, kLogStderr, "capacity should not be zero in scale hash, this causes undefined behaviour for modulo. Assuming capacit = 1");
       return static_cast<uint32_t>(bucket);
     } else {
       return static_cast<uint32_t>(bucket) % capacity_;
@@ -223,7 +223,7 @@ class SmallHashBase {
       if (keys_[*bucket] == key)
         return true;
       if (capacity_ == 0) {
-        LogCvmfs(LogSource::kLogHash, LogFacilities::kLogStderr, "capacity should not be zero in DoLookup, this causes undefined behaviour for modulo. Assuming capacit = 1");
+        LogCvmfs(kLogHash, kLogStderr, "capacity should not be zero in DoLookup, this causes undefined behaviour for modulo. Assuming capacit = 1");
         *bucket = (*bucket+1); // Same as *bucket = (*bucket+1) % 1
       } else {
         *bucket = (*bucket+1) % capacity_; // NOLINT

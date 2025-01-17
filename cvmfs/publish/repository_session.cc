@@ -368,7 +368,7 @@ Publisher::Session::~Session() {
   try {
     Drop();
   } catch (EPublish &e) {
-    LogCvmfs(kLogCvmfs, LogFacilities::kLogStderr, "failed to drop session: %s", e.what());
+    LogCvmfs(kLogCvmfs, kLogStderr, "failed to drop session: %s", e.what());
   }
 }
 
