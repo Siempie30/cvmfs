@@ -2,7 +2,7 @@
  * This file is part of the CernVM File System.
  */
 
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 
 #include "swissknife_scrub.h"
 
@@ -79,7 +79,7 @@ void CommandScrub::FileCallback(
 
   const string full_path = MakeFullPath(relative_path, file_name);
   const std::string hash_string =
-      CheckPathAndExtractHash(relative_path, file_name, full_path);
+      CheckPathAndExtractHash(file_name, full_path);
   if (hash_string.empty()) {
     return;
   }
@@ -133,11 +133,10 @@ void CommandScrub::OnFileHashed(const ScrubbingResult &scrubbing_result) {
   const string full_path = scrubbing_result.path;
   const string file_name = GetFileName(full_path);
   const string parent_path = GetParentPath(full_path);
-  const string relative_path = MakeRelativePath(parent_path);
   assert(!file_name.empty());
 
   const std::string hash_string =
-    CheckPathAndExtractHash(relative_path, file_name, full_path);
+    CheckPathAndExtractHash(file_name, full_path);
   assert(!hash_string.empty());
   assert(shash::HexPtr(hash_string).IsValid());
 
@@ -151,7 +150,6 @@ void CommandScrub::OnFileHashed(const ScrubbingResult &scrubbing_result) {
 }
 
 std::string CommandScrub::CheckPathAndExtractHash(
-    const std::string &relative_path,
     const std::string &file_name,
     const std::string &full_path) const
 {
@@ -171,7 +169,7 @@ std::string CommandScrub::CheckPathAndExtractHash(
     return "";
   }
 
-  const string hash_string =
+  string hash_string =
       GetFileName(GetParentPath(full_path)) +
       (has_object_modifier ? file_name.substr(0, file_name.length() - 1)
                            : file_name);

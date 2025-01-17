@@ -60,8 +60,7 @@ class CommandScrub : public Command {
   void ShowAlertsHelpMessage() const;
 
  private:
-  std::string CheckPathAndExtractHash(const std::string &relative_path,
-                                      const std::string &file_name,
+  std::string CheckPathAndExtractHash(const std::string &file_name,
                                       const std::string &full_path) const;
   bool CheckHashString(const std::string &hash_string,
                        const std::string &full_path) const;

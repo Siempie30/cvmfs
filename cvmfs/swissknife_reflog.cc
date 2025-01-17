@@ -135,7 +135,7 @@ int CommandReconstructReflog::Main(const ArgumentList &args) {
   uploader->WaitForUpload();
   unlink(reflog_db.c_str());
 
-  const int errors = uploader->GetNumberOfErrors();
+  const unsigned errors = uploader->GetNumberOfErrors();
   if (errors > 0) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to upload generated Reflog");
   }
