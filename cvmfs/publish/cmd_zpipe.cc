@@ -22,13 +22,13 @@
 #include "cmd_zpipe.h"
 
 #include <stdio.h>
+#include <zlib.h>
 
 #include <cassert>
 #include <cstring>
 
 #include "util/logging.h"
-
-#include "duplex_zlib.h"
+#include "util/logging_internal.h"
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>
@@ -144,6 +144,9 @@ int inf(FILE *source, FILE *dest)
             case Z_MEM_ERROR:
                 (void)inflateEnd(&strm);
                 return ret;
+            default:
+                LogCvmfs(kLogCvmfs, kLogStderr, "inflate returned invalid value");
+                break;
             }
             have = CHUNK - strm.avail_out;
             if (fwrite(out, 1, have, dest) != have || ferror(dest)) {
@@ -170,7 +173,7 @@ void fputsErr(int ret) {
 void zerr(int ret)
 {
     int result = fputs("zpipe: ", stderr);
-    fputsErr(ret);
+    fputsErr(result);
     switch (ret) {
     case Z_ERRNO:
         if (ferror(stdin)) {
@@ -197,6 +200,10 @@ void zerr(int ret)
     case Z_VERSION_ERROR:
         result = fputs("zlib version mismatch!\n", stderr);
         fputsErr(result);
+        break;
+    default:
+        LogCvmfs(kLogCvmfs, kLogStderr, "zlib unknown error type");
+        break;
     }
 }
 

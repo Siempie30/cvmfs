@@ -5,14 +5,20 @@
 
 #include "publish/command.h"
 
-#include <getopt.h>
+#include <getopt.h> // NOLINT (clang-tidy does not seem to recognize the contents of this header properly)
+#include <bits/getopt_core.h>
+#include <bits/getopt_ext.h>
+#include <string.h>
 
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "publish/except.h"
 #include "util/logging.h"
+#include "util/logging_internal.h"
 #include "util/smalloc.h"
 #include "util/string.h"
 
