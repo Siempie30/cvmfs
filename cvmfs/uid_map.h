@@ -103,7 +103,7 @@ class IntegerMap {
    */
   T Map(const T k) const {
     assert(IsValid());
-    typename map_type::const_iterator i = map_.find(k);
+    const typename map_type::const_iterator i = map_.find(k);
     if (i != map_.end()) {
       return i->second;
     }
@@ -134,7 +134,7 @@ class IntegerMap {
       return false;
     }
 
-    sanitizer::IntegerSanitizer int_sanitizer;
+    const sanitizer::IntegerSanitizer int_sanitizer;
 
     std::string line;
     unsigned int line_number = 0;
@@ -150,7 +150,7 @@ class IntegerMap {
       if (components.size() != 2                ||
           !int_sanitizer.IsValid(components[1]) ||
           (components[0] != "*" && !int_sanitizer.IsValid(components[0]))) {
-        int ret = fclose(fmap);
+        const int ret = fclose(fmap);
         if (ret == EOF) {
           LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
         }
@@ -169,7 +169,7 @@ class IntegerMap {
       Set(from, to);
     }
 
-    int ret = fclose(fmap);
+    const int ret = fclose(fmap);
     if (ret == EOF) {
       LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
     }

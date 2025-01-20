@@ -5,9 +5,9 @@
 
 #include "repository.h"
 
+#include <linux/prctl.h>
 #include <sys/capability.h>
 #include <sys/prctl.h>
-#include <unistd.h>
 
 #include "publish/except.h"
 #include "util/posix.h"
