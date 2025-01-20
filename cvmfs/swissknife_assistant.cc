@@ -4,18 +4,25 @@
 
 #include "swissknife_assistant.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <cassert>
 #include <cstdlib>
+#include <string>
 
 #include "catalog.h"
 #include "catalog_rw.h"
+#include "crypto/hash.h"
 #include "history.h"
 #include "history_sqlite.h"
 #include "manifest.h"
 #include "network/download.h"
+#include "network/jobinfo.h"
+#include "network/network_errors.h"
+#include "network/sink_path.h"
 #include "util/logging.h"
+#include "util/logging_internal.h"
 #include "util/posix.h"
 
 using namespace std;  // NOLINT
@@ -27,7 +34,7 @@ catalog::Catalog *Assistant::GetCatalog(
   OpenMode open_mode)
 {
   assert(shash::kSuffixCatalog == catalog_hash.suffix);
-  string local_path = CreateTempPath(tmp_dir_ + "/catalog", 0600);
+  const string local_path = CreateTempPath(tmp_dir_ + "/catalog", 0600);
   assert(!local_path.empty());
 
   if (!FetchObject(catalog_hash, local_path)) {
@@ -60,7 +67,7 @@ history::History *Assistant::GetHistory(OpenMode open_mode) {
   const shash::Any history_hash = manifest_->history();
   history::History *history;
 
-  string local_path = CreateTempPath(tmp_dir_ + "/history", 0600);
+  const string local_path = CreateTempPath(tmp_dir_ + "/history", 0600);
   assert(!local_path.empty());
 
   if (history_hash.IsNull()) {

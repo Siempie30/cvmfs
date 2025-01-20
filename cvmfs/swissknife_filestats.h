@@ -7,8 +7,9 @@
 
 #include "swissknife.h"
 
-#include <pthread.h>
+#include <bits/pthreadtypes.h>
 
+#include <cstdint>
 #include <string>
 
 #include "catalog_traversal.h"

@@ -8,16 +8,30 @@
 
 #include "swissknife_gc.h"
 
+#include <assert.h>
+#include <cstdint>
+#include <errno.h>
+#include <stdio.h>
+#include <time.h>
+#include <unistd.h>
+
 #include <string>
 
+#include "catalog_traversal_parallel.h"
+#include "crypto/hash.h"
 #include "garbage_collection/garbage_collector.h"
 #include "garbage_collection/gc_aux.h"
 #include "garbage_collection/hash_filter.h"
 #include "manifest.h"
+#include "object_fetcher.h"
 #include "reflog.h"
 #include "statistics_database.h"
+#include "swissknife.h"
 #include "upload_facility.h"
+#include "upload_spooler_definition.h"
 #include "util/logging.h"
+#include "util/logging_internal.h"
+#include "util/pointer.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -52,7 +66,7 @@ ParameterList CommandGc::GetParams() const {
 
 
 int CommandGc::Main(const ArgumentList &args) {
-  std::string start_time = GetGMTimestamp();
+  const std::string start_time = GetGMTimestamp();
 
   const std::string &repo_url = *args.find('r')->second;
   const std::string &spooler = *args.find('u')->second;
@@ -106,7 +120,7 @@ int CommandGc::Main(const ArgumentList &args) {
                                signature_manager());
 
   UniquePtr<manifest::Manifest> manifest;
-  ObjectFetcher::Failures retval = object_fetcher.FetchManifest(&manifest);
+  const ObjectFetcher::Failures retval = object_fetcher.FetchManifest(&manifest);
   if (retval != ObjectFetcher::kFailOk) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to load repository manifest "
                                     "(%d - %s)",
@@ -125,7 +139,7 @@ int CommandGc::Main(const ArgumentList &args) {
   assert(reflog.IsValid());
 
   const upload::SpoolerDefinition spooler_definition(spooler, shash::kAny);
-  UniquePtr<upload::AbstractUploader> uploader(
+  const UniquePtr<upload::AbstractUploader> uploader(
                        upload::AbstractUploader::Construct(spooler_definition));
 
   if (!uploader.IsValid()) {
@@ -145,7 +159,7 @@ int CommandGc::Main(const ArgumentList &args) {
     }
   }
 
-  bool extended_stats = StatisticsDatabase::GcExtendedStats(repo_name);
+  const bool extended_stats = StatisticsDatabase::GcExtendedStats(repo_name);
 
   reflog->BeginTransaction();
 
@@ -165,7 +179,7 @@ int CommandGc::Main(const ArgumentList &args) {
   if (deletion_log_file != NULL) {
     const int bytes_written = fprintf(deletion_log_file,
                                       "# Garbage Collection started at %s\n",
-                                      StringifyTime(time(NULL), true).c_str());
+                                      StringifyTime(time(nullptr), true).c_str());
     if (bytes_written < 0) {
       LogCvmfs(kLogCvmfs, kLogStderr, "failed to write to deletion log '%s' "
                                       "(errno: %d)",
@@ -222,7 +236,7 @@ int CommandGc::Main(const ArgumentList &args) {
                                       "# Garbage Collection finished at %s\n\n",
                                       StringifyTime(time(NULL), true).c_str());
     assert(bytes_written >= 0);
-    int ret = fclose(deletion_log_file);
+    const int ret = fclose(deletion_log_file);
     if (ret == EOF) {
       LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", deletion_log_path.c_str());
     }

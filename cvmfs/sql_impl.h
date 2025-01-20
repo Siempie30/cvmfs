@@ -94,7 +94,7 @@ bool Database<DerivedT>::Initialize() {
   const int flags = (read_write_) ? SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE
                                   : SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READONLY;
 
-  bool successful = OpenDatabase(flags) &&
+  const bool successful = OpenDatabase(flags) &&
     Configure()         &&
     FileReadAhead()     &&
     PrepareCommonQueries();
@@ -130,7 +130,7 @@ bool Database<DerivedT>::OpenDatabase(const int flags) {
   // Open database file (depending on the flags read-only or read-write)
   LogCvmfs(kLogSql, kLogDebug, "opening database file %s",
            filename().c_str());
-  int retval = sqlite3_open_v2(filename().c_str(),
+  const int retval = sqlite3_open_v2(filename().c_str(),
                                &database_.sqlite_db,
                                flags | SQLITE_OPEN_EXRESCODE,
                                NULL);

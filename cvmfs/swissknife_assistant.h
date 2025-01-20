@@ -5,6 +5,7 @@
 #ifndef CVMFS_SWISSKNIFE_ASSISTANT_H_
 #define CVMFS_SWISSKNIFE_ASSISTANT_H_
 
+#include <cstdint>
 #include <string>
 
 #include "crypto/hash.h"
@@ -31,7 +32,7 @@ namespace swissknife {
  */
 class Assistant {
  public:
-  enum OpenMode {
+  enum OpenMode : uint8_t {
     kOpenReadOnly,
     kOpenReadWrite
   };

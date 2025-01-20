@@ -162,7 +162,7 @@ class SmallHashBase {
 
  protected:
   uint32_t ScaleHash(const Key &key) const {
-    double bucket =
+    const double bucket =
       (static_cast<double>(hasher_(key)) * static_cast<double>(capacity_) /
       static_cast<double>(static_cast<uint32_t>(-1)));
     if (capacity_ == 0) {
@@ -180,7 +180,7 @@ class SmallHashBase {
       /*keys_[i] =*/ new (keys_ + i) Key();
     }
     for (uint32_t i = 0; i < capacity_; ++i) {
-      /*values_[i] =*/ new (values_ + i) Value();
+      /*values_[i] =*/ new (reinterpret_cast<void*>(values_ + i)) Value();
     }
     bytes_allocated_ = (sizeof(Key) + sizeof(Value)) * capacity_; // NOLINT
   }
@@ -195,7 +195,7 @@ class SmallHashBase {
     if (k)
       smunmap(k);
     if (v)
-      smunmap(v);
+      smunmap(reinterpret_cast<void*>(v));
     k = NULL;
     v = NULL;
   }
@@ -328,7 +328,7 @@ class SmallHashDynamic :
 
   void Shrink() {
     if (size() < threshold_shrink_) {
-      uint32_t target_capacity = capacity() / 2;
+      const uint32_t target_capacity = capacity() / 2;
       if (target_capacity >= Base::initial_capacity_)
         Migrate(target_capacity);
     }
@@ -363,8 +363,8 @@ class SmallHashDynamic :
   void Migrate(const uint32_t new_capacity) {
     Key *old_keys = Base::keys_;
     Value *old_values = Base::values_;
-    uint32_t old_capacity = capacity();
-    uint32_t old_size = size();
+    const uint32_t old_capacity = capacity();
+    const uint32_t old_size = size();
 
     Base::capacity_ = new_capacity;
     SetThresholds();

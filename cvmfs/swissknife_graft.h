@@ -7,6 +7,7 @@
 #ifndef CVMFS_SWISSKNIFE_GRAFT_H_
 #define CVMFS_SWISSKNIFE_GRAFT_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
