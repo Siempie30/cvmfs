@@ -14,7 +14,7 @@
 #include "crypto/hash.h"
 #include "file_chunk.h"
 #include "history.h"
-#include "history_sqlite.h" // NOLINT (contents not properly recogniced by clang-tidy)
+#include "history_sqlite.h" // NOLINT (contents not properly recognized by clang-tidy)
 #include "publish/except.h"
 #include "shortstring.h"
 #include "statistics.h"
