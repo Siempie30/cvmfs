@@ -44,7 +44,7 @@ struct UploadCounters {
 };  // UploadCounters
 
 struct UploaderResults {
-  enum Type { kFileUpload, kBufferUpload, kChunkCommit, kRemove, kLookup };
+  enum Type : uint8_t { kFileUpload, kBufferUpload, kChunkCommit, kRemove, kLookup };
 
   UploaderResults(const int return_code, const std::string &local_path)
     : type(kFileUpload),
@@ -98,11 +98,11 @@ class AbstractUploader
   };
 
   struct JobStatus {
-    enum State { kOk, kTerminate, kNoJobs };
+    enum State : uint8_t { kOk, kTerminate, kNoJobs };
   };
 
   struct UploadJob {
-    enum Type { Upload, Commit, Terminate };
+    enum Type : uint8_t { Upload, Commit, Terminate };
 
     UploadJob(UploadStreamHandle *handle, UploadBuffer buffer,
               const CallbackTN *callback = NULL);

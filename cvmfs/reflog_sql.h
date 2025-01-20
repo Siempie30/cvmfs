@@ -42,7 +42,7 @@ class ReflogDatabase : public sqlite::Database<ReflogDatabase> {
 
 class SqlReflog : public sqlite::Sql {
  public:
-  enum ReferenceType {
+  enum ReferenceType : uint8_t {
     kRefCatalog,
     kRefCertificate,
     kRefHistory,

@@ -52,7 +52,7 @@ namespace publish {
 
 class SyncDiffReporter : public DiffListener {
  public:
-  enum PrintAction {
+  enum PrintAction : uint8_t {
     kPrintDots,
     kPrintChanges
   };

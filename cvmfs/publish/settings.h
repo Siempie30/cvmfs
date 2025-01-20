@@ -15,6 +15,7 @@
 #include "crypto/hash.h"
 #include "sync_union.h"
 #include "upload_spooler_definition.h"
+#include "util/single_copy.h"
 
 class OptionsManager;
 
@@ -61,7 +62,7 @@ class Setting {
 /**
  * Steers the aggressiveness of Publisher::ManagedNode::Check()
  */
-enum EUnionMountRepairMode {
+enum EUnionMountRepairMode : uint8_t {
   kUnionMountRepairNever = 0,
   kUnionMountRepairSafe,
   kUnionMountRepairAlways
@@ -492,7 +493,7 @@ class SettingsBuilder : SingleCopy {
  public:
   SettingsBuilder()
     : config_path_("/etc/cvmfs/repositories.d")
-    , options_mgr_(NULL)
+    , options_mgr_(nullptr)
   {}
   ~SettingsBuilder();
   /**
@@ -524,7 +525,7 @@ class SettingsBuilder : SingleCopy {
       const std::string &ident, bool needs_managed = false);
 
   OptionsManager *options_mgr() const { return options_mgr_; }
-  bool IsManagedRepository() const { return options_mgr_ != NULL; }
+  bool IsManagedRepository() const { return options_mgr_ != nullptr; }
 
   /**
   * Get the values from the server configuration and set them to the publisher settings.

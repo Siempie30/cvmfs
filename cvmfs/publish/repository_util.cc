@@ -5,8 +5,10 @@
 
 #include "repository_util.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cstdio>
@@ -17,6 +19,8 @@
 
 #include "crypto/hash.h"
 #include "publish/except.h"
+#include "util/logging.h"
+#include "util/logging_internal.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -30,8 +34,8 @@ CheckoutMarker *CheckoutMarker::CreateFrom(const std::string &path) {
   if (f == NULL)
     throw publish::EPublish("cannot open checkout marker");
   std::string line;
-  bool retval = GetLineFile(f, &line);
-  int ret = fclose(f);
+  const bool retval = GetLineFile(f, &line);
+  const int ret = fclose(f);
   if (ret == EOF) {
     LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
   }
@@ -73,7 +77,7 @@ void ServerLockFile::Lock() {
 
 
 bool ServerLockFile::TryLock() {
-  int new_fd = TryLockFile(path_);
+  const int new_fd = TryLockFile(path_);
   if (new_fd >= 0) {
     assert(fd_ < 0);
     fd_ = new_fd;
@@ -87,7 +91,7 @@ bool ServerLockFile::TryLock() {
 
 
 void ServerLockFile::Unlock() {
-  int old_fd = fd_;
+  const int old_fd = fd_;
   assert(old_fd >= 0);
   fd_ = -1;
   unlink(path_.c_str());
@@ -99,7 +103,7 @@ void ServerLockFile::Unlock() {
 
 
 void ServerFlagFile::Set() {
-  int fd = open(path_.c_str(), O_CREAT | O_RDWR, 0600);
+  const int fd = open(path_.c_str(), O_CREAT | O_RDWR, 0600);
   if (fd < 0)
     throw EPublish("cannot create flag file " + path_);
   close(fd);
@@ -128,14 +132,14 @@ void RunSuidHelper(const std::string &verb, const std::string &fqrn) {
   preserved_fds.insert(1);
   preserved_fds.insert(2);
   pid_t child_pid;
-  bool retval = ManagedExec(cmd_line, preserved_fds, std::map<int, int>(),
+  const bool retval = ManagedExec(cmd_line, preserved_fds, std::map<int, int>(),
                             false /* drop_credentials */,
                             true /* clear_env */,
                             false /* double_fork */,
                             &child_pid);
   if (!retval)
     throw EPublish("cannot spawn suid helper");
-  int exit_code = WaitForChild(child_pid);
+  const int exit_code = WaitForChild(child_pid);
   if (exit_code != 0)
     throw EPublish("error calling suid helper: " + StringifyInt(exit_code));
 }
@@ -144,7 +148,7 @@ void RunSuidHelper(const std::string &verb, const std::string &fqrn) {
 void SetInConfig(const std::string &path,
                  const std::string &key, const std::string &value)
 {
-  int fd = open(path.c_str(), O_RDWR | O_CREAT, kDefaultFileMode);
+  const int fd = open(path.c_str(), O_RDWR | O_CREAT, kDefaultFileMode);
   if (fd < 0)
     throw EPublish("cannot modify configuration file " + path);
 
@@ -152,7 +156,7 @@ void SetInConfig(const std::string &path,
   std::string line;
   bool key_exists = false;
   while (GetLineFd(fd, &line)) {
-    std::string trimmed = Trim(line);
+    const std::string trimmed = Trim(line);
     if (HasPrefix(trimmed, key + "=", false /* ignore_case */)) {
       key_exists = true;
       if (!value.empty())
@@ -164,17 +168,17 @@ void SetInConfig(const std::string &path,
   if (!key_exists && !value.empty())
     new_content += key + "=" + value + "\n";
 
-  off_t off_zero = lseek(fd, 0, SEEK_SET);
+  const off_t off_zero = lseek(fd, 0, SEEK_SET);
   if (off_zero != 0) {
     close(fd);
     throw EPublish("cannot rewind configuration file " + path);
   }
-  int rvi = ftruncate(fd, 0);
+  const int rvi = ftruncate(fd, 0);
   if (rvi != 0) {
     close(fd);
     throw EPublish("cannot truncate configuration file " + path);
   }
-  bool rvb = SafeWrite(fd, new_content.data(), new_content.length());
+  const bool rvb = SafeWrite(fd, new_content.data(), new_content.length());
   close(fd);
   if (!rvb)
     throw EPublish("cannot rewrite configuration file " + path);
@@ -182,7 +186,7 @@ void SetInConfig(const std::string &path,
 
 
 std::string SendTalkCommand(const std::string &socket, const std::string &cmd) {
-  int fd = ConnectSocket(socket);
+  const int fd = ConnectSocket(socket);
   if (fd < 0) {
     if (errno == ENOENT)
       throw EPublish("Socket " + socket + " not found");
