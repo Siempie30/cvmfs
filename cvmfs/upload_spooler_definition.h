@@ -23,7 +23,7 @@ struct SpoolerDefinition {
   static const unsigned kDefaultMaxConcurrentUploads = 512;
   static const unsigned kDefaultNumUploadTasks = 1;
   static const char* kDriverNames[];  ///< corresponds to DriverType
-  enum DriverType { S3, Local, Gateway, Mock, Unknown };
+  enum DriverType : uint8_t { S3, Local, Gateway, Mock, Unknown };
 
   /**
    * Reads a given definition_string as described above and interprets

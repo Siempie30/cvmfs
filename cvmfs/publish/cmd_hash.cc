@@ -6,21 +6,24 @@
 #include "cmd_hash.h"
 
 #ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 #endif
 
 #include <inttypes.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "crypto/hash.h"
 #include "publish/except.h"
 #include "util/logging.h"
+#include "util/logging_internal.h"
 
 int publish::CmdHash::Main(const Options &options) {
-  std::string algorithm = options.GetString("algorithm");
+  const std::string algorithm = options.GetString("algorithm");
   shash::Any hash(shash::ParseHashAlgorithm(algorithm));
   // MD5 is not a content hash algorithm but we deal with it in this utility
   // nevertheless

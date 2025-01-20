@@ -5,6 +5,7 @@
 
 #include "cmd_mkfs.h"
 
+#include <stdio.h>
 #include <unistd.h>
 
 #include <string>
@@ -16,14 +17,16 @@
 #include "publish/settings.h"
 #include "sanitizer.h"
 #include "upload_spooler_definition.h"
+#include "util/logging.h"
+#include "util/logging_internal.h"
 #include "util/pointer.h"
 #include "util/posix.h"
 
 namespace publish {
 
 int CmdMkfs::Main(const Options &options) {
-  std::string fqrn = options.plain_args()[0].value_str;
-  sanitizer::RepositorySanitizer sanitizer;
+  const std::string fqrn = options.plain_args()[0].value_str;
+  const sanitizer::RepositorySanitizer sanitizer;
   if (!sanitizer.IsValid(fqrn)) {
     throw EPublish("malformed repository name: " + fqrn);
   }
@@ -73,13 +76,13 @@ int CmdMkfs::Main(const Options &options) {
       options.GetString("s3config"),
       settings.transaction().spool_area().tmp_dir());
   }
-  bool configure_apache =
+  const bool configure_apache =
     (settings.storage().type() == upload::SpoolerDefinition::Local) &&
     options.HasNot("no-apache");
 
   // Permission check
   if (geteuid() != 0) {
-    bool can_unprivileged =
+    const bool can_unprivileged =
       options.Has("no-publisher") && !configure_apache &&
       (user_name == GetUserName());
     if (!can_unprivileged) throw EPublish("root privileges required");
@@ -89,7 +92,7 @@ int CmdMkfs::Main(const Options &options) {
   if (options.Has("stratum0")) {
     settings.SetUrl(options.GetString("stratum0"));
   } else {
-    bool need_stratum0 =
+    const bool need_stratum0 =
       (settings.storage().type() != upload::SpoolerDefinition::Local) &&
       options.HasNot("no-publisher");
     if (need_stratum0) {
@@ -118,7 +121,7 @@ int CmdMkfs::Main(const Options &options) {
 
   // TODO(jblomer): for local backend we need to create the path as root and
   // then hand it over
-  UniquePtr<Publisher> publisher(Publisher::Create(settings));
+  const UniquePtr<Publisher> publisher(Publisher::Create(settings));
   // if (options.Has("no-apache"))
 
   LogCvmfs(kLogCvmfs, kLogStdout, "PUBLIC MASTER KEY:\n%s",

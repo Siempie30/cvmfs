@@ -5,18 +5,15 @@
 
 #include "cmd_enter.h"
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
 #include <poll.h>
-#include <sched.h>
 #include <signal.h>
-#include <sys/mount.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
-
-
-#include <sys/wait.h>
 
 #include <algorithm>
 #include <cassert>
@@ -33,8 +30,10 @@
 #include "publish/settings.h"
 #include "sanitizer.h"
 #include "util/logging.h"
+#include "util/logging_internal.h"
 #include "util/namespace.h"
-#include "util/platform.h"
+#include "util/platform_linux.h"
+#include "util/pointer.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -51,9 +50,9 @@ struct AnchorPid {
 };
 
 static AnchorPid EnterRootContainer() {
-  uid_t euid = geteuid();
-  uid_t egid = getegid();
-  NamespaceFailures failure = CreateUserNamespace(0, 0);
+  const uid_t euid = geteuid();
+  const uid_t egid = getegid();
+  const NamespaceFailures failure = CreateUserNamespace(0, 0);
   if (failure != kFailNsOk) {
     throw publish::EPublish("cannot create root user namespace (" +
       StringifyInt(failure) + " / " + StringifyInt(errno) + ") [euid=" +
@@ -77,14 +76,14 @@ static AnchorPid EnterRootContainer() {
 }
 
 static void EnsureDirectory(const std::string &path) {
-  bool rv = MkdirDeep(path, 0700, true /* veryfy_writable */);
+  const bool rv = MkdirDeep(path, 0700, true /* veryfy_writable */);
   if (!rv)
     throw publish::EPublish("cannot create directory " + path);
 }
 
 static void RemoveSingle(const std::string &path) {
   platform_stat64 info;
-  int retval = platform_lstat(path.c_str(), &info);
+  const int retval = platform_lstat(path.c_str(), &info);
   if (retval != 0) {
     if (errno == ENOENT)
       return;
@@ -121,7 +120,7 @@ static void RemoveUnderlay(
   std::vector<std::string>::reverse_iterator iter = umount_targets.rbegin();
   std::vector<std::string>::reverse_iterator iend = umount_targets.rend();
   for (; iter != iend; ++iter) {
-    bool rvb = platform_umount_lazy(iter->c_str());
+    const bool rvb = platform_umount_lazy(iter->c_str());
     // Some sub mounts, e.g. /sys/kernel/tracing, cannot be unmounted
     if (!rvb && errno != EINVAL && errno != EACCES) {
       throw publish::EPublish(
@@ -173,7 +172,7 @@ void CmdEnter::CreateUnderlay(
     empty_toplevel_dirs.push_back(toplevel_dir);
 
     // We create $DEST/cvmfs (top-level dir)
-    std::string dest_empty_dir = dest_dir + toplevel_dir;
+    const std::string dest_empty_dir = dest_dir + toplevel_dir;
     LogCvmfs(kLogCvmfs, kLogDebug, "underlay: mkdir %s",
              dest_empty_dir.c_str());
     EnsureDirectory(dest_empty_dir);
@@ -183,9 +182,9 @@ void CmdEnter::CreateUnderlay(
   std::vector<std::string> names;
   std::vector<mode_t> modes;
   // In a recursive call, the source directory might not exist, which is fine
-  std::string d = source_dir.empty() ? "/" : source_dir;
+  const std::string d = source_dir.empty() ? "/" : source_dir;
   if (DirectoryExists(d)) {
-    bool rv = ListDirectory(d, &names, &modes);
+    const bool rv = ListDirectory(d, &names, &modes);
     if (!rv)
       throw EPublish("cannot list directory " + d);
   }
@@ -193,8 +192,8 @@ void CmdEnter::CreateUnderlay(
   // is handled first; otherwise, the recursive bind mount to the session dir
   // creates all other sub bind mounts again.
   for (unsigned i = 0; i < names.size(); ++i) {
-    std::string source = source_dir + "/" + names[i] + "/";
-    std::string dest = dest_dir + "/" + names[i] + "/";
+    const std::string source = source_dir + "/" + names[i] + "/";
+    const std::string dest = dest_dir + "/" + names[i] + "/";
     if (HasPrefix(dest, source, false /* ignore_case */)) {
       iter_swap(names.begin(), names.begin() + i);
       iter_swap(modes.begin(), modes.begin() + i);
@@ -213,12 +212,12 @@ void CmdEnter::CreateUnderlay(
       continue;
     }
 
-    std::string source = source_dir + "/" + names[i];
-    std::string dest = dest_dir + "/" + names[i];
+    const std::string source = source_dir + "/" + names[i];
+    const std::string dest = dest_dir + "/" + names[i];
     new_paths->push_back(dest);
     if (S_ISLNK(modes[i])) {
       char buf[PATH_MAX + 1];
-      ssize_t nchars = readlink(source.c_str(), buf, PATH_MAX);
+      const ssize_t nchars = readlink(source.c_str(), buf, PATH_MAX);
       if (nchars < 0)
         throw EPublish("cannot read symlink " + source);
       buf[nchars] = '\0';
@@ -231,7 +230,7 @@ void CmdEnter::CreateUnderlay(
       }
       LogCvmfs(kLogCvmfs, kLogDebug, "underlay: %s --> %s",
                source.c_str(), dest.c_str());
-      bool rv = BindMount(source, dest);
+      const bool rv = BindMount(source, dest);
       if (!rv) {
         throw EPublish("cannot bind mount " + source + " --> " + dest +
                        " (" + StringifyInt(errno) + ")");
@@ -242,7 +241,7 @@ void CmdEnter::CreateUnderlay(
   // Recurse into the directory trees containing empty directories
   // CreateUnderlay($SOURCE/cvmfs, $DEST/cvmfs, /atlas.cern.ch)
   for (unsigned i = 0; i < empty_toplevel_dirs.size(); ++i) {
-    std::string toplevel_dir = empty_toplevel_dirs[i];
+    const std::string toplevel_dir = empty_toplevel_dirs[i];
     std::vector<std::string> empty_sub_dir;
     empty_sub_dir.push_back(empty_dirs[i].substr(toplevel_dir.length()));
     if (!empty_sub_dir[0].empty()) {
@@ -279,7 +278,7 @@ void CmdEnter::WriteCvmfsConfig(const std::string &extra_config) {
   options_manager.SetValue("CVMFS_CACHE_private_SHARED", "on");
   options_manager.SetValue("CVMFS_CACHE_private_QUOTA_LIMIT", "4000");
 
-  bool rv = SafeWriteToFile(options_manager.Dump(),
+  const bool rv = SafeWriteToFile(options_manager.Dump(),
                             settings_spool_area_.client_config(),
                             kPrivateFileMode);
   if (!rv) {
@@ -295,12 +294,12 @@ void CmdEnter::MountCvmfs() {
                    EPublish::kFailMissingDependency);
   }
 
-  int fd_stdout = open(stdout_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
+  const int fd_stdout = open(stdout_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
                        kPrivateFileMode);
-  int fd_stderr = open(stderr_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
+  const int fd_stderr = open(stderr_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
                        kPrivateFileMode);
 
-  std::string cvmfs_config = settings_spool_area_.client_config();
+  const std::string cvmfs_config = settings_spool_area_.client_config();
 
   std::vector<std::string> cmdline;
   cmdline.push_back(cvmfs2_binary_);
@@ -325,7 +324,7 @@ void CmdEnter::MountCvmfs() {
     close(fd_stderr);
     throw EPublish("cannot run " + cvmfs2_binary_);
   }
-  int exit_code = WaitForChild(pid_child);
+  const int exit_code = WaitForChild(pid_child);
   close(fd_stdout);
   close(fd_stderr);
   if (exit_code != 0) {
@@ -347,9 +346,9 @@ void CmdEnter::MountOverlayfs() {
                    EPublish::kFailMissingDependency);
   }
 
-  int fd_stdout = open(stdout_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
+  const int fd_stdout = open(stdout_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
                        kPrivateFileMode);
-  int fd_stderr = open(stderr_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
+  const int fd_stderr = open(stderr_path_.c_str(), O_CREAT | O_APPEND | O_WRONLY,
                        kPrivateFileMode);
 
   std::vector<std::string> cmdline;
@@ -367,7 +366,7 @@ void CmdEnter::MountOverlayfs() {
   map_fds[fd_stdout] = 1;
   map_fds[fd_stderr] = 2;
   pid_t pid_child;
-  bool rvb = ManagedExec(cmdline, preserved_fds, map_fds,
+  const bool rvb = ManagedExec(cmdline, preserved_fds, map_fds,
                          true /* drop_credentials */, false /* clear_env */,
                          false /* double_fork */,
                          &pid_child);
@@ -376,7 +375,7 @@ void CmdEnter::MountOverlayfs() {
     close(fd_stderr);
     throw EPublish("cannot run " + overlayfs_binary_);
   }
-  int exit_code = WaitForChild(pid_child);
+  const int exit_code = WaitForChild(pid_child);
   close(fd_stdout);
   close(fd_stderr);
   if (exit_code != 0) {
@@ -389,7 +388,7 @@ void CmdEnter::MountOverlayfs() {
 
 std::string CmdEnter::GetCvmfsXattr(const std::string &name) {
   std::string xattr;
-  bool rvb = platform_getxattr(settings_spool_area_.readonly_mnt(),
+  const bool rvb = platform_getxattr(settings_spool_area_.readonly_mnt(),
                                std::string("user.") + name, &xattr);
   if (!rvb) {
     throw EPublish("cannot get extrended attribute " + name + " from " +
@@ -410,7 +409,7 @@ void CmdEnter::CleanupSession(
                                "user.pid", &pid_xattr);
   if (!rvb)
     throw EPublish("cannot find CernVM-FS process");
-  pid_t pid_cvmfs = static_cast<pid_t>(String2Uint64(GetCvmfsXattr("pid")));
+  const pid_t pid_cvmfs = static_cast<pid_t>(String2Uint64(GetCvmfsXattr("pid")));
   const std::string union_mnt = rootfs_dir_ + settings_spool_area_.union_mnt();
   rvb = platform_umount_lazy(union_mnt.c_str());
   if (!rvb)
@@ -471,7 +470,7 @@ void CmdEnter::CleanupSession(
 
 int CmdEnter::Main(const Options &options) {
   fqrn_ = options.plain_args()[0].value_str;
-  sanitizer::RepositorySanitizer sanitizer;
+  const sanitizer::RepositorySanitizer sanitizer;
   if (!sanitizer.IsValid(fqrn_)) {
     throw EPublish("malformed repository name: " + fqrn_);
   }
@@ -491,7 +490,7 @@ int CmdEnter::Main(const Options &options) {
   }
 
   // Prepare the session directory
-  std::string workspace = GetHomeDirectory() + "/.cvmfs/" + fqrn_;
+  const std::string workspace = GetHomeDirectory() + "/.cvmfs/" + fqrn_;
   EnsureDirectory(workspace);
   session_dir_ = CreateTempDir(workspace + "/session");
   if (session_dir_.empty())
@@ -505,9 +504,9 @@ int CmdEnter::Main(const Options &options) {
   stderr_path_ = settings_spool_area_.log_dir() + "/stderr.log";
 
   // Save process context information before switching namespaces
-  string cwd = GetCurrentWorkingDirectory();
-  uid_t uid = geteuid();
-  gid_t gid = getegid();
+  const string cwd = GetCurrentWorkingDirectory();
+  const uid_t uid = geteuid();
+  const gid_t gid = getegid();
 
   LogCvmfs(kLogCvmfs, kLogStdout,
            "*** NOTE: This is currently an experimental CernVM-FS feature\n");
@@ -516,7 +515,7 @@ int CmdEnter::Main(const Options &options) {
            settings_spool_area_.union_mnt().c_str());
 
   // Create root user namespace and rootfs underlay
-  AnchorPid anchor_pid = EnterRootContainer();
+  const AnchorPid anchor_pid = EnterRootContainer();
   std::vector<std::string> empty_dirs;
   empty_dirs.push_back(settings_spool_area_.union_mnt());
   empty_dirs.push_back("/proc");
@@ -568,7 +567,7 @@ int CmdEnter::Main(const Options &options) {
 
   if (pid == 0) {
     if (!options.Has("root")) {
-      NamespaceFailures failure = CreateUserNamespace(uid, gid);
+      const NamespaceFailures failure = CreateUserNamespace(uid, gid);
       if (failure != kFailNsOk) {
         throw publish::EPublish("cannot create user namespace for " +
           StringifyInt(uid) + ":" + StringifyInt(gid) + " (" +
@@ -598,12 +597,12 @@ int CmdEnter::Main(const Options &options) {
                  repo_config_.c_str());
 
         std::string config;
-        std::string config_file = repo_config_ + "/" + fqrn_ + "/server.conf";
-        std::string folderpath = session_dir_ + "/" + fqrn_;
+        const std::string config_file = repo_config_ + "/" + fqrn_ + "/server.conf";
+        const std::string folderpath = session_dir_ + "/" + fqrn_;
         MkdirDeep(folderpath.c_str(), 0700, true /* veryfy_writable */);
 
-        std::string session_config_file = folderpath + "/server.conf";
-        int fd_config = open(config_file.c_str(), O_RDONLY);
+        const std::string session_config_file = folderpath + "/server.conf";
+        const int fd_config = open(config_file.c_str(), O_RDONLY);
         SafeReadToString(fd_config, &config);
         SafeWriteToFile(config, session_config_file, 0600);
 
@@ -656,7 +655,7 @@ int CmdEnter::Main(const Options &options) {
                       &pid_child);
     if (!rvb)
       throw EPublish("Failed to start " + cmdline.at(0));
-    std::string s = StringifyInt(pid_child);
+    const std::string s = StringifyInt(pid_child);
     SafeWriteToFile(s, session_dir_ + "/session_pid", 0600);
 
     std::vector<int> sigs;

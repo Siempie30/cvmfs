@@ -41,7 +41,7 @@ namespace publish {
 class AbstractSyncMediator;
 class SyncMediator;
 
-enum UnionFsType {
+enum UnionFsType : uint8_t {
   kUnionFsUnknown,
   kUnionFsAufs,
   kUnionFsOverlay,

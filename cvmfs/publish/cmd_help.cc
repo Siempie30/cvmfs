@@ -9,8 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "publish/except.h"
+#include "command.h"
 #include "util/logging.h"
+#include "util/logging_internal.h"
 #include "util/string.h"
 
 using namespace std;  // NOLINT
@@ -19,7 +20,7 @@ namespace publish {
 
 int CmdHelp::Main(const Options &options) {
   Command *cmd = commands_->Find(options.plain_args()[0].value_str);
-  if (cmd == NULL) {
+  if (cmd == nullptr) {
     LogCvmfs(kLogCvmfs, kLogStderr, "No help for '%s'",
              options.plain_args()[0].value_str.c_str());
     return 1;
@@ -38,7 +39,7 @@ int CmdHelp::Main(const Options &options) {
   LogCvmfs(kLogCvmfs, kLogStdout, "  %s %s %s\n",
            progname().c_str(), cmd->GetName().c_str(), cmd->GetUsage().c_str());
 
-  std::string examples = cmd->GetExamples();
+  const std::string examples = cmd->GetExamples();
   if (!examples.empty()) {
     LogCvmfs(kLogCvmfs, kLogStdout, "Examples:");
     LogCvmfs(kLogCvmfs, kLogStdout, "---------");

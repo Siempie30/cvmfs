@@ -6,6 +6,7 @@
 #define CVMFS_PUBLISH_CMD_ENTER_H_
 
 #include <string>
+#include <sys/types.h>
 #include <vector>
 
 #include "publish/command.h"
