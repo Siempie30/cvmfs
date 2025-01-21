@@ -20,7 +20,7 @@
 #include "publish/repository_util.h"
 #include "publish/settings.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 #include "util/platform_linux.h"
 #include "util/pointer.h"
 #include "util/posix.h"

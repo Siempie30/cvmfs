@@ -24,7 +24,7 @@
 #include "swissknife.h"
 #include "util/fs_traversal.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 #include "util/platform_linux.h"
 #include "util/posix.h"
 #include "util/string.h"

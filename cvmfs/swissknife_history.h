@@ -5,13 +5,16 @@
 #ifndef CVMFS_SWISSKNIFE_HISTORY_H_
 #define CVMFS_SWISSKNIFE_HISTORY_H_
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 #include "crypto/hash.h"
-#include "history_sqlite.h"
+#include "history.h"
 #include "swissknife.h"
+#include "util/file_guard.h"
 #include "util/future.h"
+#include "util/pointer.h"
 
 namespace manifest {
 class Manifest;

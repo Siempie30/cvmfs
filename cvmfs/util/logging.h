@@ -8,6 +8,7 @@
 #include <string>
 
 #include "util/export.h"
+#include "util/logging_enums.h"
 // Shared declarations of debug and non-debug logging
 #include "util/logging_internal.h"
 

@@ -28,7 +28,7 @@
 #include <cstring>
 
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>

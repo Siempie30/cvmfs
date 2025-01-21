@@ -23,7 +23,7 @@
 #include "publish/command.h"
 #include "publish/except.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 
 using namespace std;  // NOLINT
 

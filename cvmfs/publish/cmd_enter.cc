@@ -30,7 +30,7 @@
 #include "publish/settings.h"
 #include "sanitizer.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 #include "util/namespace.h"
 #include "util/platform_linux.h"
 #include "util/pointer.h"

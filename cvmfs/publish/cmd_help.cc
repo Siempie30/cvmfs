@@ -11,7 +11,7 @@
 
 #include "command.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 #include "util/string.h"
 
 using namespace std;  // NOLINT

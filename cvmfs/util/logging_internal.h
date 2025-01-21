@@ -13,22 +13,11 @@
 #include <vector>
 
 #include "util/export.h"
+#include "util/logging_enums.h"
 
 #ifdef CVMFS_NAMESPACE_GUARD
 namespace CVMFS_NAMESPACE_GUARD {
 #endif
-
-enum LogFacilities {
-  kLogDebug = 0x01,
-  kLogStdout = 0x02,
-  kLogStderr = 0x04,
-  kLogSyslog = 0x08,
-  kLogSyslogWarn = 0x10,
-  kLogSyslogErr = 0x20,
-  kLogCustom0 = 0x40,
-  kLogCustom1 = 0x80,
-  kLogCustom2 = 0x100,
-};
 
 /**
  * Default logging facilities
@@ -67,48 +56,6 @@ enum LogLevels {
   kLogInform   = 0x04000,
   kLogVerbose  = 0x08000,
   kLogNone     = 0x10000,
-};
-
-/**
- * Changes in this enum must be done in logging.cc as well!
- * (see const char *module_names[] = {....})
- */
-enum LogSource {
-  kLogCache = 1,
-  kLogCatalog,
-  kLogSql,
-  kLogCvmfs,
-  kLogHash,
-  kLogDownload,
-  kLogCompress,
-  kLogQuota,
-  kLogTalk,
-  kLogMonitor,
-  kLogLru,
-  kLogFuse,
-  kLogSignature,
-  kLogFsTraversal,
-  kLogCatalogTraversal,
-  kLogNfsMaps,
-  kLogPublish,
-  kLogSpooler,
-  kLogConcurrency,
-  kLogUtility,
-  kLogGlueBuffer,
-  kLogHistory,
-  kLogUnionFs,
-  kLogPathspec,
-  kLogReceiver,
-  kLogUploadS3,
-  kLogUploadGateway,
-  kLogS3Fanout,
-  kLogGc,
-  kLogDns,
-  kLogAuthz,
-  kLogReflog,
-  kLogKvStore,
-  kLogTelemetry,
-  kLogCurl
 };
 
 const int kLogWarning = kLogStdout | kLogShowSource | kLogNormal;

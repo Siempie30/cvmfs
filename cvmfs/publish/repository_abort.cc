@@ -13,7 +13,7 @@
 #include "publish/repository_util.h"
 #include "publish/settings.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 
 namespace {
 

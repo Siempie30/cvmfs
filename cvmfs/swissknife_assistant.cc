@@ -22,7 +22,7 @@
 #include "network/network_errors.h"
 #include "network/sink_path.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 #include "util/posix.h"
 
 using namespace std;  // NOLINT

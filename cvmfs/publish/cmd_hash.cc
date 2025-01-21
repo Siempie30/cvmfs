@@ -20,7 +20,7 @@
 #include "crypto/hash.h"
 #include "publish/except.h"
 #include "util/logging.h"
-#include "util/logging_internal.h"
+#include "util/logging_enums.h"
 
 int publish::CmdHash::Main(const Options &options) {
   const std::string algorithm = options.GetString("algorithm");
