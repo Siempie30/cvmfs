@@ -44,12 +44,6 @@ struct CVMFS_EXPORT DefaultLogging {
   static LogFacilities error;  // default kLogStderr
 };
 
-enum LogFlags {
-  kLogNoLinebreak = 0x200,
-  kLogShowSource  = 0x400,
-  kLogSensitive   = 0x800,  ///< Don't add the line to the memory log buffer
-};
-
 enum LogLevels {
   kLogLevel0   = 0x01000,
   kLogNormal   = 0x02000,

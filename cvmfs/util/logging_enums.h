@@ -59,4 +59,10 @@ enum LogSource {
   kLogCurl
 };
 
+enum LogFlags {
+  kLogNoLinebreak = 0x200,
+  kLogShowSource  = 0x400,
+  kLogSensitive   = 0x800,  ///< Don't add the line to the memory log buffer
+};
+
 #endif // CVMFS_UTIL_LOGGING_ENUMS_H_

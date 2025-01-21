@@ -31,7 +31,7 @@ class CommandScrub : public Command {
 
  protected:
   struct Alerts {
-    enum Type {
+    enum Type : uint8_t {
       kUnexpectedFile = 1,
       kUnexpectedSymlink,
       kUnexpectedSubdir,

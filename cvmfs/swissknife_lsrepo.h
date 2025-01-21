@@ -9,7 +9,6 @@
 
 #include "catalog_traversal.h"
 #include "crypto/hash.h"
-#include "object_fetcher.h"
 #include "swissknife.h"
 
 namespace catalog {

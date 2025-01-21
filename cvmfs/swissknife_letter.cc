@@ -8,26 +8,34 @@
 #include "swissknife_letter.h"
 
 #include <inttypes.h>
-#include <termios.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <cassert>
+#include <cstdint>
+#include <string>
 
 #include "crypto/hash.h"
-#include "crypto/signature.h"
 #include "letter.h"
-#include "network/download.h"
+#include "swissknife.h"
 #include "util/string.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
 #include "whitelist.h"
 
 using namespace std;  // NOLINT
 
+namespace swissknife {
 
-static void ReadStdinBytes(unsigned char *buf, const uint16_t num_bytes) {
+void ReadStdinBytes(unsigned char *buf, const uint16_t num_bytes) {
   ssize_t read_chunk;
   unsigned read_all = 0;
 
   do {
-    if ((read_chunk = read(0, buf+read_all, num_bytes-read_all)) <= 0)
+    read_chunk = read(0, buf+read_all, num_bytes-read_all);
+    if (read_chunk <= 0)
       break;
     read_all += read_chunk;
   } while (read_all < num_bytes);
@@ -37,14 +45,15 @@ static void ReadStdinBytes(unsigned char *buf, const uint16_t num_bytes) {
 }
 
 
-static void WriteStdoutBytes(const unsigned char *buf,
+void WriteStdoutBytes(const unsigned char *buf,
                              const uint16_t num_bytes)
 {
   ssize_t wrote_chunk;
   unsigned wrote_all = 0;
 
   do {
-    if ((wrote_chunk = write(1, buf+wrote_all, num_bytes-wrote_all)) <= 0)
+    wrote_chunk = write(1, buf+wrote_all, num_bytes-wrote_all);
+    if (wrote_chunk <= 0)
       break;
     wrote_all += wrote_chunk;
   } while (wrote_all < num_bytes);
@@ -53,7 +62,7 @@ static void WriteStdoutBytes(const unsigned char *buf,
 }
 
 
-static uint16_t ReadErlang(unsigned char *buf) {
+uint16_t ReadErlang(unsigned char *buf) {
   int len;
 
   ReadStdinBytes(buf, 2);
@@ -64,7 +73,7 @@ static uint16_t ReadErlang(unsigned char *buf) {
 }
 
 
-static void WriteErlang(const unsigned char *buf, size_t len) {
+void WriteErlang(const unsigned char *buf, size_t len) {
   unsigned char li;
 
   li = (len >> 8) & 0xff;
@@ -74,6 +83,8 @@ static void WriteErlang(const unsigned char *buf, size_t len) {
 
   WriteStdoutBytes(buf, len);
 }
+
+} // namespace swissknife
 
 
 int swissknife::CommandLetter::Main(const swissknife::ArgumentList &args) {
@@ -149,7 +160,7 @@ int swissknife::CommandLetter::Main(const swissknife::ArgumentList &args) {
     do {
       if (erlang) {
         unsigned char buf[65000];
-        int length = ReadErlang(buf);
+        const int length = ReadErlang(buf);
         text = string(reinterpret_cast<char *>(buf), length);
       } else {
         if (text == "") {
@@ -164,7 +175,7 @@ int swissknife::CommandLetter::Main(const swissknife::ArgumentList &args) {
         }
       }
 
-      if ((time(NULL) + static_cast<time_t>(3600*24*3)) > whitelist.expires()) {
+      if ((time(nullptr) + static_cast<time_t>(3600*24*3)) > whitelist.expires()) {
         LogCvmfs(kLogCvmfs, kLogStderr, "reloading whitelist");
         whitelist::Whitelist refresh(fqrn, download_manager(),
                                      signature_manager());

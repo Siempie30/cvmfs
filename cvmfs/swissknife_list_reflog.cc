@@ -8,9 +8,25 @@
 
 #include "swissknife_list_reflog.h"
 
+#include <assert.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+#include <cstdint>
+#include <cstdio>
+#include <vector>
+
+#include "catalog.h"
+#include "catalog_traversal.h"
+#include "crypto/hash.h"
 #include "manifest.h"
 #include "object_fetcher.h"
 #include "reflog.h"
+#include "reflog_sql.h"
+#include "smallhash.h"
+#include "swissknife.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -97,7 +113,7 @@ bool CommandListReflog::Run(ObjectFetcherT *object_fetcher, string repo_name,
   typename ObjectFetcherT::ReflogTN *reflog;
   reflog = FetchReflog(object_fetcher, repo_name, reflog_hash);
 
-  shash::Any null_hash = shash::Any(reflog_hash.algorithm);
+  const shash::Any null_hash = shash::Any(reflog_hash.algorithm);
   objects_ = new SmallHashDynamic<shash::Any, bool>;
   objects_->Init(1024, null_hash, hasher);
 
@@ -156,11 +172,11 @@ bool CommandListReflog::Run(ObjectFetcherT *object_fetcher, string repo_name,
   if (output_path == "") {
     DumpObjects(stdout);
   } else {
-    int fd = open(output_path.c_str(), O_WRONLY | O_CREAT, 0644);
+    const int fd = open(output_path.c_str(), O_WRONLY | O_CREAT, 0644);
     assert(fd);
     FILE *stream = fdopen(fd, "w");
     DumpObjects(stream);
-    int ret = fclose(stream);  // no need to call close after fclose
+    const int ret = fclose(stream);  // no need to call close after fclose
     if (ret == EOF) {
       LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", output_path.c_str());
     }
@@ -192,11 +208,11 @@ void CommandListReflog::InsertObjects(const vector<shash::Any> &list) {
 
 void CommandListReflog::DumpObjects(FILE *stream)
 {
-  shash::Any empty_key = objects_->empty_key();
+  const shash::Any empty_key = objects_->empty_key();
   shash::Any *hashes = objects_->keys();
   for (uint32_t i = 0; i < objects_->capacity(); ++i) {
     if (hashes[i] != empty_key) {
-      int ret = fprintf(stream, "%s\n", hashes[i].ToString().c_str());
+      const int ret = fprintf(stream, "%s\n", hashes[i].ToString().c_str());
       if (ret < 0) {
         LogCvmfs(kLogUtility, kLogDebug, "failed to print to file");
       }

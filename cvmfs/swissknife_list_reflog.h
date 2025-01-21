@@ -5,7 +5,8 @@
 #ifndef CVMFS_SWISSKNIFE_LIST_REFLOG_H_
 #define CVMFS_SWISSKNIFE_LIST_REFLOG_H_
 
-#include <set>
+#include <cstdint>
+#include <cstdio>
 #include <string>
 #include <vector>
 
