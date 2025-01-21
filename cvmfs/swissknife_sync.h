@@ -5,6 +5,10 @@
 #ifndef CVMFS_SWISSKNIFE_SYNC_H_
 #define CVMFS_SWISSKNIFE_SYNC_H_
 
+#include <sys/types.h>
+
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -24,7 +28,7 @@ struct SyncParameters {
   static const unsigned kDefaultFileMbyteLimit = 1024;
 
   SyncParameters()
-      : spooler(NULL),
+      : spooler(nullptr),
         union_fs_type("aufs"),
         to_delete(""),
         cache_dir(""),
