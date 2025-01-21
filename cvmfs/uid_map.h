@@ -159,13 +159,13 @@ class IntegerMap {
         return false;
       }
 
-      value_type to = String2Uint64(components[1]);
+      const value_type to = String2Uint64(components[1]);
       if (components[0] == "*") {
         SetDefault(to);
         continue;
       }
 
-      key_type from = String2Uint64(components[0]);
+      const key_type from = String2Uint64(components[0]);
       Set(from, to);
     }
 

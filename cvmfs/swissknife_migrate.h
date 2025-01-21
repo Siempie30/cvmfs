@@ -7,22 +7,33 @@
 
 #include "swissknife.h"
 
+#include <sys/types.h>
+#include <time.h>
+
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "catalog.h"
+#include "catalog_counters.h"
 #include "catalog_traversal.h"
 #include "crypto/hash.h"
+#include "directory_entry.h"
 #include "history_sqlite.h"
 #include "manifest.h"
+#include "object_fetcher.h"
 #include "uid_map.h"
 #include "upload.h"
+#include "upload_spooler_result.h"
 #include "util/algorithm.h"
 #include "util/atomic.h"
 #include "util/concurrency.h"
 #include "util/future.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/mutex.h"
 #include "util/pointer.h"
 
 namespace catalog {
@@ -66,10 +77,10 @@ class CommandMigrate : public Command {
   struct PendingCatalog;
   typedef std::vector<PendingCatalog *> PendingCatalogList;
   struct PendingCatalog {
-    explicit PendingCatalog(const catalog::Catalog *old_catalog = NULL)
+    explicit PendingCatalog(const catalog::Catalog *old_catalog = nullptr)
       : success(false)
       , old_catalog(old_catalog)
-      , new_catalog(NULL)
+      , new_catalog(nullptr)
       , new_catalog_size(0) { }
     virtual ~PendingCatalog();
 
@@ -77,10 +88,10 @@ class CommandMigrate : public Command {
       return old_catalog->mountpoint().ToString();
     }
     inline bool IsRoot() const { return old_catalog->IsRoot(); }
-    inline bool HasNew() const { return new_catalog != NULL;   }
+    inline bool HasNew() const { return new_catalog != nullptr;   }
 
     inline bool HasChanges() const {
-      return (new_catalog != NULL ||
+      return (new_catalog != nullptr ||
               old_catalog->database().GetModifiedRowCount() > 0);
     }
 

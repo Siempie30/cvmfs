@@ -4,15 +4,23 @@
 
 #include "swissknife_reflog.h"
 
-#include <cassert>
+#include <unistd.h>
 
+#include <cassert>
+#include <cinttypes>
 #include <string>
 #include <vector>
 
+#include "crypto/hash.h"
 #include "manifest.h"
 #include "object_fetcher.h"
 #include "upload_facility.h"
+#include "swissknife.h"
+#include "upload_spooler_definition.h"
 #include "util/exception.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/pointer.h"
 
 namespace swissknife {
 
@@ -95,7 +103,7 @@ int CommandReconstructReflog::Main(const ArgumentList &args) {
                                signature_manager());
 
   UniquePtr<manifest::Manifest> manifest;
-  ObjectFetcher::Failures retval = object_fetcher.FetchManifest(&manifest);
+  const ObjectFetcher::Failures retval = object_fetcher.FetchManifest(&manifest);
   if (retval != ObjectFetcher::kFailOk) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to load repository manifest "
                                     "(%d - %s)",
@@ -104,7 +112,7 @@ int CommandReconstructReflog::Main(const ArgumentList &args) {
   }
 
   const upload::SpoolerDefinition spooler_definition(spooler, shash::kAny);
-  UniquePtr<upload::AbstractUploader> uploader(
+  const UniquePtr<upload::AbstractUploader> uploader(
                        upload::AbstractUploader::Construct(spooler_definition));
 
   if (!uploader.IsValid()) {
@@ -210,7 +218,7 @@ void RootChainWalker::WalkHistories(const shash::Any &history_hash) {
     LogCvmfs(kLogCvmfs, kLogStdout, "History: %s",
              current_hash.ToString().c_str());
 
-    bool cancel = WalkCatalogsInHistory(current_history.weak_ref());
+    const bool cancel = WalkCatalogsInHistory(current_history.weak_ref());
     const bool success = reflog_->AddHistory(current_hash);
     assert(success);
 
@@ -250,7 +258,7 @@ bool RootChainWalker::WalkCatalogsInHistory(const HistoryTN *history) {
 void RootChainWalker::WalkListedCatalogs(
                              const RootChainWalker::CatalogList &catalog_list) {
   CatalogList::const_iterator i    = catalog_list.begin();
-  CatalogList::const_iterator iend = catalog_list.end();
+  const CatalogList::const_iterator iend = catalog_list.end();
   for (; i != iend; ++i) {
     WalkRootCatalogs(*i);
   }
@@ -259,9 +267,9 @@ void RootChainWalker::WalkListedCatalogs(
 
 RootChainWalker::CatalogTN* RootChainWalker::FetchCatalog(
                                                 const shash::Any catalog_hash) {
-  CatalogTN *catalog = NULL;
+  CatalogTN *catalog = nullptr;
   const char *root_path = "";
-  ObjectFetcherFailures::Failures failure =
+  const ObjectFetcherFailures::Failures failure =
     object_fetcher_->FetchCatalog(catalog_hash, root_path, &catalog);
 
   return ReturnOrAbort(failure, catalog_hash, catalog);
@@ -270,8 +278,8 @@ RootChainWalker::CatalogTN* RootChainWalker::FetchCatalog(
 
 RootChainWalker::HistoryTN* RootChainWalker::FetchHistory(
                                                 const shash::Any history_hash) {
-  HistoryTN *history = NULL;
-  ObjectFetcherFailures::Failures failure =
+  HistoryTN *history = nullptr;
+  const ObjectFetcherFailures::Failures failure =
     object_fetcher_->FetchHistory(&history, history_hash);
 
   return ReturnOrAbort(failure, history_hash, history);
@@ -287,7 +295,7 @@ DatabaseT* RootChainWalker::ReturnOrAbort(
     case ObjectFetcherFailures::kFailOk:
       return database;
     case ObjectFetcherFailures::kFailNotFound:
-      return NULL;
+      return nullptr;
     default:
       PANIC(kLogStderr, "Failed to load object '%s' (%d - %s)",
             content_hash.ToStringWithSuffix().c_str(), failure,

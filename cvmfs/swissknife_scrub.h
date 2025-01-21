@@ -7,10 +7,12 @@
 
 #include "swissknife.h"
 
+#include <bits/pthreadtypes.h>
+
 #include <cassert>
+#include <cstdint>
 #include <string>
 
-#include "crypto/hash.h"
 #include "ingestion/pipeline.h"
 
 namespace swissknife {

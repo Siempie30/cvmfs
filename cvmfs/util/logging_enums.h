@@ -65,4 +65,16 @@ enum LogFlags {
   kLogSensitive   = 0x800,  ///< Don't add the line to the memory log buffer
 };
 
+enum LogLevels {
+  kLogLevel0   = 0x01000,
+  kLogNormal   = 0x02000,
+  kLogInform   = 0x04000,
+  kLogVerbose  = 0x08000,
+  kLogNone     = 0x10000,
+};
+
+const int kLogWarning = kLogStdout | kLogShowSource | kLogNormal;
+const int kLogInfoMsg = kLogStdout | kLogShowSource | kLogInform;
+const int kLogVerboseMsg = kLogStdout | kLogShowSource | kLogVerbose;
+
 #endif // CVMFS_UTIL_LOGGING_ENUMS_H_

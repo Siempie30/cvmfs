@@ -44,18 +44,6 @@ struct CVMFS_EXPORT DefaultLogging {
   static LogFacilities error;  // default kLogStderr
 };
 
-enum LogLevels {
-  kLogLevel0   = 0x01000,
-  kLogNormal   = 0x02000,
-  kLogInform   = 0x04000,
-  kLogVerbose  = 0x08000,
-  kLogNone     = 0x10000,
-};
-
-const int kLogWarning = kLogStdout | kLogShowSource | kLogNormal;
-const int kLogInfoMsg = kLogStdout | kLogShowSource | kLogInform;
-const int kLogVerboseMsg = kLogStdout | kLogShowSource | kLogVerbose;
-
 struct CVMFS_EXPORT LogBufferEntry {
   LogBufferEntry(LogSource s, int m, const std::string &msg)
     : timestamp(time(NULL)), source(s), mask(m), message(msg) { }

@@ -6,11 +6,22 @@
 
 #include "swissknife_scrub.h"
 
+#include <assert.h>
+#include <cctype>
+#include <pthread.h>
 
+#include <cstddef>
+#include <string>
+
+#include "crypto/hash.h"
+#include "ingestion/ingestion_source.h"
+#include "ingestion/pipeline.h"
+#include "swissknife.h"
 #include "util/fs_traversal.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/mutex.h"
 #include "util/posix.h"
-#include "util/smalloc.h"
 #include "util/string.h"
 
 using namespace std;  // NOLINT
@@ -24,7 +35,7 @@ CommandScrub::CommandScrub()
   : machine_readable_output_(false)
   , alerts_(0)
 {
-  int retval = pthread_mutex_init(&alerts_mutex_, NULL);
+  const int retval = pthread_mutex_init(&alerts_mutex_, nullptr);
   assert(retval == 0);
 }
 
@@ -89,7 +100,7 @@ void CommandScrub::FileCallback(
     return;
   }
 
-  shash::Any hash_from_name =
+  const shash::Any hash_from_name =
     shash::MkFromSuffixedHexPtr(shash::HexPtr(hash_string));
   IngestionSource* full_path_source = new FileIngestionSource(full_path);
   pipeline_scrubbing_.Process(
@@ -132,7 +143,6 @@ void CommandScrub::SymlinkCallback(const std::string &relative_path,
 void CommandScrub::OnFileHashed(const ScrubbingResult &scrubbing_result) {
   const string full_path = scrubbing_result.path;
   const string file_name = GetFileName(full_path);
-  const string parent_path = GetParentPath(full_path);
   assert(!file_name.empty());
 
   const std::string hash_string =
@@ -202,7 +212,7 @@ void CommandScrub::PrintAlert(
   const std::string &path,
   const std::string &affected_hash) const
 {
-  MutexLockGuard l(alerts_mutex_);
+  const MutexLockGuard l(alerts_mutex_);
 
   const char *msg = Alerts::ToString(type);
   if (machine_readable_output_) {

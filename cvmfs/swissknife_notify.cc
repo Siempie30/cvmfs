@@ -4,8 +4,14 @@
 
 #include "swissknife_notify.h"
 
+#include <cstdint>
+#include <cstdlib>
+
 #include "notify/cmd_pub.h"
 #include "notify/cmd_sub.h"
+#include "swissknife.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
 
 namespace {
 
@@ -72,15 +78,15 @@ int CommandNotify::Main(const ArgumentList& args) {
   }
 
   int ret = 0;
-  bool verbose = args.count('v') > 0;
-  std::string server_url = *args.find('u')->second;
-  bool publish = args.count('p') > 0;
+  const bool verbose = args.count('v') > 0;
+  const std::string server_url = *args.find('u')->second;
+  const bool publish = args.count('p') > 0;
   if (publish) {
-    std::string repository_url = *args.find('r')->second;
+    const std::string repository_url = *args.find('r')->second;
     ret = notify::DoPublish(server_url, repository_url, verbose);
   } else {  // subscribe
-    std::string topic = *args.find('t')->second;
-    bool continuous = args.count('c') > 0;
+    const std::string topic = *args.find('t')->second;
+    const bool continuous = args.count('c') > 0;
     const uint64_t revision = GetMinRevision(args);
     ret = notify::DoSubscribe(server_url, topic, revision, continuous, verbose);
   }
