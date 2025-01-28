@@ -26,7 +26,7 @@ class IngestionSource;
 
 namespace publish {
 
-enum SyncItemType {
+enum SyncItemType : uint8_t {
   kItemDir,
   kItemFile,
   kItemSymlink,

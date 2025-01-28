@@ -5,14 +5,20 @@
 
 #include "publish/command.h"
 
-#include <getopt.h>
+#include <getopt.h> // NOLINT (clang-tidy does not seem to recognize the contents of this header properly)
+#include <bits/getopt_core.h>
+#include <bits/getopt_ext.h>
+#include <string.h>
 
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "publish/except.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/smalloc.h"
 #include "util/string.h"
 
@@ -49,7 +55,7 @@ Command::Options Command::ParseOptions(int argc, char **argv) {
     longopts[i].name = strdup(params[i].key.c_str());
     longopts[i].has_arg = params[i].is_switch ? no_argument : required_argument;
     longopts[i].flag = NULL;
-    longopts[i].val = params[i].short_key;
+    longopts[i].val = static_cast<unsigned char>(params[i].short_key);
   }
 
   int idx;

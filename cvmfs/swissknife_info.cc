@@ -5,17 +5,27 @@
  * to the user.
  */
 
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 
 #include "swissknife_info.h"
 
+#include <assert.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include <string>
 
 #include "crypto/hash.h"
 #include "manifest.h"
 #include "network/download.h"
+#include "network/jobinfo.h"
+#include "network/network_errors.h"
+#include "network/sink_mem.h"
+#include "swissknife.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/platform_linux.h"
+#include "util/pointer.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -26,7 +36,7 @@ namespace swissknife {
 /**
  * Checks if the given path looks like a remote path
  */
-static bool IsRemote(const string &repository) {
+bool IsRemote(const string &repository) {
   return HasPrefix(repository, "http://", false) ||
          HasPrefix(repository, "https://", false);
 }
@@ -77,7 +87,7 @@ ParameterList CommandInfo::GetParams() const {
 
 int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
   if (args.find('l') != args.end()) {
-    unsigned log_level =
+    const unsigned log_level =
       kLogLevel0 << String2Uint64(*args.find('l')->second);
     if (log_level > kLogNone) {
       LogCvmfs(kLogCvmfs, kLogStderr, "invalid log level");
@@ -108,10 +118,10 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
   const bool human_readable = (args.count('h') > 0);
 
   if (args.count('e') > 0) {
-    string manifest_path = IsRemote(repository)
+    const string manifest_path = IsRemote(repository)
                                ? ".cvmfspublished"
                                : repository + "/.cvmfspublished";
-    bool is_empty = !Exists(repository, manifest_path);
+    const bool is_empty = !Exists(repository, manifest_path);
     LogCvmfs(kLogCvmfs, kLogStdout, "%s%s",
              (human_readable) ? "Empty Repository:                " : "",
              StringifyBool(is_empty).c_str());
@@ -128,9 +138,9 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
   if (IsRemote(repository)) {
     const string url = repository + "/.cvmfspublished";
     cvmfs::MemSink manifest_memsink;
-    download::JobInfo download_manifest(&url, false, false, NULL,
+    download::JobInfo download_manifest(&url, false, false, nullptr,
                                         &manifest_memsink);
-    download::Failures retval = download_manager()->Fetch(&download_manifest);
+    const download::Failures retval = download_manager()->Fetch(&download_manifest);
     if (retval != download::kFailOk) {
       LogCvmfs(kLogCvmfs, kLogStderr, "failed to download manifest (%d - %s)",
                retval, download::Code2Ascii(retval));
@@ -243,25 +253,27 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
   }
 
   if (args.count('M') > 0) {
-    shash::Any meta_info(manifest->meta_info());
+    const shash::Any meta_info(manifest->meta_info());
     if (meta_info.IsNull()) {
-      if (human_readable)
+      if (human_readable) {
         LogCvmfs(kLogCvmfs, kLogStderr, "no meta info available");
+      }
       return 0;
     }
     const string url = repository + "/data/" + meta_info.MakePath();
     cvmfs::MemSink metainfo_memsink;
     download::JobInfo download_metainfo(&url, true, false, &meta_info,
                                         &metainfo_memsink);
-    download::Failures retval = download_manager()->Fetch(&download_metainfo);
+    const download::Failures retval = download_manager()->Fetch(&download_metainfo);
     if (retval != download::kFailOk) {
-      if (human_readable)
+      if (human_readable) {
         LogCvmfs(kLogCvmfs, kLogStderr,
                  "failed to download meta info (%d - %s)", retval,
                  download::Code2Ascii(retval));
+      }
       return 1;
     }
-    string info(reinterpret_cast<char*>(metainfo_memsink.data()),
+    const string info(reinterpret_cast<char*>(metainfo_memsink.data()),
                 metainfo_memsink.pos());
     LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "%s", info.c_str());
   }
@@ -276,7 +288,7 @@ int swissknife::CommandInfo::Main(const swissknife::ArgumentList &args) {
 
 //------------------------------------------------------------------------------
 
-int CommandVersion::Main(const ArgumentList &args) {
+int CommandVersion::Main(const ArgumentList &args) { // NOLINT
   LogCvmfs(kLogCvmfs, kLogStdout, "%s", CVMFS_VERSION);
   return 0;
 }

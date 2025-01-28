@@ -77,7 +77,7 @@ bool TreeCountersBase<FieldT>::ReadFromDatabase(
   SqlGetCounter sql_counter(database);
 
   typename FieldsMap::const_iterator i    = map.begin();
-  typename FieldsMap::const_iterator iend = map.end();
+  const typename FieldsMap::const_iterator iend = map.end();
   for (; i != iend; ++i) {
     bool current_retval = sql_counter.BindCounter(i->first) &&
                           sql_counter.FetchRow();
@@ -90,7 +90,7 @@ bool TreeCountersBase<FieldT>::ReadFromDatabase(
                 ((i->first == "self_special") ||
                  (i->first == "subtree_special")) )
     {  // NOLINT(bugprone-branch-clone)
-      *(const_cast<FieldT*>(i->second)) = FieldT(0);
+      *(const_cast<FieldT*>(i->second)) = static_cast<FieldT>(0);
       current_retval = true;
     } else if ( (legacy == LegacyMode::kNoExternals) &&
                 ((i->first == "self_special")
@@ -99,8 +99,8 @@ bool TreeCountersBase<FieldT>::ReadFromDatabase(
                   || (i->first == "subtree_external") ||
                  (i->first == "self_external_file_size")
                   || (i->first == "subtree_external_file_size")) )
-    {
-      *(const_cast<FieldT*>(i->second)) = FieldT(0);
+    { // NOLINT(bugprone-branch-clone)
+      *(const_cast<FieldT*>(i->second)) = static_cast<FieldT>(0);
       current_retval = true;
     } else if ( (legacy == LegacyMode::kNoXattrs) &&
                 ((i->first == "self_special")
@@ -111,10 +111,10 @@ bool TreeCountersBase<FieldT>::ReadFromDatabase(
                  || (i->first == "subtree_external_file_size") ||
                 (i->first == "self_xattr") || (i->first == "subtree_xattr")) )
     {
-      *(const_cast<FieldT*>(i->second)) = FieldT(0);
+      *(const_cast<FieldT*>(i->second)) = static_cast<FieldT>(0);
       current_retval = true;
     } else if (legacy == LegacyMode::kLegacy) {
-      *(const_cast<FieldT*>(i->second)) = FieldT(0);
+      *(const_cast<FieldT*>(i->second)) = static_cast<FieldT>(0);
       current_retval = true;
     }
 
@@ -136,7 +136,7 @@ bool TreeCountersBase<FieldT>::WriteToDatabase(
   SqlUpdateCounter sql_counter(database);
 
   typename FieldsMap::const_iterator i    = map.begin();
-  typename FieldsMap::const_iterator iend = map.end();
+  const typename FieldsMap::const_iterator iend = map.end();
   for (; i != iend; ++i) {
     const bool current_retval =
       sql_counter.BindCounter(i->first)   &&
@@ -161,7 +161,7 @@ bool TreeCountersBase<FieldT>::InsertIntoDatabase(
   SqlCreateCounter sql_counter(database);
 
   typename FieldsMap::const_iterator i    = map.begin();
-  typename FieldsMap::const_iterator iend = map.end();
+  const typename FieldsMap::const_iterator iend = map.end();
   for (; i != iend; ++i) {
     const bool current_retval =
       sql_counter.BindCounter(i->first)   &&

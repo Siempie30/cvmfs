@@ -5,23 +5,27 @@
 
 #include "publish/repository.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <curl/curl.h>
+#include <curl/easy.h>
+#include <curl/system.h>
 #include <fcntl.h>
+#include <json.h>
 #include <unistd.h>
 
 #include <cassert>
 #include <string>
 
-#include "backoff.h"
-#include "catalog_mgr_ro.h"
 #include "crypto/hash.h"
-#include "directory_entry.h"
-#include "duplex_curl.h"
 #include "gateway_util.h"
 #include "json_document.h"
 #include "publish/except.h"
+#include "publish/settings.h"
 #include "ssl.h"
-#include "upload.h"
+#include "upload_spooler_definition.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/pointer.h"
 #include "util/posix.h"
 #include "util/string.h"
@@ -32,7 +36,7 @@ struct CurlBuffer {
   std::string data;
 };
 
-enum LeaseReply {
+enum LeaseReply : uint8_t {
   kLeaseReplySuccess,
   kLeaseReplyBusy,
   kLeaseReplyFailure
@@ -42,7 +46,7 @@ static CURL* PrepareCurl(const std::string& method) {
   const char* user_agent_string = "cvmfs/" CVMFS_VERSION;
 
   CURL* h_curl = curl_easy_init();
-  assert(h_curl != NULL);
+  assert(h_curl != nullptr);
 
   curl_easy_setopt(h_curl, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(h_curl, CURLOPT_USERAGENT, user_agent_string);
@@ -89,7 +93,7 @@ static void MakeAcquireRequest(
   const std::string header_str =
     std::string("Authorization: ") + key.id() + " " +
     Base64(hmac.ToString(false));
-  struct curl_slist* auth_header = NULL;
+  struct curl_slist* auth_header = nullptr;
   auth_header = curl_slist_append(auth_header, header_str.c_str());
   curl_easy_setopt(h_curl, CURLOPT_HTTPHEADER, auth_header);
 
@@ -287,7 +291,7 @@ void Publisher::Session::Acquire() {
   if (has_lease_)
     return;
 
-  gateway::GatewayKey gw_key = gateway::ReadGatewayKey(settings_.gw_key_path);
+  const gateway::GatewayKey gw_key = gateway::ReadGatewayKey(settings_.gw_key_path);
   if (!gw_key.IsValid()) {
     throw EPublish("cannot read gateway key: " + settings_.gw_key_path,
                    EPublish::kFailGatewayKey);
@@ -297,12 +301,12 @@ void Publisher::Session::Acquire() {
                      settings_.llvl, &buffer);
 
   std::string session_token;
-  LeaseReply rep = ParseAcquireReply(buffer, &session_token, settings_.llvl);
+  const LeaseReply rep = ParseAcquireReply(buffer, &session_token, settings_.llvl);
   switch (rep) {
     case kLeaseReplySuccess:
       {
         has_lease_ = true;
-        bool rvb = SafeWriteToFile(
+        const bool rvb = SafeWriteToFile(
           session_token,
           settings_.token_path,
           0600);
@@ -329,14 +333,14 @@ void Publisher::Session::Drop() {
     return;
 
   std::string token;
-  int fd_token = open(settings_.token_path.c_str(), O_RDONLY);
-  bool rvb = SafeReadToString(fd_token, &token);
+  const int fd_token = open(settings_.token_path.c_str(), O_RDONLY);
+  const bool rvb = SafeReadToString(fd_token, &token);
   close(fd_token);
   if (!rvb) {
     throw EPublish("cannot read session token: " + settings_.token_path,
                    EPublish::kFailGatewayKey);
   }
-  gateway::GatewayKey gw_key = gateway::ReadGatewayKey(settings_.gw_key_path);
+  const gateway::GatewayKey gw_key = gateway::ReadGatewayKey(settings_.gw_key_path);
   if (!gw_key.IsValid()) {
     throw EPublish("cannot read gateway key: " + settings_.gw_key_path,
                    EPublish::kFailGatewayKey);
@@ -345,7 +349,7 @@ void Publisher::Session::Drop() {
   CurlBuffer buffer;
   MakeDropRequest(gw_key, token, settings_.service_endpoint, settings_.llvl,
                   &buffer);
-  LeaseReply rep = ParseDropReply(buffer, settings_.llvl);
+  const LeaseReply rep = ParseDropReply(buffer, settings_.llvl);
   int rvi = 0;
   switch (rep) {
     case kLeaseReplySuccess:
@@ -365,7 +369,11 @@ Publisher::Session::~Session() {
   if (keep_alive_)
     return;
 
-  Drop();
+  try {
+    Drop();
+  } catch (EPublish &e) {
+    LogCvmfs(kLogCvmfs, kLogStderr, "failed to drop session: %s", e.what());
+  }
 }
 
 }  // namespace publish

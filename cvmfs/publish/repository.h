@@ -5,9 +5,11 @@
 #ifndef CVMFS_PUBLISH_REPOSITORY_H_
 #define CVMFS_PUBLISH_REPOSITORY_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
+#include "crypto/hash.h"
 #include "gateway_util.h"
 #include "history.h"  // for History::Tag
 #include "publish/settings.h"
@@ -161,7 +163,7 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
     /**
      * Collection of publisher failure states (see Check())
      */
-    enum EFailures {
+    enum EFailures : uint8_t {
       kFailOk                   = 0,
       kFailRdOnlyBroken         = 0x01,
       kFailRdOnlyOutdated       = 0x02,
@@ -204,7 +206,7 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
      * Possible state transitions for the cvmfs read-only mountpoint and the
      * union file system on /cvmfs/$fqrn
      */
-    enum EMountpointAlterations {
+    enum EMountpointAlterations : uint8_t {
       kAlterUnionUnmount,
       kAlterUnionLazyUnmount,
       kAlterRdOnlyUnmount,

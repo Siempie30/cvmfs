@@ -9,10 +9,10 @@
 #include <string>
 
 #include "options.h"
-#include "publish/except.h"
 #include "publish/repository.h"
 #include "publish/settings.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "whitelist.h"
 
 namespace publish {
@@ -46,8 +46,8 @@ int CmdInfo::Main(const Options &options) {
   if (repository.whitelist()->IsExpired()) {
     LogCvmfs(kLogCvmfs, kLogStdout, "Whitelist is expired");
   } else {
-    double delta_s = difftime(repository.whitelist()->expires(), time(NULL));
-    int delta_d = static_cast<int>(delta_s / 86400);
+    const double delta_s = difftime(repository.whitelist()->expires(), time(NULL));
+    const int delta_d = static_cast<int>(delta_s / 86400);
     LogCvmfs(kLogCvmfs, kLogStdout, "Whitelist is valid for another %d days",
              delta_d);
   }

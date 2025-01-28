@@ -4,13 +4,12 @@
 
 #include <string>
 
-
+#include <bits/getopt_core.h>
 
 #include <cassert>
+#include <vector>
 
-#include "statistics_database.h"
 #include "swissknife.h"
-
 #include "swissknife_check.h"
 #include "swissknife_filestats.h"
 #include "swissknife_gc.h"
@@ -31,7 +30,7 @@
 #include "swissknife_sync.h"
 #include "swissknife_zpipe.h"
 #include "util/logging.h"
-#include "util/posix.h"
+#include "util/logging_enums.h"
 #include "util/string.h"
 
 using namespace std;  // NOLINT
@@ -63,8 +62,9 @@ void Usage() {
       for (unsigned j = 0; j < params.size(); ++j) {
         LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "  -%c    %s",
                  params[j].key(), params[j].description().c_str());
-        if (params[j].optional())
+        if (params[j].optional()) {
           LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, " (optional)");
+        }
         LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "\n");
       }
     }  // Parameter list
@@ -76,7 +76,7 @@ void Usage() {
 
 int main(int argc, char **argv) {
   // Set default logging facilities
-  DefaultLogging::Set(kLogStdout, kLogStderr);
+  DefaultLogging::Set(kLogStdout, kLogStderr); // NOLINT
 
   command_list.push_back(new swissknife::CommandCreate());
   command_list.push_back(new swissknife::CommandUpload());
@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
   }
 
   // find the command to be run
-  swissknife::Command *command = NULL;
+  swissknife::Command *command = nullptr;
   for (unsigned i = 0; i < command_list.size(); ++i) {
     if (command_list[i]->GetName() == string(argv[1])) {
       command = command_list[i];
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (NULL == command) {
+  if (command == nullptr) {
     Usage();
     return 1;
   }
@@ -150,8 +150,8 @@ int main(int argc, char **argv) {
   // Now adding the generic -+ extra option command
   option_string.push_back(swissknife::Command::kGenericParam);
   option_string.push_back(':');
-  int c;
-  while ((c = getopt(argc, argv, option_string.c_str())) != -1) {
+  char c;
+  while ((c = static_cast<char>(getopt(argc, argv, option_string.c_str()))) != -1) {
     bool valid_option = false;
     for (unsigned j = 0; j < params.size(); ++j) {
       if (c == params[j].key()) {
@@ -191,9 +191,7 @@ int main(int argc, char **argv) {
   }
 
   // run the command
-  string start_time = GetGMTimestamp();
   const int retval = command->Main(args);
-  string finish_time = GetGMTimestamp();
 
   if (display_statistics) {
     LogCvmfs(kLogCvmfs, kLogStdout, "Command statistics");

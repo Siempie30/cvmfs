@@ -11,11 +11,12 @@
 #include <string>
 #include <vector>
 
-#include "publish/cmd_util.h"
 #include "publish/except.h"
 #include "publish/repository.h"
 #include "publish/settings.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/pointer.h"
 #include "util/posix.h"
 #include "util/string.h"
 #include "whitelist.h"
@@ -34,7 +35,7 @@ int CmdCommit::Main(const Options &options) {
   }
 
   SettingsBuilder builder;
-  std::string session_dir = Env::GetEnterSessionDir();
+  const std::string session_dir = Env::GetEnterSessionDir();
   builder.SetConfigPath(session_dir);
 
   UniquePtr<SettingsPublisher> settings;
@@ -55,7 +56,7 @@ int CmdCommit::Main(const Options &options) {
     throw EPublish("No write permission to repository");
   }
 
-  FileSystemInfo fs_info = GetFileSystemInfo("/cvmfs");
+  const FileSystemInfo fs_info = GetFileSystemInfo("/cvmfs");
   if (fs_info.type == kFsTypeAutofs)
     throw EPublish("Autofs on /cvmfs has to be disabled");
 
@@ -75,7 +76,7 @@ int CmdCommit::Main(const Options &options) {
     }
   }
 
-  double whitelist_valid_s =
+  const double whitelist_valid_s =
     difftime(publisher->whitelist()->expires(), time(NULL));
   if (whitelist_valid_s < (12 * 60 * 60)) {
     LogCvmfs(kLogCvmfs, kLogStdout,

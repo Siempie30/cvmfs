@@ -4,13 +4,22 @@
 
 #include "swissknife_lease.h"
 
-#include <algorithm>
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <vector>
 
+#include "curl/curl.h"
 #include "gateway_util.h"
+#include "swissknife.h"
 #include "swissknife_lease_curl.h"
 #include "swissknife_lease_json.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -28,7 +37,7 @@ bool CheckParams(const swissknife::CommandLease::Parameters& p) {
 
 namespace swissknife {
 
-enum LeaseError {
+enum LeaseError : uint8_t {
   kLeaseSuccess,
   kLeaseBusy,
   kLeaseFailure,
@@ -84,7 +93,7 @@ int CommandLease::Main(const ArgumentList& args) {
     if (MakeAcquireRequest(key_id, secret, params.lease_path,
                            params.repo_service_url, &buffer)) {
       std::string session_token;
-      LeaseReply rep = ParseAcquireReply(buffer, &session_token);
+      const LeaseReply rep = ParseAcquireReply(buffer, &session_token);
       switch (rep) {
         case kLeaseReplySuccess:
           {
@@ -111,7 +120,7 @@ int CommandLease::Main(const ArgumentList& args) {
   } else if (params.action == "drop") {
     // Try to read session token from repository scratch directory
     std::string session_token;
-    std::string token_file_name =
+    const std::string token_file_name =
         "/var/spool/cvmfs/" + lease_fqdn + "/session_token";
     FILE* token_file = std::fopen(token_file_name.c_str(), "r");
     if (token_file) {
@@ -123,7 +132,10 @@ int CommandLease::Main(const ArgumentList& args) {
       if (MakeEndRequest("DELETE", key_id, secret, session_token,
                          params.repo_service_url, "", &buffer)) {
         if (kLeaseReplySuccess == ParseDropReply(buffer)) {
-          std::fclose(token_file);
+          const int result = std::fclose(token_file);
+          if (result == EOF) {
+            LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", token_file_name.c_str());
+          }
           if (unlink(token_file_name.c_str())) {
             LogCvmfs(kLogCvmfs, kLogStderr,
                      "Warning - Could not delete session token file.");
@@ -138,7 +150,10 @@ int CommandLease::Main(const ArgumentList& args) {
         ret = kLeaseCurlReqError;
       }
 
-      std::fclose(token_file);
+      const int result = std::fclose(token_file);
+      if (result == EOF) {
+        LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", token_file_name.c_str());
+      }
     } else {
       LogCvmfs(kLogCvmfs, kLogStderr, "Error reading session token from file");
       ret = kLeaseFileOpenError;

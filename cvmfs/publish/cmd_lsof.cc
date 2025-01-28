@@ -9,10 +9,11 @@
 #include <vector>
 
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/posix.h"
 
 int publish::CmdLsof::Main(const Options &options) {
-  std::string path = options.plain_args()[0].value_str;
+  const std::string path = options.plain_args()[0].value_str;
   std::vector<LsofEntry> entries = Lsof(path);
   for (unsigned i = 0; i < entries.size(); ++i) {
     LogCvmfs(kLogCvmfs, kLogStdout, "%s %s",

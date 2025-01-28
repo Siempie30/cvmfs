@@ -5,6 +5,7 @@
 #ifndef CVMFS_PUBLISH_EXCEPT_H_
 #define CVMFS_PUBLISH_EXCEPT_H_
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -15,7 +16,7 @@ class EPublish : public std::runtime_error {
   /**
    * Well-known exceptions that are usually caught and handled
    */
-  enum EFailures {
+  enum EFailures : uint8_t {
     kFailUnspecified = 0,
     kFailInput,               // Invalid input
     kFailInvocation,          // Invalid command line options

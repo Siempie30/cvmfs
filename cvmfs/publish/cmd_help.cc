@@ -9,8 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "publish/except.h"
+#include "command.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/string.h"
 
 using namespace std;  // NOLINT
@@ -19,7 +20,7 @@ namespace publish {
 
 int CmdHelp::Main(const Options &options) {
   Command *cmd = commands_->Find(options.plain_args()[0].value_str);
-  if (cmd == NULL) {
+  if (cmd == nullptr) {
     LogCvmfs(kLogCvmfs, kLogStderr, "No help for '%s'",
              options.plain_args()[0].value_str.c_str());
     return 1;
@@ -27,8 +28,9 @@ int CmdHelp::Main(const Options &options) {
 
   cmd->progname_ = progname();
   LogCvmfs(kLogCvmfs, kLogStdout, "\nHelp for '%s'", cmd->GetName().c_str());
-  for (unsigned i = 0; i < cmd->GetName().length() + 11; ++i)
+  for (unsigned i = 0; i < cmd->GetName().length() + 11; ++i) {
     LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "=");
+  }
   LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "\n");
   LogCvmfs(kLogCvmfs, kLogStdout, "%s\n", cmd->GetDescription().c_str());
 
@@ -37,7 +39,7 @@ int CmdHelp::Main(const Options &options) {
   LogCvmfs(kLogCvmfs, kLogStdout, "  %s %s %s\n",
            progname().c_str(), cmd->GetName().c_str(), cmd->GetUsage().c_str());
 
-  std::string examples = cmd->GetExamples();
+  const std::string examples = cmd->GetExamples();
   if (!examples.empty()) {
     LogCvmfs(kLogCvmfs, kLogStdout, "Examples:");
     LogCvmfs(kLogCvmfs, kLogStdout, "---------");
@@ -67,9 +69,12 @@ int CmdHelp::Main(const Options &options) {
              params[i].is_switch ?
                "" : (" <" + params[i].arg_name + ">").c_str());
     unsigned l = params[i].key.length();
-    if (!params[i].is_switch) l += 3 + params[i].arg_name.length();
-    for (unsigned p = l; p < max_len; ++p)
+    if (!params[i].is_switch) {
+      l += 3 + params[i].arg_name.length();
+    }
+    for (unsigned p = l; p < max_len; ++p) {
       LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, " ");
+    }
     LogCvmfs(kLogCvmfs, kLogStdout, "    %s%s",
              params[i].description.c_str(),
              params[i].is_optional ? "" : " [mandatory]");

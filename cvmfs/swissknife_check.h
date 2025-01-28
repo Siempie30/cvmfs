@@ -5,11 +5,15 @@
 #ifndef CVMFS_SWISSKNIFE_CHECK_H_
 #define CVMFS_SWISSKNIFE_CHECK_H_
 
+#include <cstdint>
 #include <set>
 #include <string>
 
 #include "catalog.h"
+#include "catalog_counters.h"
 #include "crypto/hash.h"
+#include "directory_entry.h"
+#include "shortstring.h"
 #include "smallhash.h"
 #include "swissknife.h"
 

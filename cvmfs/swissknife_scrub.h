@@ -7,10 +7,12 @@
 
 #include "swissknife.h"
 
+#include <bits/pthreadtypes.h>
+
 #include <cassert>
+#include <cstdint>
 #include <string>
 
-#include "crypto/hash.h"
 #include "ingestion/pipeline.h"
 
 namespace swissknife {
@@ -31,7 +33,7 @@ class CommandScrub : public Command {
 
  protected:
   struct Alerts {
-    enum Type {
+    enum Type : uint8_t {
       kUnexpectedFile = 1,
       kUnexpectedSymlink,
       kUnexpectedSubdir,
@@ -60,8 +62,7 @@ class CommandScrub : public Command {
   void ShowAlertsHelpMessage() const;
 
  private:
-  std::string CheckPathAndExtractHash(const std::string &relative_path,
-                                      const std::string &file_name,
+  std::string CheckPathAndExtractHash(const std::string &file_name,
                                       const std::string &full_path) const;
   bool CheckHashString(const std::string &hash_string,
                        const std::string &full_path) const;

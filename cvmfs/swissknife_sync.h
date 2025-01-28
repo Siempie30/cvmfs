@@ -5,6 +5,10 @@
 #ifndef CVMFS_SWISSKNIFE_SYNC_H_
 #define CVMFS_SWISSKNIFE_SYNC_H_
 
+#include <sys/types.h>
+
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -16,15 +20,15 @@
 struct SyncParameters {
   static const unsigned kDefaultMaxWeight = 100000;
   static const unsigned kDefaultMinWeight = 1000;
-  static const size_t kDefaultMinFileChunkSize = 4 * 1024 * 1024;
-  static const size_t kDefaultAvgFileChunkSize = 8 * 1024 * 1024;
-  static const size_t kDefaultMaxFileChunkSize = 16 * 1024 * 1024;
+  static const size_t kDefaultMinFileChunkSize = static_cast<size_t>(4 * 1024 * 1024);
+  static const size_t kDefaultAvgFileChunkSize = static_cast<size_t>(8 * 1024 * 1024);
+  static const size_t kDefaultMaxFileChunkSize = static_cast<size_t>(16 * 1024 * 1024);
   static const unsigned kDefaultNestedKcatalogLimit = 500;
   static const unsigned kDefaultRootKcatalogLimit = 200;
   static const unsigned kDefaultFileMbyteLimit = 1024;
 
   SyncParameters()
-      : spooler(NULL),
+      : spooler(nullptr),
         union_fs_type("aufs"),
         to_delete(""),
         cache_dir(""),

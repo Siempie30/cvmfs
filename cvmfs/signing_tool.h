@@ -20,7 +20,7 @@ struct SpoolerResult;
 
 class SigningTool {
  public:
-  enum Result {
+  enum Result : uint8_t {
     kSuccess,
     kError,
     kInitError,

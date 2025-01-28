@@ -21,6 +21,7 @@
 #include <new>
 
 #include "util/atomic.h"
+#include "util/logging.h"
 #include "util/murmur.hxx"
 #include "util/prng.h"
 #include "util/smalloc.h"
@@ -161,22 +162,27 @@ class SmallHashBase {
 
  protected:
   uint32_t ScaleHash(const Key &key) const {
-    double bucket =
+    const double bucket =
       (static_cast<double>(hasher_(key)) * static_cast<double>(capacity_) /
       static_cast<double>(static_cast<uint32_t>(-1)));
-    return static_cast<uint32_t>(bucket) % capacity_;
+    if (capacity_ == 0) {
+      LogCvmfs(kLogHash, kLogStderr, "capacity should not be zero in scale hash, this causes undefined behaviour for modulo. Assuming capacit = 1");
+      return static_cast<uint32_t>(bucket);
+    } else {
+      return static_cast<uint32_t>(bucket) % capacity_;
+    }
   }
 
   void AllocMemory() {
     keys_ = static_cast<Key *>(smmap(capacity_ * sizeof(Key)));
-    values_ = static_cast<Value *>(smmap(capacity_ * sizeof(Value)));
+    values_ = static_cast<Value *>(smmap(capacity_ * sizeof(Value))); // NOLINT
     for (uint32_t i = 0; i < capacity_; ++i) {
       /*keys_[i] =*/ new (keys_ + i) Key();
     }
     for (uint32_t i = 0; i < capacity_; ++i) {
-      /*values_[i] =*/ new (values_ + i) Value();
+      /*values_[i] =*/ new (reinterpret_cast<void*>(values_ + i)) Value();
     }
-    bytes_allocated_ = (sizeof(Key) + sizeof(Value)) * capacity_;
+    bytes_allocated_ = (sizeof(Key) + sizeof(Value)) * capacity_; // NOLINT
   }
 
   void DeallocMemory(Key *k, Value *v, uint32_t c) {
@@ -189,7 +195,7 @@ class SmallHashBase {
     if (k)
       smunmap(k);
     if (v)
-      smunmap(v);
+      smunmap(reinterpret_cast<void*>(v));
     k = NULL;
     v = NULL;
   }
@@ -216,7 +222,12 @@ class SmallHashBase {
     while (!(keys_[*bucket] == empty_key_)) {
       if (keys_[*bucket] == key)
         return true;
-      *bucket = (*bucket+1) % capacity_;
+      if (capacity_ == 0) {
+        LogCvmfs(kLogHash, kLogStderr, "capacity should not be zero in DoLookup, this causes undefined behaviour for modulo. Assuming capacit = 1");
+        *bucket = (*bucket+1); // Same as *bucket = (*bucket+1) % 1
+      } else {
+        *bucket = (*bucket+1) % capacity_; // NOLINT
+      }
       (*collisions)++;
     }
     return false;
@@ -317,7 +328,7 @@ class SmallHashDynamic :
 
   void Shrink() {
     if (size() < threshold_shrink_) {
-      uint32_t target_capacity = capacity() / 2;
+      const uint32_t target_capacity = capacity() / 2;
       if (target_capacity >= Base::initial_capacity_)
         Migrate(target_capacity);
     }
@@ -342,7 +353,7 @@ class SmallHashDynamic :
     // Shuffle (no shuffling for the last element)
     for (unsigned i = 0; i < N-1; ++i) {
       const uint32_t swap_idx = i + g_prng.Next(N - i);
-      uint32_t tmp = shuffled[i];
+      const uint32_t tmp = shuffled[i];
       shuffled[i] = shuffled[swap_idx];
       shuffled[swap_idx]  = tmp;
     }
@@ -352,8 +363,8 @@ class SmallHashDynamic :
   void Migrate(const uint32_t new_capacity) {
     Key *old_keys = Base::keys_;
     Value *old_values = Base::values_;
-    uint32_t old_capacity = capacity();
-    uint32_t old_size = size();
+    const uint32_t old_capacity = capacity();
+    const uint32_t old_size = size();
 
     Base::capacity_ = new_capacity;
     SetThresholds();

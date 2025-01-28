@@ -4,17 +4,34 @@
 
 #include "swissknife_history.h"
 
+#include <inttypes.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <ctime>
+#include <string>
+#include <vector>
 
+#include "catalog_sql.h"
 #include "catalog_rw.h"
+#include "compression/compression.h"
 #include "crypto/hash.h"
-#include "crypto/signature.h"
+#include "history_sqlite.h"
 #include "manifest_fetch.h"
 #include "network/download.h"
+#include "network/jobinfo.h"
+#include "network/network_errors.h"
+#include "network/sink_path.h"
+#include "swissknife.h"
 #include "upload.h"
+#include "util/future.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/pointer.h"
+#include "util/posix.h"
+#include "util/string.h"
 
 using namespace std;         // NOLINT
 using namespace swissknife;  // NOLINT
@@ -26,7 +43,9 @@ const std::string CommandTag::kHeadTagDescription = "current HEAD";
 const std::string CommandTag::kPreviousHeadTagDescription =
     "default undo target";
 
-static void InsertCommonParameters(ParameterList *r) {
+namespace swissknife {
+
+void InsertCommonParameters(ParameterList *r) {
   r->push_back(Parameter::Mandatory('w', "repository directory / url"));
   r->push_back(Parameter::Mandatory('t', "temporary scratch directory"));
   r->push_back(Parameter::Optional('p', "public key of the repository"));
@@ -40,6 +59,8 @@ static void InsertCommonParameters(ParameterList *r) {
   r->push_back(Parameter::Optional('P', "session_token_file"));
   r->push_back(Parameter::Optional('@', "proxy url"));
 }
+
+} // namespace swissknife
 
 CommandTag::Environment *CommandTag::InitializeEnvironment(
     const ArgumentList &args, const bool read_write) {
@@ -388,7 +409,7 @@ history::History *CommandTag::GetHistory(const manifest::Manifest *manifest,
 
 catalog::Catalog *CommandTag::GetCatalog(const std::string &repository_url,
                                          const shash::Any &catalog_hash,
-                                         const std::string catalog_path,
+                                         const std::string &catalog_path,
                                          const bool read_write) const {
   assert(shash::kSuffixCatalog == catalog_hash.suffix);
   if (!FetchObject(repository_url, catalog_hash, catalog_path)) {
@@ -454,7 +475,7 @@ int CommandEditTag::Main(const ArgumentList &args) {
 
   // initialize the Environment (taking ownership)
   const bool history_read_write = true;
-  UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
+  const UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
   if (!env.IsValid()) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to init environment");
     return 1;
@@ -490,7 +511,7 @@ int CommandEditTag::AddNewTag(const ArgumentList &args, Environment *env) {
   const std::string previous_branch_name =
     (args.find('P') != args.end()) ? *args.find('P')->second : "";
 
-  if (tag_name.find(" ") != std::string::npos) {
+  if (tag_name.find(' ') != std::string::npos) {
     LogCvmfs(kLogCvmfs, kLogStderr, "tag names must not contain spaces");
     return 1;
   }
@@ -504,7 +525,7 @@ int CommandEditTag::AddNewTag(const ArgumentList &args, Environment *env) {
 
   // set the root hash to be tagged to the current HEAD if no other hash was
   // given by the user
-  shash::Any root_hash = GetTagRootHash(env, root_hash_string);
+  const shash::Any root_hash = GetTagRootHash(env, root_hash_string);
   if (root_hash.IsNull()) {
     return 1;
   }
@@ -536,7 +557,7 @@ int CommandEditTag::AddNewTag(const ArgumentList &args, Environment *env) {
   tag_template.root_hash = root_hash;
   tag_template.size = GetFileSize(catalog_path.path());
   tag_template.revision = catalog->GetRevision();
-  tag_template.timestamp = catalog->GetLastModified();
+  tag_template.timestamp = static_cast<time_t>(catalog->GetLastModified());
   tag_template.branch = branch_name;
   tag_template.description = tag_description;
 
@@ -546,7 +567,7 @@ int CommandEditTag::AddNewTag(const ArgumentList &args, Environment *env) {
     const bool user_provided_hash = (!root_hash_string.empty());
 
     if (!env->history->ExistsBranch(tag_template.branch)) {
-      history::History::Branch branch(
+      const history::History::Branch branch(
         tag_template.branch,
         previous_branch_name,
         tag_template.revision);
@@ -653,7 +674,7 @@ bool CommandEditTag::MoveTag(Environment *env,
     LogCvmfs(kLogCvmfs, kLogStderr, "could not prune unused branches");
     return false;
   }
-  bool retval = env->history->Vacuum();
+  const bool retval = env->history->Vacuum();
   assert(retval);
 
   LogCvmfs(kLogCvmfs, kLogStdout, "moving tag '%s' from '%s' to '%s'",
@@ -768,7 +789,7 @@ void CommandListTags::PrintHumanReadableTagList(
   size_t max_branch_len = branch_label.size();
   for (; i != iend; ++i) {
     max_name_len = std::max(max_name_len, i->name.size());
-    max_rev_len = std::max(max_rev_len, StringifyInt(i->revision).size());
+    max_rev_len = std::max(max_rev_len, StringifyUint(i->revision).size());
     max_time_len =
         std::max(max_time_len, StringifyTime(i->timestamp, true).size());
     max_branch_len = std::max(max_branch_len, i->branch.size());
@@ -830,7 +851,7 @@ void CommandListTags::PrintMachineReadableTagList(const TagList &tags) const {
 void CommandListTags::PrintHumanReadableBranchList(
   const BranchHierarchy &branches) const
 {
-  unsigned N = branches.size();
+  const unsigned N = branches.size();
   for (unsigned i = 0; i < N; ++i) {
     for (unsigned l = 0; l < branches[i].level; ++l) {
       LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "%s",
@@ -846,7 +867,7 @@ void CommandListTags::PrintHumanReadableBranchList(
 void CommandListTags::PrintMachineReadableBranchList(
   const BranchHierarchy &branches) const
 {
-  unsigned N = branches.size();
+  const unsigned N = branches.size();
   for (unsigned i = 0; i < N; ++i) {
     LogCvmfs(kLogCvmfs, kLogStdout, "[%u] %s%s @%" PRIu64,
              branches[i].level,
@@ -865,7 +886,7 @@ void CommandListTags::SortBranchesRecursively(
 {
   // For large numbers of branches, this should be turned into the O(n) version
   // using a linked list
-  unsigned N = branches.size();
+  const unsigned N = branches.size();
   for (unsigned i = 0; i < N; ++i) {
     if (branches[i].branch == "")
       continue;
@@ -895,7 +916,7 @@ int CommandListTags::Main(const ArgumentList &args) {
 
   // initialize the Environment (taking ownership)
   const bool history_read_write = false;
-  UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
+  const UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
   if (!env.IsValid()) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to init environment");
     return 1;
@@ -908,7 +929,7 @@ int CommandListTags::Main(const ArgumentList &args) {
                "failed to list branches in history database");
       return 1;
     }
-    BranchHierarchy branch_hierarchy = SortBranches(branch_list);
+    const BranchHierarchy branch_hierarchy = SortBranches(branch_list);
 
     if (machine_readable) {
       PrintMachineReadableBranchList(branch_hierarchy);
@@ -957,7 +978,7 @@ std::string CommandInfoTag::HumanReadableFilesize(const size_t filesize) const {
   } else if (filesize > kiB) {
     return StringifyDouble(static_cast<double>(filesize) / kiB) + " kiB";
   } else {
-    return StringifyInt(filesize) + " Byte";
+    return StringifyUint(filesize) + " Byte";
   }
 }
 
@@ -985,7 +1006,7 @@ int CommandInfoTag::Main(const ArgumentList &args) {
 
   // initialize the Environment (taking ownership)
   const bool history_read_write = false;
-  UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
+  const UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
   if (!env.IsValid()) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to init environment");
     return 1;
@@ -1025,7 +1046,7 @@ int CommandRollbackTag::Main(const ArgumentList &args) {
 
   // initialize the Environment (taking ownership)
   const bool history_read_write = true;
-  UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
+  const UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
   if (!env.IsValid()) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to init environment");
     return 1;
@@ -1113,13 +1134,13 @@ int CommandRollbackTag::Main(const ArgumentList &args) {
   updated_target_tag.root_hash = env->manifest->catalog_hash();
   updated_target_tag.size = env->manifest->catalog_size();
   updated_target_tag.revision = env->manifest->revision();
-  updated_target_tag.timestamp = env->manifest->publish_timestamp();
+  updated_target_tag.timestamp = static_cast<time_t>(env->manifest->publish_timestamp());
   if (!env->history->Rollback(updated_target_tag)) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to rollback history to '%s'",
              updated_target_tag.name.c_str());
     return 1;
   }
-  bool retval = env->history->Vacuum();
+  const bool retval = env->history->Vacuum();
   assert(retval);
 
   // set the magic undo tags
@@ -1166,7 +1187,7 @@ ParameterList CommandEmptyRecycleBin::GetParams() const {
 int CommandEmptyRecycleBin::Main(const ArgumentList &args) {
   // initialize the Environment (taking ownership)
   const bool history_read_write = true;
-  UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
+  const UniquePtr<Environment> env(InitializeEnvironment(args, history_read_write));
   if (!env.IsValid()) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to init environment");
     return 1;

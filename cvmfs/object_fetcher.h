@@ -32,7 +32,7 @@ template <class ConcreteObjectFetcherT>
 struct object_fetcher_traits;
 
 struct ObjectFetcherFailures {
-  enum Failures {
+  enum Failures : uint8_t {
     kFailOk,
     kFailNotFound,
     kFailLocalIO,
@@ -115,7 +115,7 @@ class AbstractObjectFetcher : public ObjectFetcherFailures {
   Failures FetchHistory(HistoryTN        **history,
                         const shash::Any  &history_hash = shash::Any()) {
     // retrieve the current HEAD history hash (if nothing else given)
-    shash::Any effective_history_hash = (!history_hash.IsNull())
+    const shash::Any effective_history_hash = (!history_hash.IsNull())
             ? history_hash
             : GetHistoryHash();
     if (effective_history_hash.IsNull()) {
@@ -186,7 +186,7 @@ class AbstractObjectFetcher : public ObjectFetcherFailures {
     std::string tmp_path;
     const bool decompress = false;
     const bool nocache = true;
-    Failures failure = Fetch(kReflogFilename, decompress, nocache, &tmp_path);
+    const Failures failure = Fetch(kReflogFilename, decompress, nocache, &tmp_path);
     if (failure != kFailOk) {
       return failure;
     }
@@ -210,7 +210,7 @@ class AbstractObjectFetcher : public ObjectFetcherFailures {
 
   Failures FetchManifest(UniquePtr<manifest::Manifest> *manifest) {
     manifest::Manifest *raw_manifest_ptr = NULL;
-    Failures failure = FetchManifest(&raw_manifest_ptr);
+    const Failures failure = FetchManifest(&raw_manifest_ptr);
     if (failure == kFailOk) *manifest = raw_manifest_ptr;
     return failure;
   }
@@ -218,7 +218,7 @@ class AbstractObjectFetcher : public ObjectFetcherFailures {
   Failures FetchHistory(UniquePtr<HistoryTN>  *history,
                         const shash::Any      &history_hash = shash::Any()) {
     HistoryTN *raw_history_ptr = NULL;
-    Failures failure = FetchHistory(&raw_history_ptr, history_hash);
+    const Failures failure = FetchHistory(&raw_history_ptr, history_hash);
     if (failure == kFailOk) *history = raw_history_ptr;
     return failure;
   }
@@ -405,7 +405,10 @@ class LocalObjectFetcher :
     const bool success = (decompress)
       ? zlib::DecompressPath2File(source, f)
       : CopyPath2File(source, f);
-    fclose(f);
+    const int ret = fclose(f);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", file_path->c_str());
+    }
 
     // check the decompression success and remove the temporary file otherwise
     if (!success) {
@@ -486,15 +489,14 @@ class HttpObjectFetcher :
  public:
   using BaseTN::FetchManifest;  // un-hiding convenience overload
   Failures FetchManifest(manifest::Manifest** manifest) {
-    const std::string url = BuildUrl(BaseTN::kManifestFilename);
 
     // Download manifest file
     struct manifest::ManifestEnsemble manifest_ensemble;
-    manifest::Failures retval = manifest::Fetch(
+    const manifest::Failures retval = manifest::Fetch(
                                   repo_url_,
                                   repo_name_,
                                   0,
-                                  NULL,
+                                  nullptr,
                                   signature_manager_,
                                   download_manager_,
                                   &manifest_ensemble);
@@ -586,9 +588,12 @@ class HttpObjectFetcher :
     download::JobInfo download_job(&url, decompress, probe_hosts, expected_hash,
                                    &filesink);
     download_job.SetForceNocache(nocache);
-    download::Failures retval = download_manager_->Fetch(&download_job);
+    const download::Failures retval = download_manager_->Fetch(&download_job);
     const bool success = (retval == download::kFailOk);
-    fclose(f);
+    const int ret = fclose(f);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", file_path->c_str());
+    }
 
     // check if download worked and remove temporary file if not
     if (!success) {

@@ -6,22 +6,24 @@
 #include "swissknife_capabilities.h"
 
 #include <errno.h>
+#include <linux/capability.h>
 #include <sys/capability.h>
 
 #include <cassert>
 
 #include "util/logging.h"
+#include "util/logging_enums.h"
 
 namespace swissknife {
 
 bool ObtainDacReadSearchCapability() {
-  cap_value_t cap = CAP_DAC_READ_SEARCH;
+  const cap_value_t cap = CAP_DAC_READ_SEARCH;
 #ifdef CAP_IS_SUPPORTED
   assert(CAP_IS_SUPPORTED(cap));
 #endif
 
   cap_t caps_proc = cap_get_proc();
-  assert(caps_proc != NULL);
+  assert(caps_proc != nullptr);
 
   cap_flag_value_t cap_state;
   int retval = cap_get_flag(caps_proc, cap, CAP_EFFECTIVE, &cap_state);

@@ -5,6 +5,7 @@
 #ifndef CVMFS_LETTER_H_
 #define CVMFS_LETTER_H_
 
+#include <cstdint>
 #include <string>
 
 #include "crypto/hash.h"
@@ -15,7 +16,7 @@ class SignatureManager;
 
 namespace letter {
 
-enum Failures {
+enum Failures : uint8_t {
   kFailOk = 0,
   kFailBadBase64,
   kFailMalformed,

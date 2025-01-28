@@ -5,14 +5,23 @@
 
 #include "publish/repository.h"
 
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <cstdio>
+#include <string>
+#include <vector>
 
 #include "crypto/hash.h"
 #include "manifest.h"
 #include "publish/except.h"
 #include "publish/repository_util.h"
-#include "upload.h"
-#include "upload_spooler_definition.h"
+#include "publish/settings.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/platform_linux.h"
 #include "util/pointer.h"
 #include "util/posix.h"
 #include "util/string.h"
@@ -61,9 +70,9 @@ void Publisher::ManagedNode::ClearScratch() {
   const std::string tmp_dir =
     publisher_->settings_.transaction().spool_area().tmp_dir();
 
-  std::string waste_dir = CreateTempDir(scratch_wastebin + "/waste");
+  const std::string waste_dir = CreateTempDir(scratch_wastebin + "/waste");
   if (waste_dir.empty()) throw EPublish("cannot create wastebin directory");
-  int rvi = rename(scratch_dir.c_str(), (waste_dir + "/delete-me").c_str());
+  const int rvi = rename(scratch_dir.c_str(), (waste_dir + "/delete-me").c_str());
   if (rvi != 0) throw EPublish("cannot move scratch directory to wastebin");
 
   publisher_->CreateDirectoryAsOwner(scratch_dir, kDefaultDirMode);
@@ -83,19 +92,19 @@ void Publisher::ManagedNode::ClearScratch() {
 
 
 int Publisher::ManagedNode::Check(bool is_quiet) {
-  ServerLockFileCheck publish_check(publisher_->is_publishing_);
+  const ServerLockFileCheck publish_check(publisher_->is_publishing_);
   const std::string rdonly_mnt =
     publisher_->settings_.transaction().spool_area().readonly_mnt();
   const std::string union_mnt =
     publisher_->settings_.transaction().spool_area().union_mnt();
   const std::string fqrn = publisher_->settings_.fqrn();
-  EUnionMountRepairMode repair_mode =
+  const EUnionMountRepairMode repair_mode =
     publisher_->settings_.transaction().spool_area().repair_mode();
 
   int result = kFailOk;
 
   shash::Any expected_hash = publisher_->manifest()->catalog_hash();
-  UniquePtr<CheckoutMarker> marker(CheckoutMarker::CreateFrom(
+  const UniquePtr<CheckoutMarker> marker(CheckoutMarker::CreateFrom(
     publisher_->settings_.transaction().spool_area().checkout_marker()));
   if (marker.IsValid())
     expected_hash = marker->hash();
@@ -105,10 +114,10 @@ int Publisher::ManagedNode::Check(bool is_quiet) {
   } else {
     const std::string root_hash_xattr = "user.root_hash";
     std::string root_hash_str;
-    bool retval = platform_getxattr(rdonly_mnt, root_hash_xattr,
+    const bool retval = platform_getxattr(rdonly_mnt, root_hash_xattr,
                                     &root_hash_str);
     if (retval) {
-      shash::Any root_hash = shash::MkFromHexPtr(shash::HexPtr(root_hash_str),
+      const shash::Any root_hash = shash::MkFromHexPtr(shash::HexPtr(root_hash_str),
                                                shash::kSuffixCatalog);
       if (expected_hash != root_hash) {
         if (marker.IsValid()) {
@@ -132,7 +141,7 @@ int Publisher::ManagedNode::Check(bool is_quiet) {
   if (!IsMountPoint(union_mnt)) {
     result |= kFailUnionBroken;
   } else {
-    FileSystemInfo fs_info = GetFileSystemInfo(union_mnt);
+    const FileSystemInfo fs_info = GetFileSystemInfo(union_mnt);
     if (publisher_->in_transaction_.IsSet() && fs_info.is_rdonly)
       result |= kFailUnionLocked;
     if (!publisher_->in_transaction_.IsSet() && !fs_info.is_rdonly)
@@ -349,8 +358,9 @@ void Publisher::ManagedNode::AlterMountpoint(
     RunSuidHelper(suid_helper_verb, publisher_->settings_.fqrn());
     LogCvmfs(kLogCvmfs, (log_level & ~kLogStdout), "%s... success",
              info_msg.c_str());
-    if (log_level & kLogStdout)
+    if (log_level & kLogStdout) {
       LogCvmfs(kLogCvmfs, kLogStdout, "success");
+    }
   } catch (const EPublish&) {
     LogCvmfs(kLogCvmfs, kLogStderr | kLogSyslogErr, "%s... fail",
              info_msg.c_str());

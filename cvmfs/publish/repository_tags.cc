@@ -5,8 +5,10 @@
 
 #include "publish/repository.h"
 
+#include <string>
 #include <vector>
 
+#include "history.h"
 #include "history_sqlite.h"
 #include "publish/except.h"
 #include "sanitizer.h"
@@ -31,16 +33,16 @@ void Publisher::EditTags(const std::vector<history::History::Tag> &add_tags,
     throw EPublish("cannot edit tags outside transaction");
 
   for (unsigned i = 0; i < add_tags.size(); ++i) {
-    std::string name = add_tags[i].name;
+    const std::string name = add_tags[i].name;
     CheckTagName(name);
     history_->Insert(add_tags[i]);
   }
 
   for (unsigned i = 0; i < rm_tags.size(); ++i) {
-    std::string name = rm_tags[i];
+    const std::string& name = rm_tags[i];
     CheckTagName(name);
     if (history_->Exists(name)) {
-      bool retval = history_->Remove(name);
+      const bool retval = history_->Remove(name);
       if (!retval) throw EPublish("cannot remove tag " + name);
     }
   }

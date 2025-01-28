@@ -22,11 +22,13 @@
 #include "cmd_zpipe.h"
 
 #include <stdio.h>
+#include <zlib.h>
 
 #include <cassert>
 #include <cstring>
 
-#include "duplex_zlib.h"
+#include "util/logging.h"
+#include "util/logging_enums.h"
 
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>
@@ -142,6 +144,9 @@ int inf(FILE *source, FILE *dest)
             case Z_MEM_ERROR:
                 (void)inflateEnd(&strm);
                 return ret;
+            default:
+                LogCvmfs(kLogCvmfs, kLogStderr, "inflate returned invalid value");
+                break;
             }
             have = CHUNK - strm.avail_out;
             if (fwrite(out, 1, have, dest) != have || ferror(dest)) {
@@ -158,28 +163,47 @@ int inf(FILE *source, FILE *dest)
     return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
 }
 
+void fputsErr(int ret) {
+    if (ret == EOF) {
+        LogCvmfs(kLogCvmfs, kLogStdout, "error while writing to stream");
+    }
+}
+
 /* report a zlib or i/o error */
 void zerr(int ret)
 {
-    fputs("zpipe: ", stderr);
+    int result = fputs("zpipe: ", stderr);
+    fputsErr(result);
     switch (ret) {
     case Z_ERRNO:
-        if (ferror(stdin))
-            fputs("error reading stdin\n", stderr);
-        if (ferror(stdout))
-            fputs("error writing stdout\n", stderr);
+        if (ferror(stdin)) {
+            result = fputs("error reading stdin\n", stderr);
+            fputsErr(result);
+        }
+        if (ferror(stdout)) {
+            result = fputs("error writing stdout\n", stderr);
+            fputsErr(result);
+        }
         break;
     case Z_STREAM_ERROR:
-        fputs("invalid compression level\n", stderr);
+        result = fputs("invalid compression level\n", stderr);
+        fputsErr(result);
         break;
     case Z_DATA_ERROR:
-        fputs("invalid or incomplete deflate data\n", stderr);
+        result = fputs("invalid or incomplete deflate data\n", stderr);
+        fputsErr(result);
         break;
     case Z_MEM_ERROR:
-        fputs("out of memory\n", stderr);
+        result = fputs("out of memory\n", stderr);
+        fputsErr(result);
         break;
     case Z_VERSION_ERROR:
-        fputs("zlib version mismatch!\n", stderr);
+        result = fputs("zlib version mismatch!\n", stderr);
+        fputsErr(result);
+        break;
+    default:
+        LogCvmfs(kLogCvmfs, kLogStderr, "zlib unknown error type");
+        break;
     }
 }
 

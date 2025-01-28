@@ -168,7 +168,7 @@ class Catalog : SingleCopy {
   bool HasExplicitTTL() const;
   uint64_t GetRevision() const;
   bool GetVOMSAuthz(std::string *authz) const;
-  uint64_t GetLastModified() const;
+  time_t GetLastModified() const;
   uint64_t GetNumEntries() const;
   uint64_t GetNumChunks() const;
   shash::Any GetPreviousRevision() const;
@@ -263,7 +263,7 @@ class Catalog : SingleCopy {
    */
   static const shash::Md5 kMd5PathEmpty;
 
-  enum VomsAuthzStatus {
+  enum VomsAuthzStatus : uint8_t {
     kVomsUnknown,  // Not yet looked up
     kVomsNone,     // No voms_authz key in properties table
     kVomsPresent,  // voms_authz property available

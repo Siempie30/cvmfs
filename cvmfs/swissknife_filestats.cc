@@ -4,10 +4,24 @@
 
 #include "swissknife_filestats.h"
 
-#include <cassert>
+#include <pthread.h>
+#include <unistd.h>
 
+#include <cassert>
+#include <cstdint>
+
+#include "catalog_sql.h"
+#include "catalog_traversal.h"
+#include "compression/compression.h"
 #include "crypto/hash.h"
+#include "history_sqlite.h"
+#include "object_fetcher.h"
+#include "sql.h"
+#include "sqlite3.h"
+#include "swissknife.h"
+#include "util/atomic.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 #include "util/posix.h"
 #include "util/string.h"
 
@@ -78,7 +92,7 @@ bool CommandFileStats::Run(ObjectFetcherT *object_fetcher)
 {
   atomic_init32(&finished_);
 
-  string abs_path = GetAbsolutePath(db_path_);
+  const string abs_path = GetAbsolutePath(db_path_);
   unlink(abs_path.c_str());
   db_ = FileStatsDatabase::Create(db_path_);
   db_->InitStatements();
@@ -90,12 +104,12 @@ bool CommandFileStats::Run(ObjectFetcherT *object_fetcher)
   CatalogTraversal<ObjectFetcherT> traversal(params);
   traversal.RegisterListener(&CommandFileStats::CatalogCallback, this);
 
-  pthread_create(&thread_processing_, NULL, MainProcessing, this);
+  pthread_create(&thread_processing_, nullptr, MainProcessing, this);
 
-  bool ret = traversal.Traverse();
+  const bool ret = traversal.Traverse();
 
   atomic_inc32(&finished_);
-  pthread_join(thread_processing_, NULL);
+  pthread_join(thread_processing_, nullptr);
 
   db_->DestroyStatements();
 
@@ -104,8 +118,8 @@ bool CommandFileStats::Run(ObjectFetcherT *object_fetcher)
 
 void CommandFileStats::CatalogCallback(
   const CatalogTraversalData<catalog::Catalog> &data) {
-  int32_t num = atomic_read32(&num_downloaded_);
-  string out_path =  tmp_db_path_ + StringifyInt(num + 1) + ".db";
+  const int32_t num = atomic_read32(&num_downloaded_);
+  const string out_path =  tmp_db_path_ + StringifyInt(num + 1) + ".db";
   assert(CopyPath2Path(data.catalog->database_path(), out_path));
   atomic_inc32(&num_downloaded_);
 }
@@ -120,7 +134,7 @@ void *CommandFileStats::MainProcessing(void *data) {
   while (fin == 0 || processed < downloaded) {
     if (processed < downloaded) {
       LogCvmfs(kLogCatalog, kLogStdout, "Processing catalog %d", processed);
-      string db_path = repo_stats->tmp_db_path_ + "/" +
+      const string db_path = repo_stats->tmp_db_path_ + "/" +
                        StringifyInt(processed + 1) + ".db";
       repo_stats->ProcessCatalog(db_path);
       ++processed;
@@ -130,23 +144,23 @@ void *CommandFileStats::MainProcessing(void *data) {
   }
   repo_stats->db_->CommitTransaction();
 
-  return NULL;
+  return nullptr;
 }
 
 
 
-void CommandFileStats::ProcessCatalog(string db_path) {
+void CommandFileStats::ProcessCatalog(const string& db_path) {
   sqlite::Database<catalog::CatalogDatabase> *cat_db;
   cat_db = sqlite::Database<catalog::CatalogDatabase>::Open(
            db_path,
            sqlite::Database<catalog::CatalogDatabase>::kOpenReadOnly);
   cat_db->TakeFileOwnership();
 
-  int64_t file_size = GetFileSize(db_path);
+  const int64_t file_size = GetFileSize(db_path);
   sqlite::Sql *catalog_count = new sqlite::Sql(cat_db->sqlite_db(),
                                                "SELECT count(*) FROM catalog;");
   catalog_count->Execute();
-  int cur_catalog_id = db_->StoreCatalog(catalog_count->RetrieveInt64(0),
+  const int64_t cur_catalog_id = db_->StoreCatalog(catalog_count->RetrieveInt64(0),
                                          file_size);
   delete catalog_count;
 
@@ -160,12 +174,12 @@ void CommandFileStats::ProcessCatalog(string db_path) {
 
   while (catalog_list->FetchRow()) {
     const void *hash = catalog_list->RetrieveBlob(0);
-    int num_bytes = catalog_list->RetrieveBytes(0);
-    int64_t size = catalog_list->RetrieveInt64(1);
-    int flags = catalog_list->RetrieveInt(2);
+    const int num_bytes = catalog_list->RetrieveBytes(0);
+    const int64_t size = catalog_list->RetrieveInt64(1);
+    const int flags = catalog_list->RetrieveInt(2);
     if ((flags & catalog::SqlDirent::kFlagLink) ==
                 catalog::SqlDirent::kFlagLink) {
-      int symlink_length = catalog_list->RetrieveBytes(3);
+      const int symlink_length = catalog_list->RetrieveBytes(3);
       db_->StoreSymlink(symlink_length);
     } else if ((flags & catalog::SqlDirent::kFlagFile) ==
                catalog::SqlDirent::kFlagFile)
@@ -173,11 +187,11 @@ void CommandFileStats::ProcessCatalog(string db_path) {
       if ((flags & catalog::SqlDirent::kFlagFileChunk) !=
            catalog::SqlDirent::kFlagFileChunk)
       {
-        int object_id = db_->StoreObject(hash, num_bytes, size);
+        const int64_t object_id = db_->StoreObject(hash, num_bytes, size);
         db_->StoreFile(cur_catalog_id, object_id);
       } else {
         // Bulk hashes in addition to chunks
-        if (hash != NULL)
+        if (hash != nullptr)
           db_->StoreObject(hash, num_bytes, size);
       }
     }
@@ -185,7 +199,7 @@ void CommandFileStats::ProcessCatalog(string db_path) {
 
   int old_md5path_1 = 0, old_md5path_2 = 0;
   int md5path_1 = 0, md5path_2 = 0;
-  int cur_file_id = 0;
+  int64_t cur_file_id = 0;
   while (chunks_list->FetchRow()) {
     md5path_1 = chunks_list->RetrieveInt(0);
     md5path_2 = chunks_list->RetrieveInt(1);
@@ -193,8 +207,8 @@ void CommandFileStats::ProcessCatalog(string db_path) {
       cur_file_id = db_->StoreChunkedFile(cur_catalog_id);
     }
     const void *hash = chunks_list->RetrieveBlob(3);
-    int num_bytes = chunks_list->RetrieveBytes(3);
-    int64_t size = chunks_list->RetrieveInt64(2);
+    const int num_bytes = chunks_list->RetrieveBytes(3);
+    const int64_t size = chunks_list->RetrieveInt64(2);
     db_->StoreChunk(hash, num_bytes, size, cur_file_id);
     old_md5path_1 = md5path_1;
     old_md5path_2 = md5path_2;
@@ -284,7 +298,7 @@ int64_t FileStatsDatabase::StoreFile(int64_t catalog_id, int64_t object_id) {
   query_insert_file->Reset();
   query_insert_file->BindInt64(1, catalog_id);
   query_insert_file->Execute();
-  int file_id = sqlite3_last_insert_rowid(sqlite_db());
+  const sqlite3_int64 file_id = sqlite3_last_insert_rowid(sqlite_db());
 
   query_insert_file_object->Reset();
   query_insert_file_object->BindInt64(1, file_id);
@@ -302,7 +316,7 @@ int64_t FileStatsDatabase::StoreChunkedFile(int64_t catalog_id) {
 
 int64_t FileStatsDatabase::StoreChunk(const void *hash, int hash_size,
                                   int64_t size, int64_t file_id) {
-  int object_id = StoreObject(hash, hash_size, size);
+  const int64_t object_id = StoreObject(hash, hash_size, size);
 
   query_insert_file_object->Reset();
   query_insert_file_object->BindInt64(1, file_id);

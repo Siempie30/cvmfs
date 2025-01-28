@@ -7,8 +7,9 @@
 
 #include "swissknife.h"
 
-#include <pthread.h>
+#include <bits/pthreadtypes.h>
 
+#include <cstdint>
 #include <string>
 
 #include "catalog_traversal.h"
@@ -80,7 +81,7 @@ class CommandFileStats : public Command {
 
   static void *MainProcessing(void *data);
 
-  void ProcessCatalog(string db_path);
+  void ProcessCatalog(const string& db_path);
 };
 
 }  // namespace swissknife

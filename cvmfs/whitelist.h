@@ -25,7 +25,7 @@ class SignatureManager;
 
 namespace whitelist {
 
-enum Failures {
+enum Failures : uint8_t {
   kFailOk = 0,
   kFailLoad,
   kFailEmpty,
@@ -72,7 +72,7 @@ class Whitelist {
   FRIEND_TEST(T_Whitelist, ParseWhitelist);
 
  public:
-  enum Status {
+  enum Status : uint8_t {
     kStNone,
     kStAvailable,
   };
@@ -87,7 +87,7 @@ class Whitelist {
             download::DownloadManager *download_manager,
             signature::SignatureManager *signature_manager);
   ~Whitelist();
-  explicit Whitelist(const Whitelist &other);
+  Whitelist(const Whitelist &other);
   Whitelist &operator= (const Whitelist &other);
   Failures LoadUrl(const std::string &base_url);
   Failures LoadMem(const std::string &whitelist);

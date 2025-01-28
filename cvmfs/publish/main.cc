@@ -23,15 +23,17 @@
 #include "publish/command.h"
 #include "publish/except.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
 
 using namespace std;  // NOLINT
 
+namespace publish {
 
-static void PrintVersion() {
+void PrintVersion() {
   LogCvmfs(kLogCvmfs, kLogStdout, "CernVM-FS Server Tool %s", CVMFS_VERSION);
 }
 
-static void Usage(const std::string &progname,
+void Usage(const std::string &progname,
                   const publish::CommandList &clist)
 {
   LogCvmfs(kLogCvmfs, kLogStdout,
@@ -44,7 +46,7 @@ static void Usage(const std::string &progname,
     "Supported Commands\n"
     "-------------------\n",
     CVMFS_VERSION, progname.c_str());
-    const vector<publish::Command *> commands = clist.commands();
+    const vector<publish::Command *> &commands = clist.commands();
 
   string::size_type max_len = 0;
   for (unsigned i = 0; i < commands.size(); ++i) {
@@ -56,13 +58,16 @@ static void Usage(const std::string &progname,
     if (commands[i]->IsHidden()) continue;
     LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "  %s",
              commands[i]->GetName().c_str());
-    for (unsigned p = commands[i]->GetName().length(); p < max_len; ++p)
+    for (unsigned p = commands[i]->GetName().length(); p < max_len; ++p) {
       LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, " ");
+    }
     LogCvmfs(kLogCvmfs, kLogStdout, "   %s", commands[i]->GetBrief().c_str());
   }
 
   LogCvmfs(kLogCvmfs, kLogStdout | kLogNoLinebreak, "\n");
 }
+
+} // namespace publish
 
 
 int main(int argc, char **argv) {
@@ -80,27 +85,27 @@ int main(int argc, char **argv) {
   commands.TakeCommand(new publish::CmdLsof());
 
   if (argc < 2) {
-    Usage(argv[0], commands);
+    publish::Usage(argv[0], commands);
     return 1;
   }
   if ((string(argv[1]) == "--help") || (string(argv[1]) == "-h")) {
-    Usage(argv[0], commands);
+    publish::Usage(argv[0], commands);
     return 0;
   }
   if ((string(argv[1]) == "--version") || (string(argv[1]) == "-v")) {
-    PrintVersion();
+    publish::PrintVersion();
     return 0;
   }
 
   publish::Command *command = commands.Find(argv[1]);
   if (command == NULL) {
     LogCvmfs(kLogCvmfs, kLogStderr, "unknown command: %s", argv[1]);
-    Usage(argv[0], commands);
+    publish::Usage(argv[0], commands);
     return 1;
   }
 
   try {
-    publish::Command::Options options = command->ParseOptions(argc, argv);
+    const publish::Command::Options options = command->ParseOptions(argc, argv);
     return command->Main(options);
   } catch (const publish::EPublish& e) {
     if (e.failure() == publish::EPublish::kFailInvocation) {

@@ -2,15 +2,26 @@
  * This file is part of the CernVM File System.
  */
 
-#define __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS // NOLINT
 
 #include "swissknife_scrub.h"
 
+#include <assert.h>
+#include <cctype>
+#include <pthread.h>
 
+#include <cstddef>
+#include <string>
+
+#include "crypto/hash.h"
+#include "ingestion/ingestion_source.h"
+#include "ingestion/pipeline.h"
+#include "swissknife.h"
 #include "util/fs_traversal.h"
 #include "util/logging.h"
+#include "util/logging_enums.h"
+#include "util/mutex.h"
 #include "util/posix.h"
-#include "util/smalloc.h"
 #include "util/string.h"
 
 using namespace std;  // NOLINT
@@ -24,7 +35,7 @@ CommandScrub::CommandScrub()
   : machine_readable_output_(false)
   , alerts_(0)
 {
-  int retval = pthread_mutex_init(&alerts_mutex_, NULL);
+  const int retval = pthread_mutex_init(&alerts_mutex_, nullptr);
   assert(retval == 0);
 }
 
@@ -79,7 +90,7 @@ void CommandScrub::FileCallback(
 
   const string full_path = MakeFullPath(relative_path, file_name);
   const std::string hash_string =
-      CheckPathAndExtractHash(relative_path, file_name, full_path);
+      CheckPathAndExtractHash(file_name, full_path);
   if (hash_string.empty()) {
     return;
   }
@@ -89,7 +100,7 @@ void CommandScrub::FileCallback(
     return;
   }
 
-  shash::Any hash_from_name =
+  const shash::Any hash_from_name =
     shash::MkFromSuffixedHexPtr(shash::HexPtr(hash_string));
   IngestionSource* full_path_source = new FileIngestionSource(full_path);
   pipeline_scrubbing_.Process(
@@ -132,12 +143,10 @@ void CommandScrub::SymlinkCallback(const std::string &relative_path,
 void CommandScrub::OnFileHashed(const ScrubbingResult &scrubbing_result) {
   const string full_path = scrubbing_result.path;
   const string file_name = GetFileName(full_path);
-  const string parent_path = GetParentPath(full_path);
-  const string relative_path = MakeRelativePath(parent_path);
   assert(!file_name.empty());
 
   const std::string hash_string =
-    CheckPathAndExtractHash(relative_path, file_name, full_path);
+    CheckPathAndExtractHash(file_name, full_path);
   assert(!hash_string.empty());
   assert(shash::HexPtr(hash_string).IsValid());
 
@@ -151,7 +160,6 @@ void CommandScrub::OnFileHashed(const ScrubbingResult &scrubbing_result) {
 }
 
 std::string CommandScrub::CheckPathAndExtractHash(
-    const std::string &relative_path,
     const std::string &file_name,
     const std::string &full_path) const
 {
@@ -171,7 +179,7 @@ std::string CommandScrub::CheckPathAndExtractHash(
     return "";
   }
 
-  const string hash_string =
+  string hash_string =
       GetFileName(GetParentPath(full_path)) +
       (has_object_modifier ? file_name.substr(0, file_name.length() - 1)
                            : file_name);
@@ -204,7 +212,7 @@ void CommandScrub::PrintAlert(
   const std::string &path,
   const std::string &affected_hash) const
 {
-  MutexLockGuard l(alerts_mutex_);
+  const MutexLockGuard l(alerts_mutex_);
 
   const char *msg = Alerts::ToString(type);
   if (machine_readable_output_) {

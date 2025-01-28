@@ -53,7 +53,7 @@ class IntegerMap {
   IntegerMap()
     : valid_(true)
     , has_default_value_(false)
-    , default_value_(T(0)) {}
+    , default_value_(static_cast<T>(0)) {}
 
   /**
    * Define a mapping from k to v
@@ -103,7 +103,7 @@ class IntegerMap {
    */
   T Map(const T k) const {
     assert(IsValid());
-    typename map_type::const_iterator i = map_.find(k);
+    const typename map_type::const_iterator i = map_.find(k);
     if (i != map_.end()) {
       return i->second;
     }
@@ -134,7 +134,7 @@ class IntegerMap {
       return false;
     }
 
-    sanitizer::IntegerSanitizer int_sanitizer;
+    const sanitizer::IntegerSanitizer int_sanitizer;
 
     std::string line;
     unsigned int line_number = 0;
@@ -150,23 +150,29 @@ class IntegerMap {
       if (components.size() != 2                ||
           !int_sanitizer.IsValid(components[1]) ||
           (components[0] != "*" && !int_sanitizer.IsValid(components[0]))) {
-        fclose(fmap);
+        const int ret = fclose(fmap);
+        if (ret == EOF) {
+          LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
+        }
         LogCvmfs(kLogUtility, kLogDebug, "failed to read line %d in %s",
                  line_number, path.c_str());
         return false;
       }
 
-      value_type to = String2Uint64(components[1]);
+      const value_type to = String2Uint64(components[1]);
       if (components[0] == "*") {
         SetDefault(to);
         continue;
       }
 
-      key_type from = String2Uint64(components[0]);
+      const key_type from = String2Uint64(components[0]);
       Set(from, to);
     }
 
-    fclose(fmap);
+    const int ret = fclose(fmap);
+    if (ret == EOF) {
+      LogCvmfs(kLogUtility, kLogDebug, "failed to close file %s", path.c_str());
+    }
     return true;
   }
 

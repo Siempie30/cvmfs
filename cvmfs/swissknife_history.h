@@ -5,13 +5,16 @@
 #ifndef CVMFS_SWISSKNIFE_HISTORY_H_
 #define CVMFS_SWISSKNIFE_HISTORY_H_
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 #include "crypto/hash.h"
-#include "history_sqlite.h"
+#include "history.h"
 #include "swissknife.h"
+#include "util/file_guard.h"
 #include "util/future.h"
+#include "util/pointer.h"
 
 namespace manifest {
 class Manifest;
@@ -83,7 +86,7 @@ class CommandTag : public Command {
 
   catalog::Catalog* GetCatalog(const std::string  &repository_url,
                                const shash::Any   &catalog_hash,
-                               const std::string   catalog_path,
+                               const std::string  &catalog_path,
                                const bool          read_write) const;
 
   void PrintTagMachineReadable(const history::History::Tag &tag) const;
