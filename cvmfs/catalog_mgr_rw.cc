@@ -1433,15 +1433,46 @@ int WritableCatalogManager::GetModifiedCatalogsRecursively(
 
 void WritableCatalogManager::CatalogUploadSerializedCallback(
   const upload::SpoolerResult &result,
-  const CatalogUploadContext unused)
+  const CatalogUploadContext catalog_upload_context)
 {
   if (result.return_code != 0) {
     PANIC(kLogStderr, "failed to upload '%s' (retval: %d)",
           result.local_path.c_str(), result.return_code);
   }
 
+  // Retrieve the catalog object
+  WritableCatalog *catalog{nullptr};
+  std::map<std::string, WritableCatalog*>::iterator c =
+    catalog_processing_map_.find(result.local_path);
+  assert(c != catalog_processing_map_.end());
+  catalog = c->second;
+
+  int64_t catalog_size = GetFileSize(result.local_path);
+  assert(catalog_size > 0);
+
   if (UseLocalCache()) {
     CopyCatalogToLocalCache(result);
+  }
+
+  if (catalog->HasParent()) {
+    LogCvmfs(kLogCatalog, kLogVerboseMsg, "updating nested catalog link");
+    WritableCatalog *parent = catalog->GetWritableParent();
+
+    parent->UpdateNestedCatalog(catalog->mountpoint().ToString(),
+                                result.content_hash,
+                                catalog_size,
+                                catalog->delta_counters_);
+    catalog->delta_counters_.SetZero();
+
+  } else if (catalog->IsRoot()) {
+    CatalogInfo root_catalog_info;
+    root_catalog_info.size          = catalog_size;
+    root_catalog_info.ttl           = catalog->GetTTL();
+    root_catalog_info.content_hash  = result.content_hash;
+    root_catalog_info.revision      = catalog->GetRevision();
+    catalog_upload_context.root_catalog_info->Set(root_catalog_info);
+  } else {
+    PANIC(kLogStderr, "inconsistent state detected");
   }
 
   unlink(result.local_path.c_str());
@@ -1456,48 +1487,23 @@ WritableCatalogManager::SnapshotCatalogsSerialized(
   reinterpret_cast<WritableCatalog *>(GetRootCatalog())->SetDirty();
   WritableCatalogList catalogs_to_snapshot;
   GetModifiedCatalogs(&catalogs_to_snapshot);
-  CatalogUploadContext unused;
-  unused.root_catalog_info = NULL;
-  unused.stop_for_tweaks = false;
-  spooler_->RegisterListener(
-    &WritableCatalogManager::CatalogUploadSerializedCallback, this, unused);
 
-  CatalogInfo root_catalog_info;
+  Future<CatalogInfo>  root_catalog_info_future;
+  CatalogUploadContext upload_context;
+  upload_context.root_catalog_info = &root_catalog_info_future;
+  upload_context.stop_for_tweaks   = stop_for_tweaks;
+  spooler_->RegisterListener(
+    &WritableCatalogManager::CatalogUploadSerializedCallback, this, upload_context);
+
   WritableCatalogList::const_iterator i = catalogs_to_snapshot.begin();
   const WritableCatalogList::const_iterator iend = catalogs_to_snapshot.end();
   for (; i != iend; ++i) {
     FinalizeCatalog(*i, stop_for_tweaks);
-
-    // Compress and upload catalog
-    shash::Any hash_catalog(spooler_->GetHashAlgorithm(),
-                            shash::kSuffixCatalog);
-    if (!zlib::CompressPath2Null((*i)->database_path(),
-                                 &hash_catalog))
-    {
-      PANIC(kLogStderr, "could not compress catalog %s",
-            (*i)->mountpoint().ToString().c_str());
-    }
-
-    int64_t catalog_size = GetFileSize((*i)->database_path());
-    assert(catalog_size > 0);
-
-    if ((*i)->HasParent()) {
-      LogCvmfs(kLogCatalog, kLogVerboseMsg, "updating nested catalog link");
-      WritableCatalog *parent = (*i)->GetWritableParent();
-      parent->UpdateNestedCatalog((*i)->mountpoint().ToString(), hash_catalog,
-                                  catalog_size, (*i)->delta_counters_);
-      (*i)->delta_counters_.SetZero();
-    } else if ((*i)->IsRoot()) {
-      root_catalog_info.size = catalog_size;
-      root_catalog_info.ttl = (*i)->GetTTL();
-      root_catalog_info.content_hash = hash_catalog;
-      root_catalog_info.revision = (*i)->GetRevision();
-    } else {
-      PANIC(kLogStderr, "inconsistent state detected");
-    }
-
+    catalog_processing_map_[(*i)->database_path()] = *i;
     spooler_->ProcessCatalog((*i)->database_path());
   }
+  
+  CatalogInfo &root_catalog_info = root_catalog_info_future.Get();
   spooler_->WaitForUpload();
 
   spooler_->UnregisterListeners();
