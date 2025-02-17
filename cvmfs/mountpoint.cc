@@ -1,7 +1,7 @@
 /**
  * This file is part of the CernVM File System.
  */
-#include "cvmfs_config.h"
+
 #include "mountpoint.h"
 
 #include <errno.h>
@@ -265,6 +265,8 @@ void FileSystem::CreateStatistics() {
      "EIO returned to calling process. cvmfs.cc:cvmfs_read()");
   n_eio_08_ =  statistics_->Register("eio.08",
      "EIO returned to calling process. cvmfs.cc:cvmfs_read()");
+  n_emfile_ =  statistics_->Register("eio.emfile",
+     "EMFILE returned to calling process. cvmfs.cc:cvmfs_read()");
 
   string optarg;
   if (options_mgr_->GetValue("CVMFS_INSTRUMENT_FUSE", &optarg) &&
@@ -299,9 +301,9 @@ FileSystem::PosixCacheSettings FileSystem::DeterminePosixCacheSettings(
 
   if (options_mgr_->GetValue(MkCacheParm("CVMFS_CACHE_REFCOUNT", instance),
                              &optarg)
-      && options_mgr_->IsOn(optarg))
+      && options_mgr_->IsOff(optarg))
   {
-    settings.do_refcount = true;
+    settings.do_refcount = false;
   }
 
   if (options_mgr_->GetValue(MkCacheParm("CVMFS_CACHE_SHARED", instance),
@@ -427,6 +429,7 @@ FileSystem::FileSystem(const FileSystem::FileSystemInfo &fs_info)
   , n_eio_06_(NULL)
   , n_eio_07_(NULL)
   , n_eio_08_(NULL)
+  , n_emfile_(NULL)
   , statistics_(NULL)
   , fd_workspace_lock_(-1)
   , found_previous_crash_(false)
@@ -610,6 +613,7 @@ void FileSystem::ResetErrorCounters() {
   n_eio_06_->Set(0);
   n_eio_07_->Set(0);
   n_eio_08_->Set(0);
+  n_emfile_->Set(0);
 }
 
 
@@ -1175,7 +1179,11 @@ bool FileSystem::TriageCacheMgr() {
     unsigned nfiles = kDefaultNfiles;
     if (options_mgr_->GetValue("CVMFS_NFILES", &optarg))
       nfiles = String2Uint64(optarg);
-    cache_mgr_ = new StreamingCacheManager(nfiles, cache_mgr_, NULL, NULL);
+    size_t buffer_size = StreamingCacheManager::kDefaultBufferSize;
+    if (options_mgr_->GetValue("CVMFS_STREAMING_CACHE_BUFFER_SIZE", &optarg))
+      buffer_size = String2Uint64(optarg);
+    cache_mgr_ = new StreamingCacheManager(nfiles, cache_mgr_, NULL, NULL,
+                                           buffer_size, statistics_);
   }
 
   return true;
@@ -1417,7 +1425,13 @@ bool MountPoint::CreateDownloadManagers() {
       download_mgr_->SetFailoverIndefinitely();
   }
 
-  if (options_mgr_->GetValue("CVMFS_SERVER_URL", &optarg)) {
+  if (options_mgr_->GetValue("CVMFS_METALINK_URL", &optarg)) {
+    download_mgr_->SetMetalinkChain(optarg);  
+    // host chain will be set later when the metalink server is contacted
+    download_mgr_->SetHostChain("");
+    // metalink requires redirects
+    download_mgr_->EnableRedirects();
+  } else if (options_mgr_->GetValue("CVMFS_SERVER_URL", &optarg)) {
     download_mgr_->SetHostChain(optarg);
   }
 
@@ -2065,6 +2079,7 @@ bool MountPoint::SetupBehavior() {
       telemetry_aggr_ = perf::TelemetryAggregator::Create(statistics_,
                                                         telemetry_send_rate_sec,
                                                         options_mgr_,
+                                                        this,
                                                         fqrn_,
                                                         perf::kTelemetryInflux);
       LogCvmfs(kLogTelemetry, kLogSyslog | kLogDebug,
@@ -2125,7 +2140,7 @@ bool MountPoint::SetupExternalDownloadMgr(bool dogeosort) {
   string optarg;
   external_download_mgr_ =
     download_mgr_->Clone(perf::StatisticsTemplate("download-external",
-      statistics_));
+      statistics_), "external");
 
   unsigned timeout;
   unsigned timeout_direct;
@@ -2138,7 +2153,13 @@ bool MountPoint::SetupExternalDownloadMgr(bool dogeosort) {
   }
   external_download_mgr_->SetTimeout(timeout, timeout_direct);
 
-  if (options_mgr_->GetValue("CVMFS_EXTERNAL_URL", &optarg)) {
+  if (options_mgr_->GetValue("CVMFS_EXTERNAL_METALINK", &optarg)) {
+    external_download_mgr_->SetMetalinkChain(optarg);  
+    // host chain will be set later when the metalink server is contacted
+    external_download_mgr_->SetHostChain("");
+    // metalink requires redirects
+    external_download_mgr_->EnableRedirects();
+  } else if (options_mgr_->GetValue("CVMFS_EXTERNAL_URL", &optarg)) {
     external_download_mgr_->SetHostChain(optarg);
     if (dogeosort) {
       std::vector<std::string> host_chain;
@@ -2208,8 +2229,13 @@ void MountPoint::SetupHttpTuning() {
 
   if (options_mgr_->GetValue("CVMFS_LOW_SPEED_LIMIT", &optarg))
     download_mgr_->SetLowSpeedLimit(String2Uint64(optarg));
-  if (options_mgr_->GetValue("CVMFS_PROXY_RESET_AFTER", &optarg))
+  if (options_mgr_->GetValue("CVMFS_PROXY_RESET_AFTER", &optarg)) {
     download_mgr_->SetProxyGroupResetDelay(String2Uint64(optarg));
+    // Use the proxy reset delay as the default for the metalink reset delay
+    download_mgr_->SetMetalinkResetDelay(String2Uint64(optarg));
+  }
+  if (options_mgr_->GetValue("CVMFS_METALINK_RESET_AFTER", &optarg))
+    download_mgr_->SetMetalinkResetDelay(String2Uint64(optarg));
   if (options_mgr_->GetValue("CVMFS_HOST_RESET_AFTER", &optarg))
     download_mgr_->SetHostResetDelay(String2Uint64(optarg));
 

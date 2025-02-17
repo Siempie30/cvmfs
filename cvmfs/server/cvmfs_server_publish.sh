@@ -239,6 +239,9 @@ cvmfs_server_publish() {
     if [ "x$CVMFS_AUTOCATALOGS_MIN_WEIGHT" != "x" ]; then
       sync_command="$sync_command -M $CVMFS_AUTOCATALOGS_MIN_WEIGHT"
     fi
+    if [ "x$CVMFS_SERVER_USE_CATALOG_CACHE" = "xtrue" ]; then
+      sync_command="$sync_command -G"
+    fi
     if [ "x$CVMFS_IGNORE_XDIR_HARDLINKS" = "xtrue" ]; then
       sync_command="$sync_command -i"
     fi
@@ -247,6 +250,9 @@ cvmfs_server_publish() {
     fi
     if [ "x${CVMFS_ENFORCE_LIMITS:-$CVMFS_DEFAULT_ENFORCE_LIMITS}" = "xtrue" ]; then
       sync_command="$sync_command -E"
+    fi
+    if [ "x$CVMFS_ENABLE_MTIME_NS" = "xtrue" ]; then
+      sync_command="$sync_command -j"
     fi
     if [ "x$CVMFS_NESTED_KCATALOG_LIMIT" != "x" ]; then
       sync_command="$sync_command -Q $CVMFS_NESTED_KCATALOG_LIMIT"

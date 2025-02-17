@@ -484,11 +484,13 @@ done
 restorecon -R /var/lib/cvmfs
 %endif
 /sbin/ldconfig
-%if 0%{?systemd_autofs_patch}
-/usr/bin/systemctl daemon-reload
-%endif
-if [ -d /var/run/cvmfs ]; then
-  /usr/bin/cvmfs_config reload
+if  [ -d /run/systemd/system ]
+  systemctl daemon-reload
+  systemctl start cvmfs-reload.service
+else
+  if [ -d /var/run/cvmfs ]; then
+    /usr/bin/cvmfs_config reload
+  fi
 fi
 :
 
@@ -511,10 +513,7 @@ restorecon -R /var/log/cvmfs
 rm -f /var/lib/cvmfs-server/geo/*.dat
 /sbin/ldconfig
 
-%if 0%{?build_gateway}
-%post gateway
-systemctl daemon-reload
-%endif
+
 
 %preun
 if [ $1 = 0 ] ; then
@@ -616,6 +615,7 @@ systemctl daemon-reload
 %dir %{_sysconfdir}/bash_completion.d
 %config(noreplace) %{_sysconfdir}/bash_completion.d/cvmfs
 %doc COPYING AUTHORS README.md ChangeLog
+%{_unitdir}/cvmfs-reload.service
 
 %files libs
 %defattr(-,root,root)
@@ -708,7 +708,7 @@ systemctl daemon-reload
 %endif
 
 %changelog
-* Wed Nov 7 2023 Valentin Volkl <vavolkl@cern.ch> - 2.11.2
+* Tue Nov 7 2023 Valentin Volkl <vavolkl@cern.ch> - 2.11.2
 - Rename registry-webhook.py to registry_webhook.py to allow imports
 * Wed Nov 16 2022 Jakob Blomer <jblomer@cern.ch> - 2.11.0
 - Make cvmfs-libs a dependency of the cvmfs package

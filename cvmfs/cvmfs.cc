@@ -31,7 +31,7 @@
 // sys/xattr.h conflicts with linux/xattr.h and needs to be loaded very early
 #include <sys/xattr.h>  // NOLINT
 
-#include "cvmfs_config.h"
+
 #include "cvmfs.h"
 
 #include <dirent.h>
@@ -74,7 +74,7 @@
 #include "catalog_mgr_client.h"
 #include "clientctx.h"
 #include "compat.h"
-#include "compression.h"
+#include "compression/compression.h"
 #include "crypto/crypto_util.h"
 #include "crypto/hash.h"
 #include "crypto/signature.h"
@@ -116,6 +116,7 @@
 #include "util/logging.h"
 #include "util/platform.h"
 #include "util/smalloc.h"
+#include "util/testing.h"
 #include "util/uuid.h"
 #include "wpad.h"
 #include "xattr.h"
@@ -296,21 +297,18 @@ static bool FixupOpenInode(const PathString &path,
   if (!MayBeInPageCacheTracker(*dirent))
     return false;
 
-  shash::Any hash_open;
-  struct stat info;
-  bool is_open = mount_point_->page_cache_tracker()->GetInfoIfOpen(
-    dirent->inode(), &hash_open, &info);
-  if (!is_open)
-    return false;
-  if (!HasDifferentContent(*dirent, hash_open, info))
-    return false;
+  CVMFS_TEST_INJECT_BARRIER("_CVMFS_TEST_BARRIER_INODE_REPLACE");
 
-  // Overwrite dirent with inode from current generation
-  bool found = mount_point_->catalog_mgr()->LookupPath(
-      path, catalog::kLookupDefault, dirent);
-  assert(found);
+  const bool is_stale = mount_point_->page_cache_tracker()->IsStale(*dirent);
 
-  return true;
+  if (is_stale) {
+    // Overwrite dirent with inode from current generation
+    const bool found = mount_point_->catalog_mgr()->LookupPath(
+        path, catalog::kLookupDefault, dirent);
+    assert(found);
+  }
+
+  return is_stale;
 }
 
 static bool GetDirentForInode(const fuse_ino_t ino,
@@ -410,6 +408,10 @@ static uint64_t GetDirentForPath(const PathString &path,
   uint64_t live_inode = 0;
   if (!file_system_->IsNfsSource())
     live_inode = mount_point_->inode_tracker()->FindInode(path);
+
+  LogCvmfs(kLogCvmfs, kLogDebug,
+           "GetDirentForPath: live inode for %s: %" PRIu64,
+           path.c_str(), live_inode);
 
   shash::Md5 md5path(path.GetChars(), path.GetLength());
   if (mount_point_->md5path_cache()->Lookup(md5path, dirent)) {
@@ -576,7 +578,6 @@ static void cvmfs_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
   path.Assign(parent_path);
   path.Append("/", 1);
   path.Append(name, strlen(name));
-  mount_point_->tracer()->Trace(Tracer::kEventLookup, path, "lookup()");
   live_inode = GetDirentForPath(path, &dirent);
   if (live_inode == 0) {
     if (dirent.GetSpecial() == catalog::kDirentNegative)
@@ -586,11 +587,13 @@ static void cvmfs_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
   }
 
  lookup_reply_positive:
+  mount_point_->tracer()->Trace(Tracer::kEventLookup, path, "lookup()");
   if (!file_system_->IsNfsSource()) {
     if (live_inode > 1) {
       // live inode is stale (open file), we replace it
       assert(dirent.IsRegular());
       assert(dirent.inode() != live_inode);
+
       // The new inode is put in the tracker with refcounter == 0
       bool replaced = mount_point_->inode_tracker()->ReplaceInode(
         live_inode, glue::InodeEx(dirent.inode(), dirent.mode()));
@@ -620,6 +623,7 @@ static void cvmfs_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
   return;
 
  lookup_reply_negative:
+  mount_point_->tracer()->Trace(Tracer::kEventLookup, path, "lookup()-NOTFOUND");
   // Will be a no-op if there is no fuse cache eviction
   mount_point_->dentry_tracker()->Add(parent_fuse, name, uint64_t(timeout));
   fuse_remounter_->fence()->Leave();
@@ -629,6 +633,7 @@ static void cvmfs_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
   return;
 
  lookup_reply_error:
+  mount_point_->tracer()->Trace(Tracer::kEventLookup, path, "lookup()-NOTFOUND");
   fuse_remounter_->fence()->Leave();
 
   LogCvmfs(kLogCvmfs, kLogDebug | kLogSyslogErr, "EIO (01) on %s", name);
@@ -661,24 +666,19 @@ static void cvmfs_forget(
     return;
   }
 
-  fuse_remounter_->fence()->Enter();
-  ino = mount_point_->catalog_mgr()->MangleInode(ino);
-  // This has been seen to deadlock on the debug log mutex on SL5.  Problem of
-  // old kernel/fuse?
-#if CVMFS_USE_LIBCVMFS == 2
-  LogCvmfs(kLogCvmfs, kLogDebug, "forget on inode %" PRIu64 " by %u",
-           uint64_t(ino), nlookup);
-#else
+  // Ensure that we don't need to call catalog_mgr()->MangleInode(ino)
+  assert(ino > mount_point_->catalog_mgr()->kInodeOffset);
+
   LogCvmfs(kLogCvmfs, kLogDebug, "forget on inode %" PRIu64 " by %" PRIu64,
            uint64_t(ino), nlookup);
-#endif
+
   if (!file_system_->IsNfsSource()) {
     bool removed =
       mount_point_->inode_tracker()->GetVfsPutRaii().VfsPut(ino, nlookup);
     if (removed)
       mount_point_->page_cache_tracker()->GetEvictRaii().Evict(ino);
   }
-  fuse_remounter_->fence()->Leave();
+
   fuse_reply_none(req);
 }
 
@@ -697,7 +697,6 @@ static void cvmfs_forget_multi(
     return;
   }
 
-  fuse_remounter_->fence()->Enter();
   {
     glue::InodeTracker::VfsPutRaii vfs_put_raii =
       mount_point_->inode_tracker()->GetVfsPutRaii();
@@ -708,16 +707,16 @@ static void cvmfs_forget_multi(
         continue;
       }
 
-      uint64_t ino = mount_point_->catalog_mgr()->MangleInode(forgets[i].ino);
+      // Ensure that we don't need to call catalog_mgr()->MangleInode(ino)
+      assert(forgets[i].ino > mount_point_->catalog_mgr()->kInodeOffset);
       LogCvmfs(kLogCvmfs, kLogDebug, "forget on inode %" PRIu64 " by %" PRIu64,
-               ino, forgets[i].nlookup);
+               forgets[i].ino, forgets[i].nlookup);
 
-      bool removed = vfs_put_raii.VfsPut(ino, forgets[i].nlookup);
+      bool removed = vfs_put_raii.VfsPut(forgets[i].ino, forgets[i].nlookup);
       if (removed)
-        evict_raii.Evict(ino);
+        evict_raii.Evict(forgets[i].ino);
     }
   }
-  fuse_remounter_->fence()->Leave();
 
   fuse_reply_none(req);
 }
@@ -1201,6 +1200,7 @@ static void cvmfs_open(fuse_req_t req, fuse_ino_t ino,
       fuse_remounter_->fence()->Leave();
       LogCvmfs(kLogCvmfs, kLogSyslogErr, "open file descriptor limit exceeded");
       fuse_reply_err(req, EMFILE);
+      perf::Inc(file_system_->n_emfile());
       return;
     }
 
@@ -1321,18 +1321,33 @@ static void cvmfs_open(fuse_req_t req, fuse_ino_t ino,
       if (file_system_->cache_mgr()->Close(fd) == 0)
         perf::Dec(file_system_->no_open_files());
       LogCvmfs(kLogCvmfs, kLogSyslogErr, "open file descriptor limit exceeded");
+      // not returning an fd, so close the page cache tracker entry if required
+      if (!dirent.IsDirectIo()) {
+        fuse_remounter_->fence()->Enter();
+        mount_point_->page_cache_tracker()->Close(ino);
+        fuse_remounter_->fence()->Leave();
+      }
       fuse_reply_err(req, EMFILE);
+      perf::Inc(file_system_->n_emfile());
       return;
     }
     assert(false);
   }
 
   // fd < 0
+  // the download has failed. Close the page cache tracker entry if required
+  if (!dirent.IsDirectIo()) {
+    fuse_remounter_->fence()->Enter();
+    mount_point_->page_cache_tracker()->Close(ino);
+    fuse_remounter_->fence()->Leave();
+  }
+
   LogCvmfs(kLogCvmfs, kLogDebug | kLogSyslogErr,
            "failed to open inode: %" PRIu64 ", CAS key %s, error code %d",
            uint64_t(ino), dirent.checksum().ToString().c_str(), errno);
   if (errno == EMFILE) {
     fuse_reply_err(req, EMFILE);
+    perf::Inc(file_system_->n_emfile());
     return;
   }
 
@@ -1379,12 +1394,12 @@ static void cvmfs_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
   uint64_t abs_fd = (fd < 0) ? -fd : fd;
   ClearBit(glue::PageCacheTracker::kBitDirectIo, &abs_fd);
 
+  const struct fuse_ctx *fuse_ctx = fuse_req_ctx(req);
+  FuseInterruptCue ic(&req);
+  const ClientCtxGuard ctx_guard(fuse_ctx->uid, fuse_ctx->gid, fuse_ctx->pid, &ic);
+
   // Do we have a a chunked file?
   if (fd < 0) {
-    const struct fuse_ctx *fuse_ctx = fuse_req_ctx(req);
-    FuseInterruptCue ic(&req);
-    ClientCtxGuard ctx_guard(fuse_ctx->uid, fuse_ctx->gid, fuse_ctx->pid, &ic);
-
     const uint64_t chunk_handle = abs_fd;
     uint64_t unique_inode;
     ChunkFd chunk_fd;
@@ -2833,7 +2848,9 @@ static bool RestoreState(const int fd_progress,
           StreamingCacheManager(cvmfs::max_open_files_,
                                 cvmfs::file_system_->cache_mgr(),
                                 cvmfs::mount_point_->download_mgr(),
-                                cvmfs::mount_point_->external_download_mgr());
+                                cvmfs::mount_point_->external_download_mgr(),
+                                StreamingCacheManager::kDefaultBufferSize,
+                                cvmfs::file_system_->statistics());
         fixup_root_fd = new_cache_mgr->PlantFd(old_root_fd);
         cvmfs::file_system_->ReplaceCacheManager(new_cache_mgr);
         cvmfs::mount_point_->fetcher()->ReplaceCacheManager(new_cache_mgr);
@@ -2972,7 +2989,7 @@ static void FreeSavedState(const int fd_progress,
 
 static void __attribute__((constructor)) LibraryMain() {
   g_cvmfs_exports = new loader::CvmfsExports();
-  g_cvmfs_exports->so_version = PACKAGE_VERSION;
+  g_cvmfs_exports->so_version = CVMFS_VERSION;
   g_cvmfs_exports->fnAltProcessFlavor = AltProcessFlavor;
   g_cvmfs_exports->fnInit = Init;
   g_cvmfs_exports->fnSpawn = Spawn;

@@ -9,7 +9,7 @@
 #define ENOATTR ENODATA  /**< instead of including attr/xattr.h */
 
 #include <sys/xattr.h>
-#include "cvmfs_config.h"
+
 #include "libcvmfs_int.h"
 
 #include <dirent.h>
@@ -49,7 +49,7 @@
 #include "catalog.h"
 #include "catalog_mgr_client.h"
 #include "clientctx.h"
-#include "compression.h"
+#include "compression/compression.h"
 #include "crypto/crypto_util.h"
 #include "crypto/hash.h"
 #include "crypto/signature.h"

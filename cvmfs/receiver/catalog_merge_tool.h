@@ -46,6 +46,7 @@ class CatalogMergeTool : public CatalogDiffTool<RoCatalogMgr> {
                    perf::Statistics* statistics)
       : CatalogDiffTool<RoCatalogMgr>(old_catalog_mgr, new_catalog_mgr),
         repo_path_(""),
+        cache_dir_(""),
         lease_path_(lease_path),
         temp_dir_prefix_(temp_dir_prefix),
         download_manager_(nullptr),
@@ -64,6 +65,7 @@ class CatalogMergeTool : public CatalogDiffTool<RoCatalogMgr> {
                    perf::Statistics* statistics)
       : CatalogDiffTool<RoCatalogMgr>(old_catalog_mgr, new_catalog_mgr),
         repo_path_(repo_path),
+        cache_dir_(""),
         lease_path_(lease_path),
         temp_dir_prefix_(temp_dir_prefix),
         download_manager_(download_manager),
@@ -79,10 +81,14 @@ class CatalogMergeTool : public CatalogDiffTool<RoCatalogMgr> {
                    const std::string& temp_dir_prefix,
                    download::DownloadManager* download_manager,
                    manifest::Manifest* manifest,
-                   perf::Statistics* statistics)
-      : CatalogDiffTool<RoCatalogMgr>(repo_path, old_root_hash, new_root_hash,
-                                      temp_dir_prefix, download_manager),
+                   perf::Statistics* statistics,
+                   const std::string& cache_dir)
+      : CatalogDiffTool<RoCatalogMgr>(repo_path,
+                                      old_root_hash, new_root_hash,
+                                      temp_dir_prefix, download_manager,
+                                      cache_dir),
         repo_path_(repo_path),
+        cache_dir_(cache_dir),
         lease_path_(lease_path),
         temp_dir_prefix_(temp_dir_prefix),
         download_manager_(download_manager),
@@ -93,7 +99,7 @@ class CatalogMergeTool : public CatalogDiffTool<RoCatalogMgr> {
 
   virtual ~CatalogMergeTool() {}
 
-  bool Run(const Params& params, std::string* new_manifest_path,
+  bool Run(const Params& params, std::string* new_manifest_path, shash::Any* new_manifest_hash,
            uint64_t *final_rev);
 
  protected:
@@ -116,6 +122,7 @@ class CatalogMergeTool : public CatalogDiffTool<RoCatalogMgr> {
   bool CreateNewManifest(std::string* new_manifest_path);
 
   std::string repo_path_;
+  const std::string cache_dir_;  // path if local cache is used, otherwise empty
 
   PathString lease_path_;
   std::string temp_dir_prefix_;

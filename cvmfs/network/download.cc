@@ -28,7 +28,7 @@
 // NOLINTNEXTLINE
 #define __STDC_FORMAT_MACROS
 
-#include "cvmfs_config.h"
+
 #include "download.h"
 
 #include <alloca.h>
@@ -50,7 +50,7 @@
 #include <set>
 #include <utility>
 
-#include "compression.h"
+#include "compression/compression.h"
 #include "crypto/hash.h"
 #include "duplex_curl.h"
 #include "interrupt.h"
@@ -222,6 +222,18 @@ static size_t CallbackCurlHeader(void *ptr, size_t size, size_t nmemb,
     // This comes along with redirects
     LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") %s",
                                       info->id(), header_line.c_str());
+  } else if (HasPrefix(header_line, "LINK:", true)) {
+    // This is metalink info
+    LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") %s",
+                                      info->id(), header_line.c_str());
+    std::string link = info->link();
+    if (link.size() != 0) {
+      // multiple LINK headers are allowed
+      link = link + ", " + header_line.substr(5);
+    } else {
+      link = header_line.substr(5);
+    }
+    info->SetLink(link);
   } else if (HasPrefix(header_line, "X-SQUID-ERROR:", true)) {
     // Reinterpret host error as proxy error
     if (info->error_code() == kFailHostHttp) {
@@ -563,8 +575,10 @@ int DownloadManager::CallbackCurlSocket(CURL * /* easy */,
  * Worker thread event loop.  Waits on new JobInfo structs on a pipe.
  */
 void *DownloadManager::MainDownload(void *data) {
-  LogCvmfs(kLogDownload, kLogDebug, "download I/O thread started");
   DownloadManager *download_mgr = static_cast<DownloadManager *>(data);
+  LogCvmfs(kLogDownload, kLogDebug,
+                         "download I/O thread of DownloadManager '%s' started",
+                         download_mgr->name_.c_str());
 
   const int kIdxPipeTerminate = 0;
   const int kIdxPipeJobs = 1;
@@ -685,8 +699,10 @@ void *DownloadManager::MainDownload(void *data) {
 
         int64_t redir_count;
         curl_easy_getinfo(easy_handle, CURLINFO_REDIRECT_COUNT, &redir_count);
-        LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
-                 "Number of CURL redirects %" PRId64 , info->id(), redir_count);
+        LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
+                                  "Number of CURL redirects %" PRId64 ,
+                                  download_mgr->name_.c_str(), info->id(),
+                                  redir_count);
 
         curl_multi_remove_handle(download_mgr->curl_multi_, easy_handle);
         if (download_mgr->VerifyAndFinalize(curl_error, info)) {
@@ -717,7 +733,9 @@ void *DownloadManager::MainDownload(void *data) {
   download_mgr->pool_handles_inuse_->clear();
   free(download_mgr->watch_fds_);
 
-  LogCvmfs(kLogDownload, kLogDebug, "download I/O thread terminated");
+  LogCvmfs(kLogDownload, kLogDebug,
+                       "download I/O thread of DownloadManager '%s' terminated",
+                       download_mgr->name_.c_str());
   return NULL;
 }
 
@@ -920,6 +938,7 @@ void DownloadManager::InitializeRequest(JobInfo *info, CURL *handle) {
   info->SetHttpCode(-1);
   info->SetFollowRedirects(follow_redirects_);
   info->SetNumUsedProxies(1);
+  info->SetNumUsedMetalinks(1);
   info->SetNumUsedHosts(1);
   info->SetNumRetries(0);
   info->SetBackoffMs(0);
@@ -937,10 +956,10 @@ void DownloadManager::InitializeRequest(JobInfo *info, CURL *handle) {
     header_lists_->AppendHeader(info->headers(), info->tracing_header_gid());
     header_lists_->AppendHeader(info->headers(), info->tracing_header_uid());
 
-    LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
-                                 "CURL Header for URL: %s is:\n %s",
-                                 info->id(), info->url()->c_str(),
-                                 header_lists_->Print(info->headers()).c_str());
+    LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
+                                "CURL Header for URL: %s is:\n %s",
+                                name_.c_str(), info->id(), info->url()->c_str(),
+                                header_lists_->Print(info->headers()).c_str());
   }
 
   if (info->force_nocache()) {
@@ -996,6 +1015,29 @@ void DownloadManager::InitializeRequest(JobInfo *info, CURL *handle) {
 #endif
 }
 
+void DownloadManager::CheckHostInfoReset(
+    const std::string &typ,
+    HostInfo &info,
+    JobInfo *jobinfo,
+    time_t &now)
+{
+  if (info.timestamp_backup > 0) {
+    if (now == 0)
+      now = time(NULL);
+    if (static_cast<int64_t>(now) >
+        static_cast<int64_t>(info.timestamp_backup + info.reset_after))
+    {
+      LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
+              "(manager %s - id %" PRId64 ") "
+              "switching %s from %s to %s (reset %s)", name_.c_str(),
+              jobinfo->id(), typ.c_str(), (*info.chain)[info.current].c_str(),
+              (*info.chain)[0].c_str(), typ.c_str());
+      info.current = 0;
+      info.timestamp_backup = 0;
+    }
+  }
+}
+
 
 /**
  * Sets the URL specific options such as host to use and timeout.  It might also
@@ -1004,6 +1046,7 @@ void DownloadManager::InitializeRequest(JobInfo *info, CURL *handle) {
 void DownloadManager::SetUrlOptions(JobInfo *info) {
   CURL *curl_handle = info->curl_handle();
   string url_prefix;
+  time_t now = 0;
 
   MutexLockGuard m(lock_options_);
 
@@ -1020,39 +1063,26 @@ void DownloadManager::SetUrlOptions(JobInfo *info) {
   } else {  // no sharding policy
     // Check if proxy group needs to be reset from backup to primary
     if (opt_timestamp_backup_proxies_ > 0) {
-      const time_t now = time(NULL);
+      now = time(NULL);
       if (static_cast<int64_t>(now) >
           static_cast<int64_t>(opt_timestamp_backup_proxies_ +
                               opt_proxy_groups_reset_after_))
       {
         opt_proxy_groups_current_ = 0;
         opt_timestamp_backup_proxies_ = 0;
-        RebalanceProxiesUnlocked("reset proxy group");
+        RebalanceProxiesUnlocked("Reset proxy group from backup to primary");
       }
     }
     // Check if load-balanced proxies within the group need to be reset
     if (opt_timestamp_failover_proxies_ > 0) {
-      const time_t now = time(NULL);
+      if (now == 0)
+        now = time(NULL);
       if (static_cast<int64_t>(now) >
           static_cast<int64_t>(opt_timestamp_failover_proxies_ +
                               opt_proxy_groups_reset_after_))
       {
-        RebalanceProxiesUnlocked("reset load-balanced proxies");
-      }
-    }
-    // Check if host needs to be reset
-    if (opt_timestamp_backup_host_ > 0) {
-      const time_t now = time(NULL);
-      if (static_cast<int64_t>(now) >
-          static_cast<int64_t>(opt_timestamp_backup_host_ +
-                              opt_host_reset_after_))
-      {
-        LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-                "(id %" PRId64 ") switching host from %s to %s (reset host)",
-                info->id(), (*opt_host_chain_)[opt_host_chain_current_].c_str(),
-                (*opt_host_chain_)[0].c_str());
-        opt_host_chain_current_ = 0;
-        opt_timestamp_backup_host_ = 0;
+        RebalanceProxiesUnlocked(
+                         "Reset load-balanced proxies within the active group");
       }
     }
 
@@ -1082,6 +1112,10 @@ void DownloadManager::SetUrlOptions(JobInfo *info) {
     }
   }  // end !sharding
 
+  // Check if metalink and host chains need to be reset
+  CheckHostInfoReset("metalink", opt_metalink_, info, now);
+  CheckHostInfoReset("host", opt_metalink_, info, now);
+
   curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_LIMIT, opt_low_speed_limit_);
   if (info->proxy() != "DIRECT") {
     curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, opt_timeout_proxy_);
@@ -1093,9 +1127,20 @@ void DownloadManager::SetUrlOptions(JobInfo *info) {
   if (!opt_dns_server_.empty())
     curl_easy_setopt(curl_handle, CURLOPT_DNS_SERVERS, opt_dns_server_.c_str());
 
-  if (info->probe_hosts() && opt_host_chain_) {
-    url_prefix = (*opt_host_chain_)[opt_host_chain_current_];
-    info->SetCurrentHostChainIndex(opt_host_chain_current_);
+  if (info->probe_hosts()) {
+    if (CheckMetalinkChain(now)) {
+      url_prefix = (*opt_metalink_.chain)[opt_metalink_.current];
+      info->SetCurrentMetalinkChainIndex(opt_metalink_.current);
+      LogCvmfs(kLogDownload, kLogDebug, "(manager %s - id %" PRId64 ") "
+                      "reading from metalink %d",
+                      name_.c_str(), info->id(), opt_metalink_.current);
+    } else if (opt_host_.chain) {
+      url_prefix = (*opt_host_.chain)[opt_host_.current];
+      info->SetCurrentHostChainIndex(opt_host_.current);
+      LogCvmfs(kLogDownload, kLogDebug, "(manager %s - id %" PRId64 ") "
+                      "reading from host %d",
+                      name_.c_str(), info->id(), opt_host_.current);
+    }
   }
 
   string url = url_prefix + *(info->url());
@@ -1105,20 +1150,22 @@ void DownloadManager::SetUrlOptions(JobInfo *info) {
     bool rvb = ssl_certificate_store_.ApplySslCertificatePath(curl_handle);
     if (!rvb) {
       LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-                       "(id %" PRId64 ") Failed to set SSL certificate path %s",
+                       "(manager %s - id %" PRId64 ") "
+                       "Failed to set SSL certificate path %s", name_.c_str(),
                        info->id(), ssl_certificate_store_.GetCaPath().c_str());
     }
     if (info->pid() != -1) {
       if (credentials_attachment_ == NULL) {
-        LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
+        LogCvmfs(kLogDownload, kLogDebug, "(manager %s - id %" PRId64 ") "
                       "uses secure downloads but no credentials attachment set",
-                      info->id());
+                      name_.c_str(), info->id());
       } else {
         bool retval = credentials_attachment_->ConfigureCurlHandle(
           curl_handle, info->pid(), info->GetCredDataPtr());
         if (!retval) {
-          LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
-                                    "failed attaching credentials", info->id());
+          LogCvmfs(kLogDownload, kLogDebug, "(manager %s - id %" PRId64 ") "
+                                    "failed attaching credentials",
+                                    name_.c_str(), info->id());
         }
       }
     }
@@ -1153,8 +1200,9 @@ void DownloadManager::SetUrlOptions(JobInfo *info) {
       }
     }
     replacement = (replacement == "") ? proxy_template_direct_ : replacement;
-    LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
-                    "replacing @proxy@ by %s", info->id(), replacement.c_str());
+    LogCvmfs(kLogDownload, kLogDebug, "(manager %s - id %" PRId64 ") "
+                                "replacing @proxy@ by %s",
+                                name_.c_str(), info->id(), replacement.c_str());
     url = ReplaceAll(url, "@proxy@", replacement);
   }
 
@@ -1196,8 +1244,8 @@ bool DownloadManager::ValidateProxyIpsUnlocked(
 {
   if (!host.IsExpired())
     return false;
-  LogCvmfs(kLogDownload, kLogDebug, "validate DNS entry for %s",
-                                    host.name().c_str());
+  LogCvmfs(kLogDownload, kLogDebug, "(manager '%s') validate DNS entry for %s",
+                                    name_.c_str(), host.name().c_str());
 
   unsigned group_idx = opt_proxy_groups_current_;
   dns::Host new_host = resolver_->Resolve(host.name());
@@ -1206,8 +1254,8 @@ bool DownloadManager::ValidateProxyIpsUnlocked(
   if (new_host.status() != dns::kFailOk) {
     // Try again later in case resolving fails.
     LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-             "failed to resolve IP addresses for %s (%d - %s)",
-             host.name().c_str(), new_host.status(),
+             "(manager '%s') failed to resolve IP addresses for %s (%d - %s)",
+             name_.c_str(), host.name().c_str(), new_host.status(),
              dns::Code2Ascii(new_host.status()));
     new_host = dns::Host::ExtendDeadline(host, resolver_->min_ttl());
   } else if (!host.IsEquivalent(new_host)) {
@@ -1226,7 +1274,8 @@ bool DownloadManager::ValidateProxyIpsUnlocked(
 
   // Remove old host objects, insert new objects, and rebalance.
   LogCvmfs(kLogDownload, kLogDebug | kLogSyslog,
-           "DNS entries for proxy %s changed, adjusting", host.name().c_str());
+           "(manager '%s') DNS entries for proxy %s changed, adjusting",
+           name_.c_str(), host.name().c_str());
   vector<ProxyInfo> *group = current_proxy_group();
   opt_num_proxies_ -= group->size();
   for (unsigned i = 0; i < group->size(); ) {
@@ -1246,7 +1295,9 @@ bool DownloadManager::ValidateProxyIpsUnlocked(
   group->insert(group->end(), new_infos.begin(), new_infos.end());
   opt_num_proxies_ += new_infos.size();
 
-  RebalanceProxiesUnlocked("DNS change");
+  std::string msg = "DNS entries for proxy " + host.name() + " changed";
+
+  RebalanceProxiesUnlocked(msg);
   return true;
 }
 
@@ -1308,8 +1359,9 @@ void DownloadManager::Backoff(JobInfo *info) {
     info->SetBackoffMs(backoff_max_ms);
   }
 
-  LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") backing off for %d ms",
-                                    info->id(), info->backoff_ms());
+  LogCvmfs(kLogDownload, kLogDebug,
+                        "(manager '%s' - id %" PRId64 ") backing off for %d ms",
+                        name_.c_str(), info->id(), info->backoff_ms());
   SafeSleepMs(info->backoff_ms());
 }
 
@@ -1350,6 +1402,81 @@ void DownloadManager::ReleaseCredential(JobInfo *info) {
 }
 
 
+/* Sort links based on the "pri=" parameter */
+static bool sortlinks(const std::string &s1, const std::string &s2) {
+  const size_t pos1 = s1.find("; pri=");
+  const size_t pos2 = s2.find("; pri=");
+  int pri1, pri2;
+  if ((pos1 != std::string::npos) &&
+      (pos2 != std::string::npos) &&
+      (sscanf(s1.substr(pos1+6).c_str(), "%d", &pri1) == 1) &&
+      (sscanf(s2.substr(pos2+6).c_str(), "%d", &pri2) == 1)) {
+    return pri1 < pri2;
+  }
+  return false;
+}
+
+/**
+ * Parses Link header and uses it to set a new host chain.
+ * See rfc6249.
+ */
+void DownloadManager::ProcessLink(JobInfo *info) {
+
+  std::vector<std::string> links = SplitString(info->link(), ',');
+  if (info->link().find("; pri=") != std::string::npos)
+    std::sort(links.begin(), links.end(), sortlinks);
+
+  std::vector<std::string> host_list;
+
+  std::vector<std::string>::const_iterator il = links.begin();
+  for (; il != links.end(); ++il) {
+    const std::string &link = *il;
+    if ((link.find("; rel=duplicate") == std::string::npos) &&
+        (link.find("; rel=\"duplicate\"") == std::string::npos)) {
+      LogCvmfs(kLogDownload, kLogDebug,
+        "skipping link '%s' because it does not contain rel=duplicate",
+        link.c_str());
+      continue;
+    }
+    // ignore depth= field since there's nothing useful we can do with it
+
+    size_t start = link.find('<');
+    if (start == std::string::npos) {
+      LogCvmfs(kLogDownload, kLogDebug,
+        "skipping link '%s' because it does not have a left angle bracket",
+        link.c_str());
+      continue;
+    }
+
+    start++;
+    if ((link.substr(start, 7) != "http://") &&
+        (link.substr(start, 8) != "https://")) {
+      LogCvmfs(kLogDownload, kLogDebug,
+        "skipping link '%s' of unrecognized url protocol", link.c_str());
+      continue;
+    }
+
+    size_t end = link.find('/', start+8);
+    if (end == std::string::npos)
+      end = link.find('>');
+    if (end == std::string::npos) {
+      LogCvmfs(kLogDownload, kLogDebug,
+        "skipping link '%s' because no slash in url and no right angle bracket",
+        link.c_str());
+      continue;
+    }
+    const std::string host = link.substr(start, end-start);
+    LogCvmfs(kLogDownload, kLogDebug, "adding linked host '%s'", host.c_str());
+    host_list.push_back(host);
+  }
+
+  if (host_list.size() > 0) {
+    SetHostChain(host_list);
+    opt_metalink_timestamp_link_ = time(NULL);
+  }
+}
+
+
 /**
  * Checks the result of a curl download and implements the failure logic, such
  * as changing the proxy server.  Takes care of cleanup.
@@ -1357,11 +1484,26 @@ void DownloadManager::ReleaseCredential(JobInfo *info) {
  * \return true if another download should be performed, false otherwise
  */
 bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
-  LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
+  LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
                            "Verify downloaded url %s, proxy %s (curl error %d)",
-                           info->id(), info->url()->c_str(),
+                           name_.c_str(), info->id(), info->url()->c_str(),
                            info->proxy().c_str(), curl_error);
   UpdateStatistics(info->curl_handle());
+
+  bool was_metalink;
+  std::string typ;
+  if (info->current_metalink_chain_index() >= 0) {
+    was_metalink = true;
+    typ = "metalink";
+    if (info->link() != "") {
+      // process Link header whether or not the redirected URL got an error
+      ProcessLink(info);
+    }
+  } else {
+    was_metalink = false;
+    typ = "host";
+  }
+
 
   // Verification and error classification
   switch (curl_error) {
@@ -1373,15 +1515,15 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
         if (match_hash != *(info->expected_hash())) {
           if (ignore_signature_failures_) {
             LogCvmfs(kLogDownload, kLogDebug | kLogSyslogErr,
-                    "(id %" PRId64 ") ignoring failed hash verification of %s "
-                    "(expected %s, got %s)",
-                    info->id(), info->url()->c_str(),
-                    info->expected_hash()->ToString().c_str(),
-                    match_hash.ToString().c_str());
+                "(manager '%s' - id %" PRId64 ") "
+                "ignoring failed hash verification of %s (expected %s, got %s)",
+                name_.c_str(), info->id(), info->url()->c_str(),
+                info->expected_hash()->ToString().c_str(),
+                match_hash.ToString().c_str());
           } else {
-            LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
+            LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
                          "hash verification of %s failed (expected %s, got %s)",
-                         info->id(), info->url()->c_str(),
+                         name_.c_str(), info->id(), info->url()->c_str(),
                          info->expected_hash()->ToString().c_str(),
                          match_hash.ToString().c_str());
             info->SetErrorCode(kFailBadData);
@@ -1428,18 +1570,20 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
       break;
     case CURLE_SSL_CACERT_BADFILE:
       LogCvmfs(kLogDownload, kLogDebug | kLogSyslogErr,
-               "(id %" PRId64 ") Failed to load certificate bundle. "
+               "(manager '%s' -id %" PRId64 ") "
+               "Failed to load certificate bundle. "
                "X509_CERT_BUNDLE might point to the wrong location.",
-               info->id());
+               name_.c_str(), info->id());
       info->SetErrorCode(kFailHostConnection);
       break;
     // As of curl 7.62.0, CURLE_SSL_CACERT is the same as
     // CURLE_PEER_FAILED_VERIFICATION
     case CURLE_PEER_FAILED_VERIFICATION:
       LogCvmfs(kLogDownload, kLogDebug | kLogSyslogErr,
-               "(id %" PRId64 ") invalid SSL certificate of remote host. "
+               "(manager '%s' - id %" PRId64 ") "
+               "invalid SSL certificate of remote host. "
                "X509_CERT_DIR and/or X509_CERT_BUNDLE might point to the wrong "
-               "location.", info->id());
+               "location.", name_.c_str(), info->id());
       info->SetErrorCode(kFailHostConnection);
       break;
     case CURLE_ABORTED_BY_CALLBACK:
@@ -1454,14 +1598,22 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
         kFailHostShortTransfer : kFailProxyShortTransfer);
       break;
     default:
-      LogCvmfs(kLogDownload, kLogSyslogErr, "(id %" PRId64 ") "
-                         "unexpected curl error (%d) while trying to fetch %s",
-                         info->id(), curl_error, info->url()->c_str());
+      LogCvmfs(kLogDownload, kLogSyslogErr, "(manager '%s' - id %" PRId64 ") "
+                   "unexpected curl error (%d) while trying to fetch %s",
+                   name_.c_str(), info->id(), curl_error, info->url()->c_str());
       info->SetErrorCode(kFailOther);
       break;
   }
 
-  std::vector<std::string> *host_chain = opt_host_chain_;
+  std::vector<std::string> *host_chain;
+  unsigned char num_used_hosts;
+  if (was_metalink) {
+    host_chain = opt_metalink_.chain;
+    num_used_hosts = info->num_used_metalinks();
+  } else {
+    host_chain = opt_host_.chain;
+    num_used_hosts = info->num_used_hosts();
+  }
 
   // Determination if download should be repeated
   bool try_again = false;
@@ -1473,9 +1625,10 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
         try_again = true;
       } else {
         // Make it a host failure
-        LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn, "(id %" PRId64 ") "
-                 "data corruption with no-cache header, try another host",
-                 info->id());
+        LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
+                       "(manager '%s' - id %" PRId64 ") "
+                       "data corruption with no-cache header, try another %s",
+                       name_.c_str(), info->id(), typ.c_str());
 
         info->SetErrorCode(kFailHostHttp);
       }
@@ -1485,7 +1638,7 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
            IsHostTransferError(info->error_code()) ||
            (info->error_code() == kFailHostHttp)) &&
          info->probe_hosts() &&
-         host_chain && (info->num_used_hosts() < host_chain->size()))
+         host_chain && (num_used_hosts < host_chain->size()))
        )
     {
       try_again = true;
@@ -1505,8 +1658,7 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
         if (!same_url_retry && (info->num_used_proxies() >= opt_num_proxies_)) {
           // Check if this can be made a host fail-over
           if (info->probe_hosts() &&
-              host_chain &&
-              (info->num_used_hosts() < host_chain->size()))
+              host_chain && (num_used_hosts < host_chain->size()))
           {
             // reset proxy group if not already performed by other handle
             if (opt_proxy_groups_) {
@@ -1515,13 +1667,16 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
               {
                 opt_proxy_groups_current_ = 0;
                 opt_timestamp_backup_proxies_ = 0;
-                RebalanceProxiesUnlocked("reset proxies for host failover");
+                const std::string msg =
+                  "reset proxies for " + typ + " failover";
+                RebalanceProxiesUnlocked(msg);
               }
             }
 
             // Make it a host failure
             LogCvmfs(kLogDownload, kLogDebug,
-                         "(id %" PRId64 ") make it a host failure", info->id());
+                       "(manager '%s' - id %" PRId64 ") make it a %s failure",
+                       name_.c_str(), info->id(), typ.c_str());
             info->SetNumUsedProxies(1);
             info->SetErrorCode(kFailHostAfterProxy);
           } else {
@@ -1529,19 +1684,22 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
               // Instead of giving up, reset the num_used_proxies counter,
               // switch proxy and try again
               LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-                   "(id %" PRId64 ") "
+                   "(manager '%s' - id %" PRId64 ") "
                    "VerifyAndFinalize() would fail the download here. "
                    "Instead switch proxy and retry download. "
-                   "info->probe_hosts=%d host_chain=%p info->num_used_hosts=%d "
+                   "typ=%s "
+                   "info->probe_hosts=%d host_chain=%p num_used_hosts=%d "
                    "host_chain->size()=%lu same_url_retry=%d "
                    "info->num_used_proxies=%d opt_num_proxies_=%d",
-                   info->id(), static_cast<int>(info->probe_hosts()),
-                   host_chain, info->num_used_hosts(),
+                   name_.c_str(), info->id(), typ.c_str(),
+                   static_cast<int>(info->probe_hosts()),
+                   host_chain, num_used_hosts,
                    host_chain ?
                       host_chain->size() : -1, static_cast<int>(same_url_retry),
                    info->num_used_proxies(), opt_num_proxies_);
               info->SetNumUsedProxies(1);
-              RebalanceProxiesUnlocked("failover indefinitely");
+              RebalanceProxiesUnlocked(
+                                     "download failed - failover indefinitely");
               try_again = !Interrupted(fqrn_, info);
             } else {
               try_again = false;
@@ -1553,10 +1711,11 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
   }
 
   if (try_again) {
-    LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
-               "Trying again on same curl handle, same url: %d, "
-               "error code %d no-cache %d",
-               info->id(), same_url_retry, info->error_code(), info->nocache());
+    LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
+                              "Trying again on same curl handle, same url: %d, "
+                              "error code %d no-cache %d",
+                              name_.c_str(), info->id(), same_url_retry,
+                              info->error_code(), info->nocache());
     // Reset internal state and destination
     if (info->sink() != NULL && info->sink()->Reset() != 0) {
       info->SetErrorCode(kFailLocalIO);
@@ -1622,8 +1781,13 @@ bool DownloadManager::VerifyAndFinalize(const int curl_error, JobInfo *info) {
       }
       if (switch_host) {
         ReleaseCredential(info);
-        SwitchHost(info);
-        info->SetNumUsedHosts(info->num_used_hosts() + 1);
+        if (was_metalink) {
+          SwitchMetalink(info);
+          info->SetNumUsedMetalinks(num_used_hosts + 1);
+        } else {
+          SwitchHost(info);
+          info->SetNumUsedHosts(num_used_hosts + 1);
+        }
         SetUrlOptions(info);
       }
     }  // end !sharding
@@ -1661,7 +1825,8 @@ DownloadManager::~DownloadManager() {
   }
   if (health_check_.UseCount() > 0) {
     if (health_check_.Unique()) {
-      LogCvmfs(kLogDownload, kLogDebug, "Stopping healthcheck thread");
+      LogCvmfs(kLogDownload, kLogDebug,
+                   "(manager '%s') Stopping healthcheck thread", name_.c_str());
       health_check_->StopHealthcheck();
     }
     health_check_.Reset();
@@ -1691,7 +1856,7 @@ DownloadManager::~DownloadManager() {
     free(user_agent_);
 
   delete counters_;
-  delete opt_host_chain_;
+  delete opt_host_.chain;
   delete opt_host_chain_rtt_;
   delete opt_proxy_groups_;
 
@@ -1713,7 +1878,7 @@ void DownloadManager::InitHeaders() {
 #else
   cernvm_id += "Fuse ";
 #endif
-  cernvm_id += string(VERSION);
+  cernvm_id += string(CVMFS_VERSION);
   if (getenv("CERNVM_UUID") != NULL) {
     cernvm_id += " " +
     sanitizer::InputSanitizer("az AZ 09 -").Filter(getenv("CERNVM_UUID"));
@@ -1728,7 +1893,8 @@ void DownloadManager::InitHeaders() {
 }
 
 DownloadManager::DownloadManager(const unsigned max_pool_handles,
-                           const perf::StatisticsTemplate &statistics) :
+                           const perf::StatisticsTemplate &statistics,
+                           const std::string &name) :
                   prng_(Prng()),
                   pool_handles_idle_(new set<CURL *>),
                   pool_handles_inuse_(new set<CURL *>),
@@ -1750,9 +1916,10 @@ DownloadManager::DownloadManager(const unsigned max_pool_handles,
                   follow_redirects_(false),
                   ignore_signature_failures_(false),
                   enable_http_tracing_(false),
-                  opt_host_chain_(NULL),
+                  opt_metalink_(NULL, 0, 0, 0),
+                  opt_metalink_timestamp_link_(0),
+                  opt_host_(NULL, 0, 0, 0),
                   opt_host_chain_rtt_(NULL),
-                  opt_host_chain_current_(0),
                   opt_proxy_groups_(NULL),
                   opt_proxy_groups_current_(0),
                   opt_proxy_groups_current_burned_(0),
@@ -1760,12 +1927,11 @@ DownloadManager::DownloadManager(const unsigned max_pool_handles,
                   opt_num_proxies_(0),
                   opt_proxy_shard_(false),
                   failover_indefinitely_(false),
+                  name_(name),
                   opt_ip_preference_(dns::kIpPreferSystem),
                   opt_timestamp_backup_proxies_(0),
                   opt_timestamp_failover_proxies_(0),
                   opt_proxy_groups_reset_after_(0),
-                  opt_timestamp_backup_host_(0),
-                  opt_host_reset_after_(0),
                   credentials_attachment_(NULL),
                   counters_(new Counters(statistics))
 {
@@ -1822,7 +1988,8 @@ void DownloadManager::Spawn() {
   atomic_inc32(&multi_threaded_);
 
   if (health_check_.UseCount() > 0) {
-    LogCvmfs(kLogDownload, kLogDebug, "Starting healthcheck thread");
+    LogCvmfs(kLogDownload, kLogDebug,
+                   "(manager '%s') Starting healthcheck thread", name_.c_str());
     health_check_->StartHealthcheck();
   }
 }
@@ -1846,6 +2013,9 @@ Failures DownloadManager::Fetch(JobInfo *info) {
     info->GetHashContextPtr()->size = shash::GetContextSize(algorithm);
     info->GetHashContextPtr()->buffer = alloca(info->hash_context().size);
   }
+
+  // In case JobInfo object is being reused
+  info->SetLink("");
 
   // Prepare cvmfs-info: header, allocate string on the stack
   info->SetInfoHeader(NULL);
@@ -1922,8 +2092,9 @@ Failures DownloadManager::Fetch(JobInfo *info) {
   }
 
   if (result != kFailOk) {
-    LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
+    LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
                                       "download failed (error %d - %s)",
+                                      name_.c_str(),
                                       info->id(), result, Code2Ascii(result));
 
     if (info->sink() != NULL) {
@@ -1966,7 +2137,8 @@ void DownloadManager::SetDnsServer(const string &address) {
     bool retval = resolver_->SetResolvers(servers);
     assert(retval);
   }
-  LogCvmfs(kLogDownload, kLogSyslog, "set nameserver to %s", address.c_str());
+  LogCvmfs(kLogDownload, kLogSyslog, "(manager '%s') set nameserver to %s",
+                                     name_.c_str(), address.c_str());
 }
 
 
@@ -2045,6 +2217,46 @@ void DownloadManager::GetTimeout(unsigned *seconds_proxy,
 
 
 /**
+ * Parses a list of ';'-separated hosts for the metalink chain.  The empty
+ * string removes the metalink list.
+ */
+void DownloadManager::SetMetalinkChain(const string &metalink_list) {
+  SetMetalinkChain(SplitString(metalink_list, ';'));
+}
+
+
+void DownloadManager::SetMetalinkChain(
+    const std::vector<std::string> &metalink_list) {
+  const MutexLockGuard m(lock_options_);
+  opt_metalink_.timestamp_backup = 0;
+  delete opt_metalink_.chain;
+  opt_metalink_.current = 0;
+
+  if (metalink_list.empty()) {
+    opt_metalink_.chain = NULL;
+    return;
+  }
+
+  opt_metalink_.chain = new vector<string>(metalink_list);
+}
+
+
+/**
+ * Retrieves the currently set chain of metalink hosts and the currently
+ * used metalink host.
+ */
+void DownloadManager::GetMetalinkInfo(vector<string> *metalink_chain,
+                                  unsigned *current_metalink)
+{
+  const MutexLockGuard m(lock_options_);
+  if (opt_metalink_.chain) {
+    if (current_metalink) {*current_metalink = opt_metalink_.current;}
+    if (metalink_chain) {*metalink_chain = *opt_metalink_.chain;}
+  }
+}
+
+
+/**
  * Parses a list of ';'-separated hosts for the host chain.  The empty string
  * removes the host list.
  */
@@ -2055,24 +2267,23 @@ void DownloadManager::SetHostChain(const string &host_list) {
 
 void DownloadManager::SetHostChain(const std::vector<std::string> &host_list) {
   MutexLockGuard m(lock_options_);
-  opt_timestamp_backup_host_ = 0;
-  delete opt_host_chain_;
+  opt_host_.timestamp_backup = 0;
+  delete opt_host_.chain;
   delete opt_host_chain_rtt_;
-  opt_host_chain_current_ = 0;
+  opt_host_.current = 0;
 
   if (host_list.empty()) {
-    opt_host_chain_ = NULL;
+    opt_host_.chain = NULL;
     opt_host_chain_rtt_ = NULL;
     return;
   }
 
-  opt_host_chain_ = new vector<string>(host_list);
+  opt_host_.chain = new vector<string>(host_list);
   opt_host_chain_rtt_ =
-    new vector<int>(opt_host_chain_->size(), kProbeUnprobed);
+    new vector<int>(opt_host_.chain->size(), kProbeUnprobed);
   // LogCvmfs(kLogDownload, kLogSyslog, "using host %s",
-  //          (*opt_host_chain_)[0].c_str());
+  //          (*opt_host_.chain)[0].c_str());
 }
-
 
 
 /**
@@ -2083,9 +2294,9 @@ void DownloadManager::GetHostInfo(vector<string> *host_chain, vector<int> *rtt,
                                   unsigned *current_host)
 {
   MutexLockGuard m(lock_options_);
-  if (opt_host_chain_) {
-    if (current_host) {*current_host = opt_host_chain_current_;}
-    if (host_chain) {*host_chain = *opt_host_chain_;}
+  if (opt_host_.chain) {
+    if (current_host) {*current_host = opt_host_.current;}
+    if (host_chain) {*host_chain = *opt_host_.chain;}
     if (rtt) {*rtt = *opt_host_chain_rtt_;}
   }
 }
@@ -2156,63 +2367,100 @@ void DownloadManager::SwitchProxy(JobInfo *info) {
   }
 
   UpdateProxiesUnlocked("failed proxy");
-  LogCvmfs(kLogDownload, kLogDebug, "(id %" PRId64 ") "
-              "%lu proxies remain in group", info->id(),
+  LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
+              "%lu proxies remain in group", name_.c_str(), info->id(),
               current_proxy_group()->size() - opt_proxy_groups_current_burned_);
 }
 
 
 /**
- * Switches to the next host in the chain.  If info is set, switch only if the
- * current host is identical to the one used by info, otherwise another transfer
- * has already done the switch.
+ * Switches to the next host in the chain.  If jobinfo is set, switch only if
+ * the current host is identical to the one used by jobinfo, otherwise another
+ * transfer has already done the switch.
  */
-void DownloadManager::SwitchHost(JobInfo *info) {
+void DownloadManager::SwitchHostInfo(const std::string &typ,
+                                     HostInfo &info,
+                                     JobInfo *jobinfo) {
   MutexLockGuard m(lock_options_);
 
-  if (!opt_host_chain_ || (opt_host_chain_->size() == 1)) {
+  if (!info.chain || (info.chain->size() == 1)) {
     return;
   }
 
-  if (info && (info->current_host_chain_index() != opt_host_chain_current_)) {
-    LogCvmfs(kLogDownload, kLogDebug,
-             "(id %" PRId64 ")"
-             "don't switch host, "
-             "last used host: %s, current host: %s", info->id(),
-             (*opt_host_chain_)[info->current_host_chain_index()].c_str(),
-             (*opt_host_chain_)[opt_host_chain_current_].c_str());
-    return;
+  if (jobinfo) {
+    int lastused;
+    if (typ == "host") {
+      lastused = jobinfo->current_host_chain_index();
+    } else {
+      lastused = jobinfo->current_metalink_chain_index();
+    }
+    if (lastused != info.current) {
+      LogCvmfs(kLogDownload, kLogDebug,
+               "(manager '%s' - id %" PRId64 ")"
+               "don't switch %s, "
+               "last used %s: %s, current %s: %s",
+               name_.c_str(), jobinfo->id(), typ.c_str(),
+               typ.c_str(), (*info.chain)[lastused].c_str(),
+               typ.c_str(), (*info.chain)[info.current].c_str());
+      return;
+    }
   }
 
   string reason = "manually triggered";
-  string info_id = "";
-  if (info) {
-    reason = download::Code2Ascii(info->error_code());
-    info_id = "(id " + StringifyInt(info->id()) + ") ";
+  string info_id = "(manager " + name_;
+  if (jobinfo) {
+    reason = download::Code2Ascii(jobinfo->error_code());
+    info_id = " - id " + StringifyInt(jobinfo->id());
   }
+  info_id += ")";
 
-  string old_host = (*opt_host_chain_)[opt_host_chain_current_];
-  opt_host_chain_current_ =
-      (opt_host_chain_current_ + 1) % opt_host_chain_->size();
-  perf::Inc(counters_->n_host_failover);
+  const std::string old_host = (*info.chain)[info.current];
+  info.current = (info.current + 1) % static_cast<int>(info.chain->size());
+  if (typ == "host") {
+    perf::Inc(counters_->n_host_failover);
+  } else {
+    perf::Inc(counters_->n_metalink_failover);
+  }
   LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-          "%sswitching host from %s to %s (%s)", info_id.c_str(),
-          old_host.c_str(), (*opt_host_chain_)[opt_host_chain_current_].c_str(),
+          "%s switching %s from %s to %s (%s)", info_id.c_str(), typ.c_str(),
+          old_host.c_str(), (*info.chain)[info.current].c_str(),
           reason.c_str());
 
   // Remember the timestamp of switching to backup host
-  if (opt_host_reset_after_ > 0) {
-    if (opt_host_chain_current_ != 0) {
-      if (opt_timestamp_backup_host_ == 0)
-        opt_timestamp_backup_host_ = time(NULL);
+  if (info.reset_after > 0) {
+    if (info.current != 0) {
+      if (info.timestamp_backup == 0)
+        info.timestamp_backup = time(NULL);
     } else {
-      opt_timestamp_backup_host_ = 0;
+      info.timestamp_backup = 0;
     }
   }
 }
 
+void DownloadManager::SwitchHost(JobInfo *info) {
+  SwitchHostInfo("host", opt_host_, info);
+}
+
 void DownloadManager::SwitchHost() {
   SwitchHost(NULL);
+}
+
+
+void DownloadManager::SwitchMetalink(JobInfo *info) {
+  SwitchHostInfo("metalink", opt_metalink_, info);
+}
+
+
+void DownloadManager::SwitchMetalink() {
+  SwitchMetalink(NULL);
+}
+
+bool DownloadManager::CheckMetalinkChain(time_t now) {
+  return (opt_metalink_.chain &&
+         ((opt_metalink_timestamp_link_ == 0) ||
+          (static_cast<int64_t>((now == 0) ? time(NULL) : now) >
+           static_cast<int64_t>(opt_metalink_timestamp_link_ +
+                               opt_metalink_.reset_after))));
 }
 
 
@@ -2247,11 +2495,15 @@ void DownloadManager::ProbeHosts() {
       if (result == kFailOk) {
         host_rtt[i] = static_cast<int>(
           DiffTimeSeconds(tv_start, tv_end) * 1000);
-        LogCvmfs(kLogDownload, kLogDebug, "probing host %s had %dms rtt",
-                 url.c_str(), host_rtt[i]);
+        LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
+                                          "probing host %s had %dms rtt",
+                                          name_.c_str(), info.id(),
+                                          url.c_str(), host_rtt[i]);
       } else {
-        LogCvmfs(kLogDownload, kLogDebug, "error while probing host %s: %d %s",
-                 url.c_str(), result, Code2Ascii(result));
+        LogCvmfs(kLogDownload, kLogDebug, "(manager '%s' - id %" PRId64 ") "
+                                       "error while probing host %s: %d %s",
+                                       name_.c_str(), info.id(),
+                                       url.c_str(), result, Code2Ascii(result));
         host_rtt[i] = INT_MAX;
       }
     }
@@ -2263,11 +2515,11 @@ void DownloadManager::ProbeHosts() {
   }
 
   MutexLockGuard m(lock_options_);
-  delete opt_host_chain_;
+  delete opt_host_.chain;
   delete opt_host_chain_rtt_;
-  opt_host_chain_ = new vector<string>(host_chain);
+  opt_host_.chain = new vector<string>(host_chain);
   opt_host_chain_rtt_ = new vector<int>(host_rtt);
-  opt_host_chain_current_ = 0;
+  opt_host_.current = 0;
 }
 
 bool DownloadManager::GeoSortServers(std::vector<std::string> *servers,
@@ -2306,7 +2558,8 @@ bool DownloadManager::GeoSortServers(std::vector<std::string> *servers,
   for (unsigned i = 0; i < max_attempts; ++i) {
     string url = host_chain_shuffled[i] + "/api/v1.0/geo/@proxy@/" + host_list;
     LogCvmfs(kLogDownload, kLogDebug,
-             "requesting ordered server list from %s", url.c_str());
+             "(manager '%s') requesting ordered server list from %s",
+             name_.c_str(), url.c_str());
     cvmfs::MemSink memsink;
     JobInfo info(&url, false, false, NULL, &memsink);
     Failures result = Fetch(&info);
@@ -2316,12 +2569,13 @@ bool DownloadManager::GeoSortServers(std::vector<std::string> *servers,
       bool retval = ValidateGeoReply(order, servers->size(), &geo_order);
       if (!retval) {
         LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-                 "retrieved invalid GeoAPI reply from %s [%s]",
-                 url.c_str(), order.c_str());
+                 "(manager '%s') retrieved invalid GeoAPI reply from %s [%s]",
+                 name_.c_str(), url.c_str(), order.c_str());
       } else {
-        LogCvmfs(kLogDownload, kLogDebug | kLogSyslog,
-                 "geographic order of servers retrieved from %s",
-                 dns::ExtractHost(host_chain_shuffled[i]).c_str());
+        LogCvmfs(kLogDownload, kLogDebug | kLogSyslog, "(manager '%s') "
+                              "geographic order of servers retrieved from %s",
+                              name_.c_str(),
+                              dns::ExtractHost(host_chain_shuffled[i]).c_str());
         // remove new line at end of "order"
         LogCvmfs(kLogDownload, kLogDebug, "order is %s",
                                   Trim(order, true /* trim_newline */).c_str());
@@ -2330,13 +2584,14 @@ bool DownloadManager::GeoSortServers(std::vector<std::string> *servers,
       }
     } else {
       LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-               "GeoAPI request %s failed with error %d [%s]",
-               url.c_str(), result, Code2Ascii(result));
+               "(manager '%s') GeoAPI request for %s failed with error %d [%s]",
+               name_.c_str(), url.c_str(), result, Code2Ascii(result));
     }
   }
   if (!success) {
-    LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-             "failed to retrieve geographic order from stratum 1 servers");
+    LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn, "(manager '%s') "
+             "failed to retrieve geographic order from stratum 1 servers",
+             name_.c_str());
     return false;
   }
 
@@ -2406,9 +2661,9 @@ bool DownloadManager::ProbeGeo() {
 
   // Re-install host chain and proxy chain
   MutexLockGuard m(lock_options_);
-  delete opt_host_chain_;
+  delete opt_host_.chain;
   opt_num_proxies_ = 0;
-  opt_host_chain_ = new vector<string>(host_chain.size());
+  opt_host_.chain = new vector<string>(host_chain.size());
 
   // It's possible that opt_proxy_groups_fallback_ might have changed while
   // the lock wasn't held
@@ -2431,7 +2686,7 @@ bool DownloadManager::ProbeGeo() {
     if (orderval < static_cast<uint64_t>(last_geo_host)) {
       // LogCvmfs(kLogCvmfs, kLogSyslog, "this is orderval %u at host index
       // %u", orderval, hosti);
-      (*opt_host_chain_)[hosti++] = host_chain[orderval];
+      (*opt_host_.chain)[hosti++] = host_chain[orderval];
     } else if (orderval >= static_cast<uint64_t>(first_geo_fallback)) {
       // LogCvmfs(kLogCvmfs, kLogSyslog,
       // "this is orderval %u at proxy index %u, using proxy_chain index %u",
@@ -2461,7 +2716,7 @@ bool DownloadManager::ProbeGeo() {
 
   delete opt_host_chain_rtt_;
   opt_host_chain_rtt_ = new vector<int>(host_chain.size(), kProbeGeo);
-  opt_host_chain_current_ = 0;
+  opt_host_.current = 0;
 
   return true;
 }
@@ -2576,7 +2831,8 @@ void DownloadManager::SetProxyChain(
     StripDirect(opt_proxy_fallback_list_, &set_proxy_fallback_list);
   if (contains_direct) {
     LogCvmfs(kLogDownload, kLogSyslogWarn | kLogDebug,
-             "fallback proxies do not support DIRECT, removing");
+             "(manager '%s') fallback proxies do not support DIRECT, removing",
+             name_.c_str());
   }
   if (set_proxy_fallback_list == "") {
     set_proxy_list = opt_proxy_list_;
@@ -2584,7 +2840,8 @@ void DownloadManager::SetProxyChain(
     bool contains_direct = StripDirect(opt_proxy_list_, &set_proxy_list);
     if (contains_direct) {
       LogCvmfs(kLogDownload, kLogSyslog | kLogDebug,
-               "skipping DIRECT proxy to use fallback proxy");
+               "(manager '%s') skipping DIRECT proxy to use fallback proxy",
+               name_.c_str());
     }
   }
 
@@ -2607,8 +2864,9 @@ void DownloadManager::SetProxyChain(
   if (set_proxy_list != "") {
     opt_proxy_groups_fallback_ = SplitString(set_proxy_list, ';').size();
   }
-  LogCvmfs(kLogDownload, kLogDebug, "first fallback proxy group %u",
-           opt_proxy_groups_fallback_);
+  LogCvmfs(kLogDownload, kLogDebug, "(manager '%s') "
+                                    "first fallback proxy group %u",
+                                    name_.c_str(), opt_proxy_groups_fallback_);
 
   // Concatenate regular proxies and fallback proxies, both of which can be
   // empty.
@@ -2618,8 +2876,8 @@ void DownloadManager::SetProxyChain(
       all_proxy_list += ";";
     all_proxy_list += set_proxy_fallback_list;
   }
-  LogCvmfs(kLogDownload, kLogDebug, "full proxy list %s",
-           all_proxy_list.c_str());
+  LogCvmfs(kLogDownload, kLogDebug, "(manager '%s') full proxy list %s",
+                                    name_.c_str(), all_proxy_list.c_str());
 
   // Resolve server names in provided urls
   vector<string> hostnames;  // All encountered hostnames
@@ -2638,8 +2896,9 @@ void DownloadManager::SetProxyChain(
     }
   }
   vector<dns::Host> hosts;
-  LogCvmfs(kLogDownload, kLogDebug, "resolving %lu proxy addresses",
-           hostnames.size());
+  LogCvmfs(kLogDownload, kLogDebug, "(manager '%s') "
+                                    "resolving %lu proxy addresses",
+                                    name_.c_str(), hostnames.size());
   resolver_->ResolveMany(hostnames, &hosts);
 
   // Construct opt_proxy_groups_: traverse proxy list in same order and expand
@@ -2661,10 +2920,10 @@ void DownloadManager::SetProxyChain(
       }
 
       if (hosts[num_proxy].status() != dns::kFailOk) {
-        LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-                 "failed to resolve IP addresses for %s (%d - %s)",
-                 hosts[num_proxy].name().c_str(), hosts[num_proxy].status(),
-                 dns::Code2Ascii(hosts[num_proxy].status()));
+        LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn, "(manager '%s') "
+               "failed to resolve IP addresses for %s (%d - %s)", name_.c_str(),
+               hosts[num_proxy].name().c_str(), hosts[num_proxy].status(),
+               dns::Code2Ascii(hosts[num_proxy].status()));
         dns::Host failed_host =
           dns::Host::ExtendDeadline(hosts[num_proxy], resolver_->min_ttl());
         infos.push_back(ProxyInfo(failed_host, this_group[j]));
@@ -2688,15 +2947,15 @@ void DownloadManager::SetProxyChain(
     opt_num_proxies_ += infos.size();
   }
   LogCvmfs(kLogDownload, kLogDebug,
-           "installed %u proxies in %lu load-balance groups",
-           opt_num_proxies_, opt_proxy_groups_->size());
+           "(manager '%s') installed %u proxies in %lu load-balance groups",
+           name_.c_str(), opt_num_proxies_, opt_proxy_groups_->size());
   opt_proxy_groups_current_ = 0;
   opt_proxy_groups_current_burned_ = 0;
 
   // Select random start proxy from the first group.
   if (opt_proxy_groups_->size() > 0) {
     // Select random start proxy from the first group.
-    UpdateProxiesUnlocked("set proxies");
+    UpdateProxiesUnlocked("set random start proxy from the first proxy group");
   }
 }
 
@@ -2765,11 +3024,11 @@ void DownloadManager::UpdateProxiesUnlocked(const string &reason) {
   // Identify number of non-burned proxies within the current group
   vector<ProxyInfo> *group = current_proxy_group();
   unsigned num_alive = (group->size() - opt_proxy_groups_current_burned_);
-  string old_proxy = JoinStrings(opt_proxy_urls_, "|");
+  string old_proxy = JoinStrings(opt_proxies_, "|");
 
   // Rebuild proxy map and URL list
   opt_proxy_map_.clear();
-  opt_proxy_urls_.clear();
+  opt_proxies_.clear();
   const uint32_t max_key = 0xffffffffUL;
   if (opt_proxy_shard_) {
     // Build a consistent map with multiple entries for each proxy
@@ -2783,7 +3042,9 @@ void DownloadManager::UpdateProxiesUnlocked(const string &reason) {
         const std::pair<uint32_t, ProxyInfo *> entry(prng.Next(max_key), proxy);
         opt_proxy_map_.insert(entry);
       }
-      opt_proxy_urls_.push_back(proxy->url);
+      std::string proxy_name = proxy->host.name().empty() ?
+                                           "" : " (" + proxy->host.name() + ")";
+      opt_proxies_.push_back(proxy->url + proxy_name);
     }
     // Ensure lower_bound() finds a value for all keys
     ProxyInfo *first_proxy = opt_proxy_map_.begin()->second;
@@ -2795,18 +3056,22 @@ void DownloadManager::UpdateProxiesUnlocked(const string &reason) {
     ProxyInfo *proxy = &(*group)[select];
     const std::pair<uint32_t, ProxyInfo *> entry(max_key, proxy);
     opt_proxy_map_.insert(entry);
-    opt_proxy_urls_.push_back(proxy->url);
+    std::string proxy_name = proxy->host.name().empty() ?
+                                           "" : " (" + proxy->host.name() + ")";
+    opt_proxies_.push_back(proxy->url + proxy_name);
   }
-  sort(opt_proxy_urls_.begin(), opt_proxy_urls_.end());
+  sort(opt_proxies_.begin(), opt_proxies_.end());
 
   // Report any change in proxy usage
-  string new_proxy = JoinStrings(opt_proxy_urls_, "|");
+  string new_proxy = JoinStrings(opt_proxies_, "|");
+  const string curr_host = "Current host: " + (opt_host_.chain ?
+                              (*opt_host_.chain)[opt_host_.current] : "");
   if (new_proxy != old_proxy) {
     LogCvmfs(kLogDownload, kLogDebug | kLogSyslogWarn,
-             "switching proxy from %s to %s (%s)",
-             (old_proxy.empty() ? "(none)" : old_proxy.c_str()),
-             (new_proxy.empty() ? "(none)" : new_proxy.c_str()),
-             reason.c_str());
+           "(manager '%s') switching proxy from %s to %s. Reason: %s [%s]",
+           name_.c_str(), (old_proxy.empty() ? "(none)" : old_proxy.c_str()),
+           (new_proxy.empty() ? "(none)" : new_proxy.c_str()),
+           reason.c_str(), curr_host.c_str());
   }
 }
 
@@ -2834,7 +3099,7 @@ void DownloadManager::RebalanceProxiesUnlocked(const string &reason) {
 
 void DownloadManager::RebalanceProxies() {
   MutexLockGuard m(lock_options_);
-  RebalanceProxiesUnlocked("rebalance");
+  RebalanceProxiesUnlocked("rebalance invoked manually");
 }
 
 
@@ -2849,9 +3114,12 @@ void DownloadManager::SwitchProxyGroup() {
   }
 
   opt_proxy_groups_current_ = (opt_proxy_groups_current_ + 1) %
-  opt_proxy_groups_->size();
+                                                      opt_proxy_groups_->size();
   opt_timestamp_backup_proxies_ = time(NULL);
-  RebalanceProxiesUnlocked("switch proxy group");
+
+  std::string msg = "switch to proxy group " +
+                                       StringifyUint(opt_proxy_groups_current_);
+  RebalanceProxiesUnlocked(msg);
 }
 
 
@@ -2865,12 +3133,21 @@ void DownloadManager::SetProxyGroupResetDelay(const unsigned seconds) {
 }
 
 
+void DownloadManager::SetMetalinkResetDelay(const unsigned seconds)
+{
+  const MutexLockGuard m(lock_options_);
+  opt_metalink_.reset_after = seconds;
+  if (opt_metalink_.reset_after == 0)
+    opt_metalink_.timestamp_backup = 0;
+}
+
+
 void DownloadManager::SetHostResetDelay(const unsigned seconds)
 {
   MutexLockGuard m(lock_options_);
-  opt_host_reset_after_ = seconds;
-  if (opt_host_reset_after_ == 0)
-    opt_timestamp_backup_host_ = 0;
+  opt_host_.reset_after = seconds;
+  if (opt_host_.reset_after == 0)
+    opt_host_.timestamp_backup = 0;
 }
 
 
@@ -2930,8 +3207,9 @@ bool DownloadManager::SetShardingPolicy(const ShardingPolicySelector type) {
   bool success = false;
   switch (type) {
     default:
-      LogCvmfs(kLogDownload, kLogDebug | kLogSyslogErr,
-            "Proposed sharding policy does not exist. Falling back to default");
+      LogCvmfs(kLogDownload, kLogDebug | kLogSyslogErr, "(manager '%s') "
+            "Proposed sharding policy does not exist. Falling back to default",
+            name_.c_str());
   }
   return success;
 }
@@ -2945,9 +3223,10 @@ void DownloadManager::SetFailoverIndefinitely() {
  * single-threaded stage because it calls curl_global_init().
  */
 DownloadManager *DownloadManager::Clone(
-  const perf::StatisticsTemplate &statistics)
+  const perf::StatisticsTemplate &statistics, const std::string &cloned_name)
 {
-  DownloadManager *clone = new DownloadManager(pool_max_handles_, statistics);
+  DownloadManager *clone = new DownloadManager(pool_max_handles_, statistics,
+                                               cloned_name);
 
   clone->SetDnsParameters(resolver_->retries(), resolver_->timeout_ms());
   clone->SetDnsTtlLimits(resolver_->min_ttl(), resolver_->max_ttl());
@@ -2966,8 +3245,8 @@ DownloadManager *DownloadManager::Clone(
   clone->http_tracing_headers_ = http_tracing_headers_;
   clone->follow_redirects_ = follow_redirects_;
   clone->ignore_signature_failures_ = ignore_signature_failures_;
-  if (opt_host_chain_) {
-    clone->opt_host_chain_ = new vector<string>(*opt_host_chain_);
+  if (opt_host_.chain) {
+    clone->opt_host_.chain = new vector<string>(*opt_host_.chain);
     clone->opt_host_chain_rtt_ = new vector<int>(*opt_host_chain_rtt_);
   }
 
@@ -2976,7 +3255,8 @@ DownloadManager *DownloadManager::Clone(
   clone->proxy_template_direct_ = proxy_template_direct_;
   clone->proxy_template_forced_ = proxy_template_forced_;
   clone->opt_proxy_groups_reset_after_ = opt_proxy_groups_reset_after_;
-  clone->opt_host_reset_after_ = opt_host_reset_after_;
+  clone->opt_metalink_.reset_after = opt_metalink_.reset_after;
+  clone->opt_host_.reset_after = opt_host_.reset_after;
   clone->credentials_attachment_ = credentials_attachment_;
   clone->ssl_certificate_store_ = ssl_certificate_store_;
 

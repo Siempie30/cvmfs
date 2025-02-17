@@ -10,7 +10,7 @@
 // NOLINTNEXTLINE
 #define __STDC_FORMAT_MACROS
 
-#include "cvmfs_config.h"
+
 #include "swissknife_pull.h"
 
 #include <inttypes.h>
@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "catalog.h"
-#include "compression.h"
+#include "compression/compression.h"
 #include "crypto/hash.h"
 #include "crypto/signature.h"
 #include "history_sqlite.h"
@@ -586,7 +586,7 @@ int swissknife::CommandPull::Main(const swissknife::ArgumentList &args) {
     return 1;
   }
 
-  if (!this->InitVerifyingSignatureManager(master_keys)) {
+  if (!this->InitSignatureManager(master_keys)) {
     LogCvmfs(kLogCvmfs, kLogStderr, "failed to initialize CVMFS signatures");
     return 1;
   } else {

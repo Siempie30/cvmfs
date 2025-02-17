@@ -38,7 +38,7 @@ if (BUILD_LIBCVMFS_CACHE)
                   ${CVMFS_SOURCE_DIR}/cache.cc
                   ${CVMFS_SOURCE_DIR}/cache_extern.cc
                   ${CVMFS_SOURCE_DIR}/cache_transport.cc
-                  ${CVMFS_SOURCE_DIR}/compression.cc
+                  ${CVMFS_SOURCE_DIR}/compression/compression.cc
                   ${CVMFS_SOURCE_DIR}/manifest.cc
                   ${CVMFS_SOURCE_DIR}/quota.cc
   )
@@ -157,7 +157,7 @@ if (BUILD_SERVER)
        ${CVMFS_SOURCE_DIR}/catalog_mgr_ro.cc
        ${CVMFS_SOURCE_DIR}/catalog_mgr_rw.cc
        ${CVMFS_SOURCE_DIR}/catalog_virtual.cc
-       ${CVMFS_SOURCE_DIR}/compression.cc
+       ${CVMFS_SOURCE_DIR}/compression/compression.cc
        ${CVMFS_SOURCE_DIR}/directory_entry.cc
        ${CVMFS_SOURCE_DIR}/gateway_util.cc
        ${CVMFS_SOURCE_DIR}/globals.cc
@@ -198,6 +198,7 @@ if (BUILD_SERVER)
        ${CVMFS_SOURCE_DIR}/swissknife_assistant.cc
        ${CVMFS_SOURCE_DIR}/swissknife_lease_curl.cc
        ${CVMFS_SOURCE_DIR}/sync_item.cc
+       ${CVMFS_SOURCE_DIR}/sync_item_dummy.cc
        ${CVMFS_SOURCE_DIR}/sync_item_tar.cc
        ${CVMFS_SOURCE_DIR}/sync_mediator.cc
        ${CVMFS_SOURCE_DIR}/sync_union.cc
@@ -362,6 +363,7 @@ set(CVMFS_UNITTEST_SOURCES
   t_relaxed_path_filter.cc
   t_s3fanout.cc
   t_resolv_conf_event_handler.cc
+  t_ring_buffer.cc
   t_sanitizer.cc
   t_session_context.cc
   t_session_token.cc
@@ -421,7 +423,7 @@ set(CVMFS_UNITTEST_SOURCES
   ${CVMFS_SOURCE_DIR}/catalog_rw.cc
   ${CVMFS_SOURCE_DIR}/catalog_virtual.cc
   ${CVMFS_SOURCE_DIR}/clientctx.cc
-  ${CVMFS_SOURCE_DIR}/compression.cc
+  ${CVMFS_SOURCE_DIR}/compression/compression.cc
   ${CVMFS_SOURCE_DIR}/cvmfs_suid_util.cc
   ${CVMFS_SOURCE_DIR}/directory_entry.cc
   ${CVMFS_SOURCE_DIR}/duplex_fuse.cc
@@ -484,6 +486,7 @@ set(CVMFS_UNITTEST_SOURCES
   ${CVMFS_SOURCE_DIR}/reflog_sql.cc
   ${CVMFS_SOURCE_DIR}/repository_tag.cc
   ${CVMFS_SOURCE_DIR}/resolv_conf_event_handler.cc
+  ${CVMFS_SOURCE_DIR}/ring_buffer.cc
   ${CVMFS_SOURCE_DIR}/sanitizer.cc
   ${CVMFS_SOURCE_DIR}/server_tool.cc
   ${CVMFS_SOURCE_DIR}/session_context.cc
@@ -502,6 +505,7 @@ set(CVMFS_UNITTEST_SOURCES
   ${CVMFS_SOURCE_DIR}/swissknife_lease_json.cc
   ${CVMFS_SOURCE_DIR}/swissknife_lease_curl.cc
   ${CVMFS_SOURCE_DIR}/sync_item.cc
+  ${CVMFS_SOURCE_DIR}/sync_item_dummy.cc
   ${CVMFS_SOURCE_DIR}/sync_item_tar.cc
   ${CVMFS_SOURCE_DIR}/sync_mediator.cc
   ${CVMFS_SOURCE_DIR}/sync_union.cc

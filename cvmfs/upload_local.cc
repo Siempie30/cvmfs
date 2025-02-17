@@ -3,13 +3,13 @@
  */
 
 #include "upload_local.h"
-#include "cvmfs_config.h"
+
 
 #include <errno.h>
 
 #include <string>
 
-#include "compression.h"
+#include "compression/compression.h"
 #include "util/logging.h"
 #include "util/posix.h"
 

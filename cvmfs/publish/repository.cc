@@ -2,7 +2,7 @@
  * This file is part of the CernVM File System.
  */
 
-#include "cvmfs_config.h"
+
 #include "publish/repository.h"
 
 #include <cassert>
@@ -562,7 +562,7 @@ void Publisher::OnUploadWhitelist(const upload::SpoolerResult &result) {
 
 void Publisher::CreateDirectoryAsOwner(const std::string &path, int mode)
 {
-  bool rvb = MkdirDeep(path, kPrivateDirMode);
+  const bool rvb = MkdirDeep(path, mode);
   if (!rvb) throw EPublish("cannot create directory " + path);
   int rvi = chown(path.c_str(), settings_.owner_uid(), settings_.owner_gid());
   if (rvi != 0) throw EPublish("cannot set ownership on directory " + path);
@@ -576,18 +576,18 @@ void Publisher::InitSpoolArea() {
   CreateDirectoryAsOwner(settings_.transaction().spool_area().cache_dir(),
                          kPrivateDirMode);
   CreateDirectoryAsOwner(settings_.transaction().spool_area().scratch_dir(),
-                         kPrivateDirMode);
+                         kDefaultDirMode);
   CreateDirectoryAsOwner(settings_.transaction().spool_area().ovl_work_dir(),
                          kPrivateDirMode);
 
   // On a managed node, the mount points are already mounted
   if (!DirectoryExists(settings_.transaction().spool_area().readonly_mnt())) {
     CreateDirectoryAsOwner(settings_.transaction().spool_area().readonly_mnt(),
-                           kPrivateDirMode);
+                           kDefaultDirMode);
   }
   if (!DirectoryExists(settings_.transaction().spool_area().union_mnt())) {
     CreateDirectoryAsOwner(
-      settings_.transaction().spool_area().union_mnt(), kPrivateDirMode);
+      settings_.transaction().spool_area().union_mnt(), kDefaultDirMode);
   }
 }
 
@@ -691,7 +691,8 @@ void Publisher::ConstructSyncManagers() {
       statistics_,
       settings_.transaction().use_catalog_autobalance(),
       settings_.transaction().autobalance_max_weight(),
-      settings_.transaction().autobalance_min_weight());
+      settings_.transaction().autobalance_min_weight(),
+      "");
     catalog_mgr_->Init();
   }
 
