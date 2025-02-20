@@ -83,6 +83,9 @@ void Publisher::ManagedNode::ClearScratch() {
 
 
 int Publisher::ManagedNode::Check(bool is_quiet) {
+  // Redownload root, so that hash is updated in case a new rev has been published
+  publisher_->DownloadRootObjects();
+
   ServerLockFileCheck publish_check(publisher_->is_publishing_);
   const std::string rdonly_mnt =
     publisher_->settings_.transaction().spool_area().readonly_mnt();
