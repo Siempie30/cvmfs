@@ -59,6 +59,9 @@ func NewFrontend(services be.ActionController, port int, timeout time.Duration) 
 	router.DELETE(APIRoot+"/leases-by-path/*path", amw(MakeAdminLeasesHandler(services)))
 	router.POST(APIRoot+"/gc", amw(MakeGCHandler(services)))
 
+	// Token ring
+	router.POST(APIRoot+"/token-ring", mw(MakeTokenRingHandler(services)))
+
 	// Configure and start the HTTP server
 	srv := &http.Server{
 		Handler:      router,
