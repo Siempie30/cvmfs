@@ -61,6 +61,7 @@ func NewFrontend(services be.ActionController, port int, timeout time.Duration) 
 
 	// Token ring
 	router.POST(APIRoot+"/token-ring", mw(MakeTokenRingHandler(services)))
+	router.GET(APIRoot+"/token-ring", mw(MakeTokenRingHandler(services)))
 
 	// Configure and start the HTTP server
 	srv := &http.Server{

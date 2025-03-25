@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	gw "github.com/cvmfs/gateway/internal/gateway"
 	be "github.com/cvmfs/gateway/internal/gateway/backend"
 	"github.com/julienschmidt/httprouter"
 )
@@ -12,13 +13,19 @@ import (
 func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	return func(w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 		if h.Method == "POST" {
-			handleTokenRing(services, w, h, ps)
+			handlePostTokenRing(services, w, h, ps)
 		} else {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			handleGetTokenRing(services, w, h, ps)
 		}
 	}
 }
 
-func handleTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Received token ring")
+	gw.LogC(h.Context(), "http", gw.LogInfo).Msg("Received token ring")
+}
+
+func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+	fmt.Println("Get token ring")
+	gw.LogC(h.Context(), "http", gw.LogInfo).Msg("Get token ring")
 }
