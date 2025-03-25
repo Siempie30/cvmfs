@@ -20,14 +20,16 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	}
 }
 
+// Token posted to this gateway
 func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Received token ring")
-	gw.LogC(h.Context(), "http", gw.LogInfo).Msg("Received token ring")
 
 	ctx := h.Context()
+	services.PostRingToken(ctx)
 	replyJSON(ctx, w, message{"status": "ok"})
 }
 
+// Get to see if this gateway has token
 func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Get token ring")
 	gw.LogC(h.Context(), "http", gw.LogInfo).Msg("Get token ring")

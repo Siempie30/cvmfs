@@ -19,6 +19,7 @@ type Services struct {
 	Pool          *receiver.Pool
 	Notifications *NotificationSystem
 	StatsMgr      *stats.StatisticsMgr
+	Ringfile      string
 }
 
 // ActionController contains the various actions that can be performed with the backend
@@ -38,6 +39,7 @@ type ActionController interface {
 	PublishManifest(ctx context.Context, repository string, message NotificationMessage)
 	SubscribeToNotifications(ctx context.Context, repository string) SubscriberHandle
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
+	PostRingToken(ctx context.Context) error
 }
 
 // GetKey returns the key configuration associated with a key ID
@@ -69,7 +71,7 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 		return nil, fmt.Errorf("could not initialize notification system: %w", err)
 	}
 
-	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr}
+	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile}
 
 	if err := PopulateRepositories(&services); err != nil {
 		return nil, fmt.Errorf("could not populate repository table: %w", err)
