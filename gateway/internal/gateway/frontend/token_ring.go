@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	gw "github.com/cvmfs/gateway/internal/gateway"
 	be "github.com/cvmfs/gateway/internal/gateway/backend"
 	"github.com/julienschmidt/httprouter"
 )
@@ -36,9 +35,6 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 
 // GET method to see if this gateway has token
 func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
-	fmt.Println("Get token ring")
-	gw.LogC(h.Context(), "http", gw.LogInfo).Msg("Get token ring")
-
 	if !services.HasRingToken(h.Context()) {
 		fmt.Println("No token")
 		replyJSON(h.Context(), w, message{"status": "no token"})

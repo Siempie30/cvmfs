@@ -78,7 +78,6 @@ func (s *Services) PostRingToken(ctx context.Context) error {
 }
 
 func (s *Services) HasRingToken(ctx context.Context) bool {
-	fmt.Println("HasRingToken in backend called")
 	tokenMutex.Lock()
 	defer tokenMutex.Unlock()
 	return hasToken

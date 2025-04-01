@@ -99,6 +99,12 @@ func handleNewLease(services be.ActionController, w http.ResponseWriter, h *http
 		protocolVersion := MaxAPIVersion(clientVersion)
 
 		// TODO Check if gateway owns token
+		if !services.HasRingToken(ctx) {
+			msg["status"] = "error"
+			msg["reason"] = "no token"
+			replyJSON(ctx, w, msg)
+			return
+		}
 
 		token, err := services.NewLease(ctx, keyID, reqMsg.Path, hostname, protocolVersion)
 		if err != nil {
