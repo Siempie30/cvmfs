@@ -39,7 +39,9 @@ type ActionController interface {
 	PublishManifest(ctx context.Context, repository string, message NotificationMessage)
 	SubscribeToNotifications(ctx context.Context, repository string) SubscriberHandle
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
+	AcceptRingToken(ctx context.Context) error
 	PostRingToken(ctx context.Context) error
+	HasRingToken(ctx context.Context) bool
 }
 
 // GetKey returns the key configuration associated with a key ID

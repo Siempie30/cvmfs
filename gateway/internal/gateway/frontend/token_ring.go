@@ -20,20 +20,30 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	}
 }
 
-// Token posted to this gateway
+// POST method to post token to this gateway
 func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Received token ring")
 
 	ctx := h.Context()
-	services.PostRingToken(ctx)
-	replyJSON(ctx, w, message{"status": "ok"})
+	err := services.AcceptRingToken(ctx)
+	if err != nil {
+		fmt.Println("Error posting token: ", err)
+		replyJSON(ctx, w, message{"status": "error", "error": err.Error()})
+	} else {
+		replyJSON(ctx, w, message{"status": "ok"})
+	}
 }
 
-// Get to see if this gateway has token
+// GET method to see if this gateway has token
 func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Get token ring")
 	gw.LogC(h.Context(), "http", gw.LogInfo).Msg("Get token ring")
 
-	ctx := h.Context()
-	replyJSON(ctx, w, message{"status": "ok"})
+	if !services.HasRingToken(h.Context()) {
+		fmt.Println("No token")
+		replyJSON(h.Context(), w, message{"status": "no token"})
+	} else {
+		fmt.Println("Has token")
+		replyJSON(h.Context(), w, message{"status": "has token"})
+	}
 }

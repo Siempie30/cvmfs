@@ -8,7 +8,34 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 )
+
+var hasToken bool
+var tokenMutex sync.Mutex
+
+func (s *Services) AcceptRingToken(ctx context.Context) error {
+	fmt.Println("AcceptRingToken in backend called")
+	tokenMutex.Lock()
+	hasToken = true
+	tokenMutex.Unlock()
+	fmt.Println("Token accepted")
+
+	// Post the token to the next gateway after 30 seconds
+	go func() {
+		fmt.Println("Waiting 30 seconds to post token to next gateway")
+		<-time.After(30 * time.Second)
+		err := s.PostRingToken(ctx)
+		if err != nil {
+			fmt.Println("Error posting token:", err)
+		} else {
+			fmt.Println("Token posted to next gateway")
+		}
+	}()
+	return nil
+
+}
 
 func (s *Services) PostRingToken(ctx context.Context) error {
 	fmt.Println("PostRingToken in backend called")
@@ -42,7 +69,19 @@ func (s *Services) PostRingToken(ctx context.Context) error {
 		return err
 	}
 
+	tokenMutex.Lock()
+	hasToken = false
+	tokenMutex.Unlock()
+	fmt.Println("Token posted to next gateway")
+
 	return nil
+}
+
+func (s *Services) HasRingToken(ctx context.Context) bool {
+	fmt.Println("HasRingToken in backend called")
+	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
+	return hasToken
 }
 
 func getNextRingGateway(ringFile string, currentAddress string) (string, error) {
