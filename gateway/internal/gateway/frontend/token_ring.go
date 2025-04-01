@@ -27,9 +27,9 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 	err := services.AcceptRingToken(ctx)
 	if err != nil {
 		fmt.Println("Error posting token: ", err)
-		replyJSON(ctx, w, message{"status": "error", "error": err.Error()})
+		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
-		replyJSON(ctx, w, message{"status": "ok"})
+		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -63,12 +64,43 @@ func (s *Services) PostRingToken(ctx context.Context) error {
 		fmt.Println("Error creating request")
 		return err
 	}
-	_, err = http.DefaultClient.Do(req)
+
+	// Create an HTTP client with a timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second, // Set a 10-second timeout
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error posting token:", err)
 		return err
 	}
+	defer resp.Body.Close()
 
+	// Parse the response
+	var responseMessage map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&responseMessage); err != nil {
+		fmt.Println("Error decoding response:", err)
+		return err
+	}
+
+	// Check the acknowledgment status
+	if ack, ok := responseMessage["acknowledgement"]; ok {
+		if ack == "ok" {
+			fmt.Println("Acknowledgment received: ok")
+		} else {
+			fmt.Printf("Acknowledgment received: %s\n", ack)
+			if errMsg, exists := responseMessage["error"]; exists {
+				fmt.Printf("Error message: %s\n", errMsg)
+			}
+			return fmt.Errorf("received error acknowledgment: %s", ack)
+		}
+	} else {
+		fmt.Println("Acknowledgment not found in response")
+		return fmt.Errorf("invalid response from next gateway")
+	}
+
+	// Update token state
 	tokenMutex.Lock()
 	hasToken = false
 	tokenMutex.Unlock()
