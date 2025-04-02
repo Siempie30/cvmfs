@@ -4,12 +4,14 @@ services:
   gateway1:
     build: .
     container_name: gateway1
+    privileged: true
     networks:
       - test-network
 
   gateway2:
     build: .
     container_name: gateway2
+    privileged: true
     networks:
       - test-network
 
