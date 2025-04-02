@@ -27,17 +27,7 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 	go func() {
 		fmt.Println("Waiting 30 seconds to post token to next gateway")
 		<-time.After(30 * time.Second)
-		currGw, err := getHostname()
-		if err != nil {
-			fmt.Println("Error getting hostname:", err)
-			return
-		}
-		nextGw, err := getNextRingGateway(s.Ringfile, currGw)
-		if err != nil {
-			fmt.Println("Error getting next gateway:", err)
-			return
-		}
-		err = s.PostRingToken(nextGw)
+		err := s.PostRingToken()
 		if err != nil {
 			fmt.Println("Error posting token:", err)
 		} else {
@@ -49,8 +39,28 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 }
 
 // PostRingToken posts the token to the next gateway in the ring.
-// targetGw is the hostname of the gateway to which the token should be posted.
-func (s *Services) PostRingToken(targetGw string) error {
+func (s *Services) PostRingToken() error {
+	currGw, err := getHostname()
+	if err != nil {
+		fmt.Println("Error getting hostname:", err)
+		return err
+	}
+	nextGw, err := getNextRingGateway(s.Ringfile, currGw)
+	if err != nil {
+		fmt.Println("Error getting next gateway:", err)
+		return err
+	}
+	err = retryPostToken(nextGw, s.Ringfile)
+	if err != nil {
+		fmt.Println("Error posting token to next gateway:", err)
+		return err
+	}
+	fmt.Println("Token posted to next gateway")
+	return nil
+}
+
+// RetryPostToken posts the token to the specified gateway. targetGw should be the gateway hostname
+func retryPostToken(targetGw string, ringFile string) error {
 	fmt.Println("PostRingToken in backend called")
 
 	// Post the token to the next gateway
@@ -59,7 +69,7 @@ func (s *Services) PostRingToken(targetGw string) error {
 	fmt.Println("Posting to: ", url)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte("repoName")))
 	if err != nil {
-		fmt.Println("Error creating request")
+		fmt.Println("Error creating request: ", err)
 		return err
 	}
 
@@ -68,23 +78,19 @@ func (s *Services) PostRingToken(targetGw string) error {
 		Timeout: 10 * time.Second, // Set a 10-second timeout
 	}
 
+	nextGw, err := getNextRingGateway(ringFile, targetGw)
+	if err != nil {
+		fmt.Println("Error getting next gateway:", err)
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
-		// If the error is a timeout, try again on the next gateway in the ring
-		if os.IsTimeout(err) {
-			fmt.Println("Timeout error:", err)
-			nextGw, err := getNextRingGateway(s.Ringfile, targetGw)
-			if err != nil {
-				fmt.Println("Error getting next gateway:", err)
-				return err
-			}
-			err = s.PostRingToken(nextGw)
-			if err != nil {
-				fmt.Println("Error posting token to next gateway:", err)
-				return err
-			}
+		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
+		err = nil
+		err = retryPostToken(nextGw, ringFile)
+		if err != nil {
+			fmt.Println("Error posting token to next gateway:", err)
 		}
-		fmt.Println("Error posting token:", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -105,18 +111,28 @@ func (s *Services) PostRingToken(targetGw string) error {
 			if errMsg, exists := responseMessage["error"]; exists {
 				fmt.Printf("Error message: %s\n", errMsg)
 			}
-			return fmt.Errorf("received error acknowledgment: %s", ack)
+			fmt.Println("received error acknowledgment:", ack, "attempting next gateway in ring")
+			err = nil
+			err = retryPostToken(nextGw, ringFile)
+			if err != nil {
+				fmt.Println("Error posting token to next gateway:", err)
+			}
+			return err
 		}
 	} else {
-		fmt.Println("Acknowledgment not found in response")
-		return fmt.Errorf("invalid response from next gateway")
+		fmt.Println("Acknowledgment not found in response. Attempting next gateway in ring")
+		err = nil
+		err = retryPostToken(nextGw, ringFile)
+		if err != nil {
+			fmt.Println("Error posting token to next gateway:", err)
+		}
+		return err
 	}
 
 	// Update token state
 	tokenMutex.Lock()
 	hasToken = false
 	tokenMutex.Unlock()
-	fmt.Println("Token posted to next gateway")
 
 	return nil
 }
