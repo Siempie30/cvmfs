@@ -27,7 +27,17 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 	go func() {
 		fmt.Println("Waiting 30 seconds to post token to next gateway")
 		<-time.After(30 * time.Second)
-		err := s.PostRingToken(ctx)
+		currGw, err := getHostname()
+		if err != nil {
+			fmt.Println("Error getting hostname:", err)
+			return
+		}
+		nextGw, err := getNextRingGateway(s.Ringfile, currGw)
+		if err != nil {
+			fmt.Println("Error getting next gateway:", err)
+			return
+		}
+		err = s.PostRingToken(nextGw)
 		if err != nil {
 			fmt.Println("Error posting token:", err)
 		} else {
@@ -38,26 +48,14 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 
 }
 
-func (s *Services) PostRingToken(ctx context.Context) error {
+// PostRingToken posts the token to the next gateway in the ring.
+// targetGw is the hostname of the gateway to which the token should be posted.
+func (s *Services) PostRingToken(targetGw string) error {
 	fmt.Println("PostRingToken in backend called")
-	fileName := s.Ringfile
-
-	// Get the address of the next gateway
-	hostName, err := os.Hostname()
-	if err != nil {
-		fmt.Println("Error getting hostname")
-		return err
-	}
-	fmt.Println("Hostname is: ", hostName)
-	nextAddress, err := getNextRingGateway(fileName, hostName)
-	if err != nil {
-		fmt.Println("Error getting next gateway: ", err)
-		return err
-	}
 
 	// Post the token to the next gateway
-	fmt.Println("Next gateway is: ", nextAddress)
-	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", nextAddress)
+	fmt.Println("Target gateway is: ", targetGw)
+	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
 	fmt.Println("Posting to: ", url)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte("repoName")))
 	if err != nil {
@@ -72,6 +70,20 @@ func (s *Services) PostRingToken(ctx context.Context) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		// If the error is a timeout, try again on the next gateway in the ring
+		if os.IsTimeout(err) {
+			fmt.Println("Timeout error:", err)
+			nextGw, err := getNextRingGateway(s.Ringfile, targetGw)
+			if err != nil {
+				fmt.Println("Error getting next gateway:", err)
+				return err
+			}
+			err = s.PostRingToken(nextGw)
+			if err != nil {
+				fmt.Println("Error posting token to next gateway:", err)
+				return err
+			}
+		}
 		fmt.Println("Error posting token:", err)
 		return err
 	}
@@ -113,6 +125,14 @@ func (s *Services) HasRingToken(ctx context.Context) bool {
 	tokenMutex.Lock()
 	defer tokenMutex.Unlock()
 	return hasToken
+}
+
+func getHostname() (string, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("could not get hostname: %w", err)
+	}
+	return hostname, nil
 }
 
 func getNextRingGateway(ringFile string, currentAddress string) (string, error) {
