@@ -17,7 +17,6 @@ var hasToken bool
 var tokenMutex sync.Mutex
 
 func (s *Services) AcceptRingToken(ctx context.Context) error {
-	fmt.Println("AcceptRingToken in backend called")
 	tokenMutex.Lock()
 	hasToken = true
 	tokenMutex.Unlock()
@@ -59,10 +58,8 @@ func (s *Services) PostRingToken() error {
 	return nil
 }
 
-// RetryPostToken posts the token to the specified gateway. targetGw should be the gateway hostname
+// retryPostToken posts the token to the specified gateway. targetGw should be the gateway hostname
 func retryPostToken(targetGw string, ringFile string) error {
-	fmt.Println("PostRingToken in backend called")
-
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
 	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
@@ -72,12 +69,13 @@ func retryPostToken(targetGw string, ringFile string) error {
 	nextGw, err := getNextRingGateway(ringFile, targetGw)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
+		return err
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte("repoName")))
 	if err != nil {
-		fmt.Println("Error creating request: ", err, "attempting next gateawy in ring")
-		err = nil
+		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
+		requestRemoval(targetGw, ringFile)
 		err = retryPostToken(nextGw, ringFile)
 		return err
 	}
@@ -90,11 +88,8 @@ func retryPostToken(targetGw string, ringFile string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
-		err = nil
+		requestRemoval(targetGw, ringFile)
 		err = retryPostToken(nextGw, ringFile)
-		if err != nil {
-			fmt.Println("Error posting token to next gateway:", err)
-		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -116,20 +111,12 @@ func retryPostToken(targetGw string, ringFile string) error {
 				fmt.Printf("Error message: %s\n", errMsg)
 			}
 			fmt.Println("received error acknowledgment:", ack, "attempting next gateway in ring")
-			err = nil
 			err = retryPostToken(nextGw, ringFile)
-			if err != nil {
-				fmt.Println("Error posting token to next gateway:", err)
-			}
 			return err
 		}
 	} else {
 		fmt.Println("Acknowledgment not found in response. Attempting next gateway in ring")
-		err = nil
 		err = retryPostToken(nextGw, ringFile)
-		if err != nil {
-			fmt.Println("Error posting token to next gateway:", err)
-		}
 		return err
 	}
 
@@ -180,4 +167,92 @@ func getNextRingGateway(ringFile string, currentAddress string) (string, error) 
 		}
 	}
 	return "", fmt.Errorf("current address not found in ring")
+}
+
+func requestRemoval(hostName string, ringFile string) error {
+	// Get all the hostnames from the ring file
+	lines, err := getHostnames(ringFile)
+	if err != nil {
+		return fmt.Errorf("could not get hostnames: %w", err)
+	}
+
+	// Create a payload containing the hostname and ring file content
+	payload := map[string]string{
+		"hostName": hostName,
+		"ringFile": ringFile,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("could not marshal payload: %w", err)
+	}
+
+	// Send HTTP removal request to each hostname
+	for _, line := range lines {
+		url := fmt.Sprintf("http://%s:4929/api/v1/removal", line)
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+		if err != nil {
+			return fmt.Errorf("could not create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("could not send request: %w", err)
+		}
+		defer resp.Body.Close()
+	}
+	fmt.Println("Removal request of", hostName, "sent to all gateways")
+	return nil
+}
+
+func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
+	// Get all the hostnames from the ringfile
+	lines, err := getHostnames(ringFile)
+	if err != nil {
+		return fmt.Errorf("could not get hostnames: %w", err)
+	}
+
+	// Copy all lines except the one scheduled for removal
+	var newLines []string
+	for _, line := range lines {
+		if line != hostName {
+			newLines = append(newLines, line)
+		}
+	}
+
+	// Write the new lines back to the ring file
+	file, err := os.Create(ringFile)
+	if err != nil {
+		return fmt.Errorf("could not create ring file: %w", err)
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+	for _, line := range newLines {
+		if _, err := writer.WriteString(line + "\n"); err != nil {
+			return fmt.Errorf("could not write to ring file: %w", err)
+		}
+	}
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("could not flush ring file: %w", err)
+	}
+	fmt.Println("Removed from ring file:", hostName)
+	return nil
+}
+
+func getHostnames(ringFile string) ([]string, error) {
+	file, err := os.Open(ringFile)
+	if err != nil {
+		return nil, fmt.Errorf("could not open ring file: %w", err)
+	}
+	defer file.Close()
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		lines = append(lines, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("could not read ring file: %w", err)
+	}
+	return lines, nil
 }

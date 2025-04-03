@@ -1,8 +1,10 @@
 package frontend
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	be "github.com/cvmfs/gateway/internal/gateway/backend"
 	"github.com/julienschmidt/httprouter"
@@ -12,10 +14,38 @@ import (
 func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	return func(w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 		if h.Method == "POST" {
-			handlePostTokenRing(services, w, h, ps)
+			if strings.HasSuffix(h.URL.Path, "removal") {
+				fmt.Println("Received request to remove gw from token ring")
+				handleRemoveFromRing(services, w, h, ps)
+			} else {
+				handlePostTokenRing(services, w, h, ps)
+			}
 		} else {
 			handleGetTokenRing(services, w, h, ps)
 		}
+	}
+}
+
+// POST method to remove a gateway from token ring
+func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+	fmt.Println("Received request to remove gw from token ring")
+
+	ctx := h.Context()
+	var reqMsg struct {
+		HostName string `json:"hostName"`
+		RingFile string `json:"ringFile"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+
+	err := services.RemoveFromRing(reqMsg.HostName, reqMsg.RingFile)
+	if err != nil {
+		fmt.Println("Error posting token: ", err)
+		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
+	} else {
+		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
 }
 
