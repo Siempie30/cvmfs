@@ -43,8 +43,9 @@ func (s *Services) InitTokenRing() error {
 	// Gateway is not yet in the ring, so add it
 	err = requestAddition(currGw, s.Ringfile)
 	if err != nil {
-		return fmt.Errorf("Error adding gateway to ring:", err)
+		return fmt.Errorf("Error adding gateway to ring:, %w", err)
 	}
+	s.AddToRing(currGw, s.Ringfile)
 	return nil
 }
 
