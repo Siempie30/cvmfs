@@ -67,20 +67,24 @@ func retryPostToken(targetGw string, ringFile string) error {
 	fmt.Println("Target gateway is: ", targetGw)
 	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
 	fmt.Println("Posting to: ", url)
+
+	// Get the gateway next to the target. This will be used if the token is not succesfully posted to the target
+	nextGw, err := getNextRingGateway(ringFile, targetGw)
+	if err != nil {
+		fmt.Println("Error getting next gateway:", err)
+	}
+
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte("repoName")))
 	if err != nil {
-		fmt.Println("Error creating request: ", err)
+		fmt.Println("Error creating request: ", err, "attempting next gateawy in ring")
+		err = nil
+		err = retryPostToken(nextGw, ringFile)
 		return err
 	}
 
 	// Create an HTTP client with a timeout
 	client := &http.Client{
 		Timeout: 10 * time.Second, // Set a 10-second timeout
-	}
-
-	nextGw, err := getNextRingGateway(ringFile, targetGw)
-	if err != nil {
-		fmt.Println("Error getting next gateway:", err)
 	}
 
 	resp, err := client.Do(req)
