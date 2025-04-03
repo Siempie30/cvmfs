@@ -191,13 +191,13 @@ func requestRemoval(hostName string, ringFile string) error {
 		url := fmt.Sprintf("http://%s:4929/api/v1/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
-			return fmt.Errorf("could not create request: %w", err)
+			fmt.Println("could not create gw removal request:", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("could not send request: %w", err)
+			fmt.Println("could not send gw removal request:", err)
 		}
 		defer resp.Body.Close()
 	}
