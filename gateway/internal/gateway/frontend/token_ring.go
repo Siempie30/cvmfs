@@ -15,7 +15,6 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	return func(w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 		if h.Method == "POST" {
 			if strings.HasSuffix(h.URL.Path, "removal") {
-				fmt.Println("Received request to remove gw from token ring")
 				handleRemoveFromRing(services, w, h, ps)
 			} else if strings.HasSuffix(h.URL.Path, "addition") {
 				handleAddToRing(services, w, h, ps)

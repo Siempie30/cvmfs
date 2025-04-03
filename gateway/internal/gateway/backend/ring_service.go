@@ -29,8 +29,6 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 		err := s.PostRingToken()
 		if err != nil {
 			fmt.Println("Error posting token:", err)
-		} else {
-			fmt.Println("Token posted to next gateway")
 		}
 	}()
 	return nil
