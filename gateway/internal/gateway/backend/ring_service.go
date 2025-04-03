@@ -207,6 +207,35 @@ func requestRemoval(hostName string, ringFile string) error {
 	return nil
 }
 
+func (s *Services) AddToRing(hostName string, ringFile string) error {
+	// Load the ringfile contents
+	lines, err := getHostnames(ringFile)
+	if err != nil {
+		return fmt.Errorf("could not get hostnames: %w", err)
+	}
+
+	// Check if the hostname is already in the ringfile
+	for _, line := range lines {
+		if line == hostName {
+			fmt.Println("Hostname already in ring file")
+			return nil
+		}
+	}
+
+	// Append the new hostname to the ringfile
+	file, err := os.OpenFile(ringFile, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("could not open ring file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(hostName + "\n"); err != nil {
+		return fmt.Errorf("could not write to ring file: %w", err)
+	}
+	fmt.Println("Added to ring file:", hostName)
+	return nil
+}
+
 func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
 	// Get all the hostnames from the ringfile
 	lines, err := getHostnames(ringFile)

@@ -41,6 +41,7 @@ type ActionController interface {
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
 	AcceptRingToken(ctx context.Context) error
 	PostRingToken() error
+	AddToRing(hostName string, ringFile string) error
 	RemoveFromRing(hostName string, ringFile string) error
 	HasRingToken(ctx context.Context) bool
 }

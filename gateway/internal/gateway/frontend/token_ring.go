@@ -17,12 +17,37 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 			if strings.HasSuffix(h.URL.Path, "removal") {
 				fmt.Println("Received request to remove gw from token ring")
 				handleRemoveFromRing(services, w, h, ps)
+			} else if strings.HasSuffix(h.URL.Path, "addition") {
+				handleAddToRing(services, w, h, ps)
 			} else {
 				handlePostTokenRing(services, w, h, ps)
 			}
 		} else {
 			handleGetTokenRing(services, w, h, ps)
 		}
+	}
+}
+
+// POST method to append a gateway to token ring
+func handleAddToRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+	fmt.Println("Received request to add gw to token ring")
+
+	ctx := h.Context()
+	var reqMsg struct {
+		HostName string `json:"hostName"`
+		RingFile string `json:"ringFile"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+
+	err := services.AddToRing(reqMsg.HostName, reqMsg.RingFile)
+	if err != nil {
+		fmt.Println("failed to add:", reqMsg.HostName, "to token ring: ", err)
+		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
+	} else {
+		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
 }
 
@@ -42,7 +67,7 @@ func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h
 
 	err := services.RemoveFromRing(reqMsg.HostName, reqMsg.RingFile)
 	if err != nil {
-		fmt.Println("Error posting token: ", err)
+		fmt.Println("Failed to remove", reqMsg.HostName, "from token ring:", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
