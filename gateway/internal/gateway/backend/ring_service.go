@@ -192,12 +192,14 @@ func requestRemoval(hostName string, ringFile string) error {
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw removal request:", err)
+			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			fmt.Println("could not send gw removal request:", err)
+			continue
 		}
 		defer resp.Body.Close()
 	}
