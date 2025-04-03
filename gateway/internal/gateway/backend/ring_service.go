@@ -16,6 +16,38 @@ import (
 var hasToken bool
 var tokenMutex sync.Mutex
 
+func (s *Services) InitTokenRing() error {
+	// Initialize the token state
+	tokenMutex.Lock()
+	hasToken = false
+	tokenMutex.Unlock()
+
+	// Get the hostname of the current gateway
+	currGw, err := getHostname()
+	if err != nil {
+		return fmt.Errorf("Error getting hostname: %w", err)
+	}
+
+	// Check if the current gateway is already in the ring
+	lines, err := getHostnames(s.Ringfile)
+	if err != nil {
+		return fmt.Errorf("Error getting hostnames: %w", err)
+	}
+	for _, line := range lines {
+		if line == currGw {
+			fmt.Println("Gateway is already in the ring")
+			return nil
+		}
+	}
+
+	// Gateway is not yet in the ring, so add it
+	err = requestAddition(currGw, s.Ringfile)
+	if err != nil {
+		return fmt.Errorf("Error adding gateway to ring:", err)
+	}
+	return nil
+}
+
 func (s *Services) AcceptRingToken(ctx context.Context) error {
 	tokenMutex.Lock()
 	hasToken = true
@@ -165,6 +197,43 @@ func getNextRingGateway(ringFile string, currentAddress string) (string, error) 
 		}
 	}
 	return "", fmt.Errorf("current address not found in ring")
+}
+
+func requestAddition(hostName string, ringFile string) error {
+	// Get all the hostnames from the ring file
+	lines, err := getHostnames(ringFile)
+	if err != nil {
+		return fmt.Errorf("could not get hostnames: %w", err)
+	}
+
+	// Create a payload containing the hostname and ring file name
+	payload := map[string]string{
+		"hostName": hostName,
+		"ringFile": ringFile,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("could not marshal payload: %w", err)
+	}
+
+	// Send HTTP addition request to each hostname
+	for _, line := range lines {
+		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/addition", line)
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+		if err != nil {
+			fmt.Println("could not create gw addition request:", err)
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			fmt.Println("could not send gw addition request:", err)
+			continue
+		}
+		defer resp.Body.Close()
+	}
+
+	return nil
 }
 
 func requestRemoval(hostName string, ringFile string) error {

@@ -39,6 +39,7 @@ type ActionController interface {
 	PublishManifest(ctx context.Context, repository string, message NotificationMessage)
 	SubscribeToNotifications(ctx context.Context, repository string) SubscriberHandle
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
+	InitTokenRing() error
 	AcceptRingToken(ctx context.Context) error
 	PostRingToken() error
 	AddToRing(hostName string, ringFile string) error
@@ -76,6 +77,10 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 	}
 
 	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile}
+
+	if err := services.InitTokenRing(); err != nil {
+		return nil, fmt.Errorf("could not initialize token ring: %w", err)
+	}
 
 	if err := PopulateRepositories(&services); err != nil {
 		return nil, fmt.Errorf("could not populate repository table: %w", err)
