@@ -188,7 +188,7 @@ func requestRemoval(hostName string, ringFile string) error {
 
 	// Send HTTP removal request to each hostname
 	for _, line := range lines {
-		url := fmt.Sprintf("http://%s:4929/api/v1/removal", line)
+		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw removal request:", err)
