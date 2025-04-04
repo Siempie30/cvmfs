@@ -11,13 +11,20 @@ import (
 	"time"
 )
 
-var hasToken bool
+// Map to store whether this gateway possesses the token per repository
+var hasToken map[string]bool = make(map[string]bool)
 var tokenMutex sync.Mutex
 
 func (s *Services) InitTokenRing() error {
 	// Initialize the token state
+	repos, err := s.GetRepositories()
+	if err != nil {
+		return fmt.Errorf("Error getting repositories: %w", err)
+	}
 	tokenMutex.Lock()
-	hasToken = false
+	for _, repo := range repos {
+		hasToken[repo] = false
+	}
 	tokenMutex.Unlock()
 
 	// Get the hostname of the current gateway
@@ -26,30 +33,35 @@ func (s *Services) InitTokenRing() error {
 		return fmt.Errorf("Error getting hostname: %w", err)
 	}
 
-	// Check if the current gateway is already in the ring
-	lines, err := getHostnames(s.Ringfile)
-	if err != nil {
-		return fmt.Errorf("Error getting hostnames: %w", err)
-	}
-	for _, line := range lines {
-		if line == currGw {
-			fmt.Println("Gateway is already in the ring")
-			return nil
+	// Check if the current gateway is already in the ring for each repository
+	for _, repo := range repos {
+		lines, err := s.GetHostnames(repo)
+		if err != nil {
+			return fmt.Errorf("Error getting hostnames for repo %s: %w", repo, err)
+		}
+		var found bool
+		for _, line := range lines {
+			if line == currGw {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// Gateway is not yet in the ring, so add it
+			err = s.RequestAddition(repo, currGw)
+			if err != nil {
+				return fmt.Errorf("Error adding gateway to ring:, %w", err)
+			}
+			// Manually add to own ring, as the frontend is not loaded and therefore cannot receive the addition request
+			s.AddToRing(repo, currGw)
 		}
 	}
-
-	// Gateway is not yet in the ring, so add it
-	err = requestAddition(currGw, s.Ringfile)
-	if err != nil {
-		return fmt.Errorf("Error adding gateway to ring:, %w", err)
-	}
-	s.AddToRing(currGw, s.Ringfile)
 	return nil
 }
 
-func (s *Services) AcceptRingToken(ctx context.Context) error {
+func (s *Services) AcceptRingToken(ctx context.Context, repository string) error {
 	tokenMutex.Lock()
-	hasToken = true
+	hasToken[repository] = true
 	tokenMutex.Unlock()
 	fmt.Println("Token accepted")
 
@@ -57,7 +69,7 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 	go func() {
 		fmt.Println("Waiting 30 seconds to post token to next gateway")
 		<-time.After(30 * time.Second)
-		err := s.PostRingToken()
+		err := s.PostRingToken(repository)
 		if err != nil {
 			fmt.Println("Error posting token:", err)
 		}
@@ -67,18 +79,18 @@ func (s *Services) AcceptRingToken(ctx context.Context) error {
 }
 
 // PostRingToken posts the token to the next gateway in the ring.
-func (s *Services) PostRingToken() error {
+func (s *Services) PostRingToken(repository string) error {
 	currGw, err := getHostname()
 	if err != nil {
 		fmt.Println("Error getting hostname:", err)
 		return err
 	}
-	nextGw, err := getNextRingGateway(s.Ringfile, currGw)
+	nextGw, err := s.GetNextRingGateway(repository, currGw)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
 	}
-	err = retryPostToken(nextGw, s.Ringfile)
+	err = s.RetryPostToken(repository, nextGw)
 	if err != nil {
 		fmt.Println("Error posting token to next gateway:", err)
 		return err
@@ -88,14 +100,14 @@ func (s *Services) PostRingToken() error {
 }
 
 // retryPostToken posts the token to the specified gateway. targetGw should be the gateway hostname
-func retryPostToken(targetGw string, ringFile string) error {
+func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
 	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
 	fmt.Println("Posting to: ", url)
 
 	// Get the gateway next to the target. This will be used if the token is not succesfully posted to the target
-	nextGw, err := getNextRingGateway(ringFile, targetGw)
+	nextGw, err := s.GetNextRingGateway(repository, targetGw)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
@@ -104,8 +116,8 @@ func retryPostToken(targetGw string, ringFile string) error {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte("repoName")))
 	if err != nil {
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
-		requestRemoval(targetGw, ringFile)
-		err = retryPostToken(nextGw, ringFile)
+		s.RequestRemoval(repository, targetGw)
+		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
 
@@ -117,8 +129,8 @@ func retryPostToken(targetGw string, ringFile string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
-		requestRemoval(targetGw, ringFile)
-		err = retryPostToken(nextGw, ringFile)
+		s.RequestRemoval(repository, targetGw)
+		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
 	defer resp.Body.Close()
@@ -140,27 +152,27 @@ func retryPostToken(targetGw string, ringFile string) error {
 				fmt.Printf("Error message: %s\n", errMsg)
 			}
 			fmt.Println("received error acknowledgment:", ack, "attempting next gateway in ring")
-			err = retryPostToken(nextGw, ringFile)
+			err = s.RetryPostToken(repository, nextGw)
 			return err
 		}
 	} else {
 		fmt.Println("Acknowledgment not found in response. Attempting next gateway in ring")
-		err = retryPostToken(nextGw, ringFile)
+		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
 
 	// Update token state
 	tokenMutex.Lock()
-	hasToken = false
+	hasToken[repository] = false
 	tokenMutex.Unlock()
 
 	return nil
 }
 
-func (s *Services) HasRingToken(ctx context.Context) bool {
+func (s *Services) HasRingToken(ctx context.Context, repository string) bool {
 	tokenMutex.Lock()
 	defer tokenMutex.Unlock()
-	return hasToken
+	return hasToken[repository]
 }
 
 func getHostname() (string, error) {
@@ -171,8 +183,8 @@ func getHostname() (string, error) {
 	return hostname, nil
 }
 
-func getNextRingGateway(ringFile string, currentAddress string) (string, error) {
-	file, err := os.Open(ringFile)
+func (s *Services) GetNextRingGateway(repository string, currentAddress string) (string, error) {
+	file, err := os.Open(s.Ringfile)
 	if err != nil {
 		fmt.Println("Error opening ring file:", err)
 		return "", err
@@ -191,17 +203,17 @@ func getNextRingGateway(ringFile string, currentAddress string) (string, error) 
 		return "", err
 	}
 
-	// Assuming the repo name is hardcoded to "test.bucket.org"
+	// Retrieve the gateways for the specified repository
 	var gateways []string
 	for _, repo := range ringData.Repos {
-		if repo.RepoName == "test.bucket.org" {
+		if repo.RepoName == repository {
 			gateways = repo.Gateways
 			break
 		}
 	}
 
 	if len(gateways) == 0 {
-		return "", fmt.Errorf("no gateways found for repo 'test.bucket.org'")
+		return "", fmt.Errorf("no gateways found for repo '%s'", repository)
 	}
 
 	for i, p := range gateways {
@@ -212,9 +224,9 @@ func getNextRingGateway(ringFile string, currentAddress string) (string, error) 
 	return "", fmt.Errorf("current address not found in gateways")
 }
 
-func requestAddition(hostName string, ringFile string) error {
-	// Get all the hostnames from the ring file
-	lines, err := getHostnames(ringFile)
+func (s *Services) RequestAddition(repository string, hostName string) error {
+	// Get all the hostnames from the specified repository
+	lines, err := s.GetHostnames(repository)
 	if err != nil {
 		return fmt.Errorf("could not get hostnames: %w", err)
 	}
@@ -222,7 +234,7 @@ func requestAddition(hostName string, ringFile string) error {
 	// Create a payload containing the hostname and ring file name
 	payload := map[string]string{
 		"hostName": hostName,
-		"ringFile": ringFile,
+		"repo":     repository,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -249,17 +261,17 @@ func requestAddition(hostName string, ringFile string) error {
 	return nil
 }
 
-func requestRemoval(hostName string, ringFile string) error {
-	// Get all the hostnames from the ring file
-	lines, err := getHostnames(ringFile)
+func (s *Services) RequestRemoval(repository string, hostName string) error {
+	// Get all the hostnames for the specified repository
+	lines, err := s.GetHostnames(repository)
 	if err != nil {
 		return fmt.Errorf("could not get hostnames: %w", err)
 	}
 
-	// Create a payload containing the hostname and ring file content
+	// Create a payload containing the hostname and repo name
 	payload := map[string]string{
 		"hostName": hostName,
-		"ringFile": ringFile,
+		"repo":     repository,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -287,9 +299,9 @@ func requestRemoval(hostName string, ringFile string) error {
 	return nil
 }
 
-func (s *Services) AddToRing(hostName string, ringFile string) error {
+func (s *Services) AddToRing(repository string, hostName string) error {
 	// Load the ring file contents
-	file, err := os.OpenFile(ringFile, os.O_RDWR, 0644)
+	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("could not open ring file: %w", err)
 	}
@@ -307,33 +319,28 @@ func (s *Services) AddToRing(hostName string, ringFile string) error {
 		return fmt.Errorf("could not decode ring file: %w", err)
 	}
 
-	// Check if the repo "test.bucket.org" exists
+	// Check if the specified repo exists
 	var repoFound bool
 	for i, repo := range ringData.Repos {
-		if repo.RepoName == "test.bucket.org" {
+		if repo.RepoName == repository {
 			repoFound = true
-			// Check if the hostname is already in the gateways
+			// Check if the hostname is already in the ring
 			for _, gateway := range repo.Gateways {
 				if gateway == hostName {
 					fmt.Println("Hostname already in gateways")
 					return nil
 				}
 			}
-			// Add the hostname to the gateways
+			// Append the hostname to the ring
 			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, hostName)
 			break
 		}
 	}
 
-	// If the repo does not exist, create it
+	// Repo does not exist, so ignore the addition
 	if !repoFound {
-		ringData.Repos = append(ringData.Repos, struct {
-			RepoName string   `json:"repoName"`
-			Gateways []string `json:"gateways"`
-		}{
-			RepoName: "test.bucket.org",
-			Gateways: []string{hostName},
-		})
+		fmt.Println("Repo", repository, "not found in ring file, ignoring addition")
+		return nil
 	}
 
 	// Write the updated JSON structure back to the file
@@ -349,9 +356,9 @@ func (s *Services) AddToRing(hostName string, ringFile string) error {
 	return nil
 }
 
-func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
+func (s *Services) RemoveFromRing(repository string, hostName string) error {
 	// Load the ring file contents
-	file, err := os.OpenFile(ringFile, os.O_RDWR, 0644)
+	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("could not open ring file: %w", err)
 	}
@@ -369,10 +376,10 @@ func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
 		return fmt.Errorf("could not decode ring file: %w", err)
 	}
 
-	// Check if the repo "test.bucket.org" exists
+	// Check if the specified repo exists
 	var repoFound bool
 	for i, repo := range ringData.Repos {
-		if repo.RepoName == "test.bucket.org" {
+		if repo.RepoName == repository {
 			repoFound = true
 			// Remove the hostname from the gateways
 			var updatedGateways []string
@@ -386,9 +393,10 @@ func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
 		}
 	}
 
-	// If the repo does not exist, return an error
+	// If the repo does not exist, ignore the removal
 	if !repoFound {
-		return fmt.Errorf("repo 'test.bucket.org' not found in ring file")
+		fmt.Println("repo", repository, "not found in ring file")
+		return nil
 	}
 
 	// Write the updated JSON structure back to the file
@@ -404,8 +412,36 @@ func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
 	return nil
 }
 
-func getHostnames(ringFile string) ([]string, error) {
-	file, err := os.Open(ringFile)
+func (s *Services) GetRepositories() ([]string, error) {
+	// Load the ring file contents
+	file, err := os.Open(s.Ringfile)
+	if err != nil {
+		return nil, fmt.Errorf("could not open ring file: %w", err)
+	}
+	defer file.Close()
+
+	var ringData struct {
+		Repos []struct {
+			RepoName string   `json:"repoName"`
+			Gateways []string `json:"gateways"`
+		} `json:"repos"`
+	}
+
+	// Decode the existing JSON structure
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		return nil, fmt.Errorf("could not decode ring file: %w", err)
+	}
+
+	var repositories []string
+	for _, repo := range ringData.Repos {
+		repositories = append(repositories, repo.RepoName)
+	}
+
+	return repositories, nil
+}
+
+func (s *Services) GetHostnames(repository string) ([]string, error) {
+	file, err := os.Open(s.Ringfile)
 	if err != nil {
 		return nil, fmt.Errorf("could not open ring file: %w", err)
 	}
@@ -423,17 +459,17 @@ func getHostnames(ringFile string) ([]string, error) {
 		return nil, fmt.Errorf("could not decode ring file: %w", err)
 	}
 
-	// Collect all gateways from the "test.bucket.org" repo
+	// Collect all gateways from the specified repo
 	var hostnames []string
 	for _, repo := range ringData.Repos {
-		if repo.RepoName == "test.bucket.org" {
+		if repo.RepoName == repository {
 			hostnames = append(hostnames, repo.Gateways...)
 			break
 		}
 	}
 
 	if len(hostnames) == 0 {
-		return nil, fmt.Errorf("no gateways found for repo 'test.bucket.org'")
+		return nil, fmt.Errorf("no gateways found for repo '%s'", repository)
 	}
 
 	return hostnames, nil

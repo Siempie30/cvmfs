@@ -27,23 +27,23 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	}
 }
 
-// POST method to append a gateway to token ring
+// POST method to append a gateway to token ring of specified repo
 func handleAddToRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Received request to add gw to token ring")
 
 	ctx := h.Context()
 	var reqMsg struct {
 		HostName string `json:"hostName"`
-		RingFile string `json:"ringFile"`
+		Repo     string `json:"repo"`
 	}
 	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
 		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
 		return
 	}
 
-	err := services.AddToRing(reqMsg.HostName, reqMsg.RingFile)
+	err := services.AddToRing(reqMsg.Repo, reqMsg.HostName)
 	if err != nil {
-		fmt.Println("failed to add:", reqMsg.HostName, "to token ring: ", err)
+		fmt.Println("failed to add:", reqMsg.HostName, "to token ring for repo", reqMsg.Repo, ": ", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
@@ -57,28 +57,35 @@ func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h
 	ctx := h.Context()
 	var reqMsg struct {
 		HostName string `json:"hostName"`
-		RingFile string `json:"ringFile"`
+		Repo     string `json:"repo"`
 	}
 	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
 		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
 		return
 	}
 
-	err := services.RemoveFromRing(reqMsg.HostName, reqMsg.RingFile)
+	err := services.RemoveFromRing(reqMsg.Repo, reqMsg.HostName)
 	if err != nil {
-		fmt.Println("Failed to remove", reqMsg.HostName, "from token ring:", err)
+		fmt.Println("Failed to remove", reqMsg.HostName, "from token ring for repository", reqMsg.Repo, ":", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
 }
 
-// POST method to post token to this gateway
+// POST method to post token for specified rpeo to this gateway
 func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	fmt.Println("Received token ring")
 
 	ctx := h.Context()
-	err := services.AcceptRingToken(ctx)
+	var reqMsg struct {
+		Repo string `json:"repo"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+	err := services.AcceptRingToken(ctx, reqMsg.Repo)
 	if err != nil {
 		fmt.Println("Error posting token: ", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
@@ -89,7 +96,15 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 
 // GET method to see if this gateway has token
 func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
-	if !services.HasRingToken(h.Context()) {
+	ctx := h.Context()
+	var reqMsg struct {
+		Repo string `json:"repo"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+	if !services.HasRingToken(ctx, reqMsg.Repo) {
 		fmt.Println("No token")
 		replyJSON(h.Context(), w, message{"status": "no token"})
 	} else {

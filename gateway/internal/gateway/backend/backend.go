@@ -40,11 +40,17 @@ type ActionController interface {
 	SubscribeToNotifications(ctx context.Context, repository string) SubscriberHandle
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
 	InitTokenRing() error
-	AcceptRingToken(ctx context.Context) error
-	PostRingToken() error
-	AddToRing(hostName string, ringFile string) error
-	RemoveFromRing(hostName string, ringFile string) error
-	HasRingToken(ctx context.Context) bool
+	AcceptRingToken(ctx context.Context, repository string) error
+	PostRingToken(repository string) error
+	RetryPostToken(repository string, targetGw string) error
+	AddToRing(repository string, hostName string) error
+	RemoveFromRing(repository string, hostName string) error
+	HasRingToken(ctx context.Context, repository string) bool
+	GetRepositories() ([]string, error)
+	GetHostnames(repository string) ([]string, error)
+	GetNextRingGateway(repository string, currentAddress string) (string, error)
+	RequestAddition(repository string, hostName string) error
+	RequestRemoval(repository string, hostName string) error
 }
 
 // GetKey returns the key configuration associated with a key ID

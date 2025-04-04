@@ -99,7 +99,12 @@ func handleNewLease(services be.ActionController, w http.ResponseWriter, h *http
 		protocolVersion := MaxAPIVersion(clientVersion)
 
 		// TODO Check if gateway owns token
-		if !services.HasRingToken(ctx) {
+		repo, _, err := gw.SplitLeasePath(reqMsg.Path)
+		if err != nil {
+			httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+			return
+		}
+		if !services.HasRingToken(ctx, repo) {
 			msg["status"] = "error"
 			msg["reason"] = "no token"
 			replyJSON(ctx, w, msg)
