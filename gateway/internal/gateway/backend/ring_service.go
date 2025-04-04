@@ -1,14 +1,12 @@
 package backend
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 )
@@ -181,23 +179,37 @@ func getNextRingGateway(ringFile string, currentAddress string) (string, error) 
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	var addresses []string
-	for scanner.Scan() {
-		addresses = append(addresses, strings.TrimSpace(scanner.Text()))
+	var ringData struct {
+		Repos []struct {
+			RepoName string   `json:"repoName"`
+			Gateways []string `json:"gateways"`
+		} `json:"repos"`
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error scanning file:", err)
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		fmt.Println("Error decoding ring file:", err)
 		return "", err
 	}
 
-	for i, p := range addresses {
-		if p == currentAddress {
-			return addresses[(i+1)%len(addresses)], nil
+	// Assuming the repo name is hardcoded to "test.bucket.org"
+	var gateways []string
+	for _, repo := range ringData.Repos {
+		if repo.RepoName == "test.bucket.org" {
+			gateways = repo.Gateways
+			break
 		}
 	}
-	return "", fmt.Errorf("current address not found in ring")
+
+	if len(gateways) == 0 {
+		return "", fmt.Errorf("no gateways found for repo 'test.bucket.org'")
+	}
+
+	for i, p := range gateways {
+		if p == currentAddress {
+			return gateways[(i+1)%len(gateways)], nil
+		}
+	}
+	return "", fmt.Errorf("current address not found in gateways")
 }
 
 func requestAddition(hostName string, ringFile string) error {
@@ -276,64 +288,118 @@ func requestRemoval(hostName string, ringFile string) error {
 }
 
 func (s *Services) AddToRing(hostName string, ringFile string) error {
-	// Load the ringfile contents
-	lines, err := getHostnames(ringFile)
-	if err != nil {
-		return fmt.Errorf("could not get hostnames: %w", err)
-	}
-
-	// Check if the hostname is already in the ringfile
-	for _, line := range lines {
-		if line == hostName {
-			fmt.Println("Hostname already in ring file")
-			return nil
-		}
-	}
-
-	// Append the new hostname to the ringfile
-	file, err := os.OpenFile(ringFile, os.O_APPEND|os.O_WRONLY, 0644)
+	// Load the ring file contents
+	file, err := os.OpenFile(ringFile, os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("could not open ring file: %w", err)
 	}
 	defer file.Close()
 
-	if _, err := file.WriteString(hostName + "\n"); err != nil {
-		return fmt.Errorf("could not write to ring file: %w", err)
+	var ringData struct {
+		Repos []struct {
+			RepoName string   `json:"repoName"`
+			Gateways []string `json:"gateways"`
+		} `json:"repos"`
 	}
+
+	// Decode the existing JSON structure
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		return fmt.Errorf("could not decode ring file: %w", err)
+	}
+
+	// Check if the repo "test.bucket.org" exists
+	var repoFound bool
+	for i, repo := range ringData.Repos {
+		if repo.RepoName == "test.bucket.org" {
+			repoFound = true
+			// Check if the hostname is already in the gateways
+			for _, gateway := range repo.Gateways {
+				if gateway == hostName {
+					fmt.Println("Hostname already in gateways")
+					return nil
+				}
+			}
+			// Add the hostname to the gateways
+			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, hostName)
+			break
+		}
+	}
+
+	// If the repo does not exist, create it
+	if !repoFound {
+		ringData.Repos = append(ringData.Repos, struct {
+			RepoName string   `json:"repoName"`
+			Gateways []string `json:"gateways"`
+		}{
+			RepoName: "test.bucket.org",
+			Gateways: []string{hostName},
+		})
+	}
+
+	// Write the updated JSON structure back to the file
+	file.Seek(0, 0)  // Reset file pointer to the beginning
+	file.Truncate(0) // Clear the file content
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // Pretty-print JSON
+	if err := encoder.Encode(&ringData); err != nil {
+		return fmt.Errorf("could not encode ring file: %w", err)
+	}
+
 	fmt.Println("Added to ring file:", hostName)
 	return nil
 }
 
 func (s *Services) RemoveFromRing(hostName string, ringFile string) error {
-	// Get all the hostnames from the ringfile
-	lines, err := getHostnames(ringFile)
+	// Load the ring file contents
+	file, err := os.OpenFile(ringFile, os.O_RDWR, 0644)
 	if err != nil {
-		return fmt.Errorf("could not get hostnames: %w", err)
-	}
-
-	// Copy all lines except the one scheduled for removal
-	var newLines []string
-	for _, line := range lines {
-		if line != hostName {
-			newLines = append(newLines, line)
-		}
-	}
-
-	// Write the new lines back to the ring file
-	file, err := os.Create(ringFile)
-	if err != nil {
-		return fmt.Errorf("could not create ring file: %w", err)
+		return fmt.Errorf("could not open ring file: %w", err)
 	}
 	defer file.Close()
-	writer := bufio.NewWriter(file)
-	for _, line := range newLines {
-		if _, err := writer.WriteString(line + "\n"); err != nil {
-			return fmt.Errorf("could not write to ring file: %w", err)
+
+	var ringData struct {
+		Repos []struct {
+			RepoName string   `json:"repoName"`
+			Gateways []string `json:"gateways"`
+		} `json:"repos"`
+	}
+
+	// Decode the existing JSON structure
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		return fmt.Errorf("could not decode ring file: %w", err)
+	}
+
+	// Check if the repo "test.bucket.org" exists
+	var repoFound bool
+	for i, repo := range ringData.Repos {
+		if repo.RepoName == "test.bucket.org" {
+			repoFound = true
+			// Remove the hostname from the gateways
+			var updatedGateways []string
+			for _, gateway := range repo.Gateways {
+				if gateway != hostName {
+					updatedGateways = append(updatedGateways, gateway)
+				}
+			}
+			ringData.Repos[i].Gateways = updatedGateways
+			break
 		}
 	}
-	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("could not flush ring file: %w", err)
+
+	// If the repo does not exist, return an error
+	if !repoFound {
+		return fmt.Errorf("repo 'test.bucket.org' not found in ring file")
 	}
+
+	// Write the updated JSON structure back to the file
+	file.Seek(0, 0)  // Reset file pointer to the beginning
+	file.Truncate(0) // Clear the file content
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // Pretty-print JSON
+	if err := encoder.Encode(&ringData); err != nil {
+		return fmt.Errorf("could not encode ring file: %w", err)
+	}
+
 	fmt.Println("Removed from ring file:", hostName)
 	return nil
 }
@@ -344,14 +410,31 @@ func getHostnames(ringFile string) ([]string, error) {
 		return nil, fmt.Errorf("could not open ring file: %w", err)
 	}
 	defer file.Close()
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines = append(lines, line)
+
+	var ringData struct {
+		Repos []struct {
+			RepoName string   `json:"repoName"`
+			Gateways []string `json:"gateways"`
+		} `json:"repos"`
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("could not read ring file: %w", err)
+
+	// Decode the JSON structure
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		return nil, fmt.Errorf("could not decode ring file: %w", err)
 	}
-	return lines, nil
+
+	// Collect all gateways from the "test.bucket.org" repo
+	var hostnames []string
+	for _, repo := range ringData.Repos {
+		if repo.RepoName == "test.bucket.org" {
+			hostnames = append(hostnames, repo.Gateways...)
+			break
+		}
+	}
+
+	if len(hostnames) == 0 {
+		return nil, fmt.Errorf("no gateways found for repo 'test.bucket.org'")
+	}
+
+	return hostnames, nil
 }

@@ -41,7 +41,7 @@ func ReadConfig() (*Config, error) {
 	var configFile string
 	pflag.StringVar(&configFile, "user_config_file", "/etc/cvmfs/gateway/user.json", "config file with user modifiable settings")
 	pflag.String("access_config_file", "/etc/cvmfs/gateway/repo.json", "repository access configuration file")
-	pflag.String("token_ring_file", "/etc/cvmfs/gateway/token_ring.txt", "file to store the token ring addresses")
+	pflag.String("token_ring_file", "/etc/cvmfs/gateway/token_ring.json", "file to store the token ring addresses per repo")
 	pflag.Int("port", 4929, "HTTP frontend port")
 	pflag.Int("pprof_port", 6060, "pprof port on localhost")
 	pflag.Int("pprof_port_range_max", 6260, "pprof port on localhost")
