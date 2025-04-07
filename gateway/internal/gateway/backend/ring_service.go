@@ -126,7 +126,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
-		s.RequestRemoval(repository, targetGw)
+		removeFromRing(repository, targetGw, s)
 		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
@@ -140,7 +140,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
-		s.RequestRemoval(repository, targetGw)
+		removeFromRing(repository, targetGw, s)
 		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
@@ -252,8 +252,17 @@ func (s *Services) RequestAddition(repository string, hostName string) error {
 		return fmt.Errorf("could not marshal payload: %w", err)
 	}
 
-	// Send HTTP addition request to each hostname
+	// Send HTTP addition request to each hostname except the current one
 	for _, line := range lines {
+		currGw, err := getHostname()
+		if err != nil {
+			fmt.Println("could not get hostname:", err)
+			continue
+		}
+		if line == currGw {
+			fmt.Println("Skipping addition request to self:", currGw)
+			continue
+		}
 		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/addition", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
@@ -289,8 +298,12 @@ func (s *Services) RequestRemoval(repository string, hostName string) error {
 		return fmt.Errorf("could not marshal payload: %w", err)
 	}
 
-	// Send HTTP removal request to each hostname
+	// Send HTTP removal request to each hostname except the current one
 	for _, line := range lines {
+		if line == hostName {
+			fmt.Println("Skipping removal request to self:", hostName)
+			continue
+		}
 		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
@@ -367,7 +380,19 @@ func (s *Services) AddToRing(repository string, hostName string) error {
 	return nil
 }
 
-func (s *Services) RemoveFromRing(repository string, hostName string) error {
+func removeFromRing(repository string, hostName string, s *Services) error {
+	err := s.RequestRemoval(repository, hostName)
+	if err != nil {
+		return fmt.Errorf("could not request removal of: %w", err)
+	}
+	err = s.RemoveLocally(repository, hostName)
+	if err != nil {
+		return fmt.Errorf("could not remove locally: %w", err)
+	}
+	return nil
+}
+
+func (s *Services) RemoveLocally(repository string, hostName string) error {
 	// Load the ring file contents
 	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
 	if err != nil {
