@@ -286,7 +286,7 @@ func (s *Services) CommitLease(ctx context.Context, token, oldRootHash, newRootH
 		return 0, err
 	}
 
-	if lease == nil || lease.Expiration.Before(time.Now()) || !s.HasRingToken(ctx, lease.Repository) {
+	if lease == nil || lease.Expiration.Before(time.Now()) || !s.CanStartLease(ctx, lease.Repository) {
 		err := InvalidLeaseError{}
 		outcome = err.Error()
 		return 0, err

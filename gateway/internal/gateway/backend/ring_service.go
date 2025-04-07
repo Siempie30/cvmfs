@@ -13,6 +13,7 @@ import (
 
 // Map to store whether this gateway possesses the token per repository
 var hasToken map[string]bool = make(map[string]bool)
+var tokenReceptionTime map[string]time.Time = make(map[string]time.Time)
 var tokenMutex sync.Mutex
 
 func (s *Services) InitTokenRing() error {
@@ -65,8 +66,10 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	tokenMutex.Unlock()
 	fmt.Println("Token accepted for", repository)
 
-	// Post the token to the next gateway after 25 seconds
-	time.AfterFunc(25*time.Second, func() {
+	// Post the token to the next gateway after lease acquisition time + max lease time
+	tokenReceptionTime[repository] = time.Now()
+	tokenPostTime := s.Config.LeaseAcquisitionTime + s.Config.MaxLeaseTime
+	time.AfterFunc(tokenPostTime, func() {
 		err := s.PostRingToken(repository)
 		if err != nil {
 			fmt.Println("Error posting token:", err)
@@ -182,6 +185,21 @@ func (s *Services) HasRingToken(ctx context.Context, repository string) bool {
 	tokenMutex.Lock()
 	defer tokenMutex.Unlock()
 	return hasToken[repository]
+}
+
+func (s *Services) CanStartLease(ctx context.Context, repository string) bool {
+	// Check if the token is received
+	if !s.HasRingToken(ctx, repository) {
+		return false
+	}
+	// Check if the token reception time is within the allowed time
+	tokenMutex.Lock()
+	receptionTime, exists := tokenReceptionTime[repository]
+	if !exists {
+		return false
+	}
+	tokenMutex.Unlock()
+	return time.Since(receptionTime) > s.Config.MaxLeaseTime
 }
 
 func getHostname() (string, error) {

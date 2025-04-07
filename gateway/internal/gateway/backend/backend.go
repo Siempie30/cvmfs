@@ -46,6 +46,7 @@ type ActionController interface {
 	AddToRing(repository string, hostName string) error
 	RemoveLocally(repository string, hostName string) error
 	HasRingToken(ctx context.Context, repository string) bool
+	CanStartLease(ctx context.Context, repository string) bool
 	GetRepositories() ([]string, error)
 	GetHostnames(repository string) ([]string, error)
 	GetNextRingGateway(repository string, currentAddress string) (string, error)
