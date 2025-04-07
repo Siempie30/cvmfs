@@ -75,8 +75,6 @@ func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h
 
 // POST method to post token for specified rpeo to this gateway
 func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
-	fmt.Println("Received token ring")
-
 	ctx := h.Context()
 	var reqMsg struct {
 		Repo string `json:"repo"`

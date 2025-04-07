@@ -63,12 +63,12 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	tokenMutex.Lock()
 	hasToken[repository] = true
 	tokenMutex.Unlock()
-	fmt.Println("Token accepted")
+	fmt.Println("Token accepted for", repository)
 
-	// Post the token to the next gateway after 30 seconds
+	// Post the token to the next gateway after 25 seconds
 	go func() {
-		fmt.Println("Waiting 30 seconds to post token to next gateway")
-		<-time.After(30 * time.Second)
+		fmt.Println("Waiting 25 seconds to post token to next gateway")
+		<-time.After(25 * time.Second)
 		err := s.PostRingToken(repository)
 		if err != nil {
 			fmt.Println("Error posting token:", err)
@@ -104,7 +104,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
 	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
-	fmt.Println("Posting to: ", url)
+	fmt.Println("Posting token for:", repository, "to:", url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
 	nextGw, err := s.GetNextRingGateway(repository, targetGw)
