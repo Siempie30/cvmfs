@@ -106,20 +106,31 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
 	fmt.Println("Posting to: ", url)
 
-	// Get the gateway next to the target. This will be used if the token is not succesfully posted to the target
+	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
 	nextGw, err := s.GetNextRingGateway(repository, targetGw)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer([]byte("repoName")))
+	// Create the payload with the repository information
+	payload := map[string]string{
+		"repo": repository,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("Error marshaling payload:", err)
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
 		s.RequestRemoval(repository, targetGw)
 		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
+	req.Header.Set("Content-Type", "application/json")
 
 	// Create an HTTP client with a timeout
 	client := &http.Client{
