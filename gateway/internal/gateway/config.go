@@ -66,8 +66,9 @@ func ReadConfig() (*Config, error) {
 		return nil, fmt.Errorf("could not populate configuration object: %w", err)
 	}
 
-	// max_lease_time is given in seconds in the config file or at the command line
+	// max_lease_time and gw_lease_acquisition_time are given in seconds in the config file or at the command line
 	conf.MaxLeaseTime = conf.MaxLeaseTime * time.Second
+	conf.LeaseAcquisitionTime = conf.LeaseAcquisitionTime * time.Second
 
 	// Manually handler legacy parameter names
 
