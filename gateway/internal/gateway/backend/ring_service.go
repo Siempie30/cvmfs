@@ -199,7 +199,7 @@ func (s *Services) CanStartLease(ctx context.Context, repository string) bool {
 		return false
 	}
 	tokenMutex.Unlock()
-	return time.Since(receptionTime) > s.Config.MaxLeaseTime
+	return time.Since(receptionTime) < s.Config.LeaseAcquisitionTime
 }
 
 func getHostname() (string, error) {
