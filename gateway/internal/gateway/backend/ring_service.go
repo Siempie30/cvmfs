@@ -67,11 +67,7 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 
 	// Post the token to the next gateway after 25 seconds
 	time.AfterFunc(25*time.Second, func() {
-		err := s.CancelLeases(ctx, repository)
-		if err != nil {
-			fmt.Println("Error canceling leases:", err)
-		}
-		err = s.PostRingToken(repository)
+		err := s.PostRingToken(repository)
 		if err != nil {
 			fmt.Println("Error posting token:", err)
 		}
