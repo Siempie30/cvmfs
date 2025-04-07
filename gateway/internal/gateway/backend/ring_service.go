@@ -66,14 +66,16 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	fmt.Println("Token accepted for", repository)
 
 	// Post the token to the next gateway after 25 seconds
-	go func() {
-		fmt.Println("Waiting 25 seconds to post token to next gateway")
-		<-time.After(25 * time.Second)
-		err := s.PostRingToken(repository)
+	time.AfterFunc(25*time.Second, func() {
+		err := s.CancelLeases(ctx, repository)
+		if err != nil {
+			fmt.Println("Error canceling leases:", err)
+		}
+		err = s.PostRingToken(repository)
 		if err != nil {
 			fmt.Println("Error posting token:", err)
 		}
-	}()
+	})
 	return nil
 
 }
