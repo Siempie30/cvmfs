@@ -1438,7 +1438,7 @@ create_tokenring_db() {
     # Create token ring database
     sqlite3 "$tokenring_db" <<EOF
 CREATE TABLE gateway (
-  address TEXT PRIMARY KEY,
+  address TEXT PRIMARY KEY
 );
 EOF
     return 0
