@@ -280,6 +280,16 @@ cvmfs_server_mkfs() {
     echo "Note: Autotagging all revisions impedes garbage collection"
   fi
 
+  # Check for gateways in token ring
+  if [ x"$upstream_type" = xgw ]; then
+    local token_ring="$(get_token_ring $stratum0 $name)" || die "failed to get token ring information"
+    if [ x"$token_ring" != x"" ]; then
+      echo "Note: the repository $name is part of a token ring, with gateways $token_ring"
+    else 
+      echo "Warning: the repository $name is a gateway but not part of a token ring"
+    fi
+  fi
+
   # create system-wide configuration
   echo -n "Creating Configuration Files... "
   create_config_files_for_new_repository "$name"                \

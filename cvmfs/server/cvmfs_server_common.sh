@@ -1402,3 +1402,27 @@ _run_catalog_migration() {
   sign_manifest $name $manifest      || die "Signing failed";
   set_ro_root_hash $name $trunk_hash || die "Root hash update failed";
 }
+
+get_token_ring() {
+  local stratum0="$1"
+  local name="$2"
+  local token_ring=""
+  # Use API to get token ring
+  token_ring=$(curl -X GET \
+    --data '{"repo","$name"}' \
+    "$stratum0/api/v1/token-ring")
+  if [ $? -ne 0 ]; then
+    echo "Failed to get token ring from stratum0" >&2
+    return 1
+  fi
+  # Parse token ring
+  token_ring=$(echo "$token_ring" | jq -r '.gateways')
+  if [ $? -ne 0 ]; then
+    echo "Failed to parse token ring" >&2
+    return 1
+  fi
+  # Concatinate token ring
+  local token_ring_list=$(echo "$token_ring" | tr -d '[],"')
+  echo "${token_ring_list[@]}"
+  return 0
+}
