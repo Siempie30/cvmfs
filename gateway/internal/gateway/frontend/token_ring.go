@@ -1,7 +1,6 @@
 package frontend
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,11 +22,7 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 				handlePostTokenRing(services, w, h, ps)
 			}
 		} else {
-			if repoName := ps.ByName("name"); repoName != "" {
-				handleGetGateways(services, h.Context(), repoName)
-			} else {
-				handleGetTokenRing(services, w, h, ps)
-			}
+			handleGetTokenRing(services, w, h, ps)
 		}
 	}
 }
@@ -97,20 +92,6 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 	}
 }
 
-// GET method to get list of gateways in token ring for specified repo
-func handleGetGateways(services be.ActionController, ctx context.Context, repoName string) {
-	msg := make(map[string]interface{})
-	gateways := services.GetRingGateways(repoName)
-	if len(gateways) == 0 {
-		msg["status"] = "no gateways"
-		msg["gateways"] = []string{}
-	} else {
-		msg["status"] = "ok"
-		msg["gateways"] = gateways
-	}
-	replyJSON(ctx, nil, msg)
-}
-
 // GET method to see if this gateway has token
 func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	ctx := h.Context()
@@ -121,11 +102,19 @@ func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *
 		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
 		return
 	}
-	if !services.HasRingToken(ctx, reqMsg.Repo) {
-		fmt.Println("No token")
-		replyJSON(h.Context(), w, message{"status": "no token"})
+	msg := make(map[string]interface{})
+	gateways := services.GetRingGateways(reqMsg.Repo)
+	if len(gateways) == 0 {
+		msg["status"] = "error: no gateways"
+		msg["gateways"] = []string{}
 	} else {
-		fmt.Println("Has token")
-		replyJSON(h.Context(), w, message{"status": "has token"})
+		msg["status"] = "ok"
+		msg["gateways"] = gateways
 	}
+	if !services.HasRingToken(ctx, reqMsg.Repo) {
+		msg["has_token"] = false
+	} else {
+		msg["has_token"] = true
+	}
+	replyJSON(ctx, w, msg)
 }
