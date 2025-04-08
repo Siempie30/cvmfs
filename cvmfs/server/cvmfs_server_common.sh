@@ -1427,3 +1427,39 @@ get_token_ring() {
   echo "$token_ring_list"
   return 0
 }
+
+create_tokenring_db() {
+  local name="$1"
+  local tokenring_db="${CVMFS_SPOOL_DIR}/tokenring.sqlite"
+
+  # Check if tokenring_db already exists
+  if [ ! -f "$tokenring_db" ]; then
+    echo "Token ring database does not exist yet, creating..."
+    # Create token ring database
+    sqlite3 "$tokenring_db" <<EOF
+CREATE TABLE repository (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE gateway (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  address TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE repoGateway (
+  repo_id INTEGER NOT NULL,
+  gateway_id INTEGER NOT NULL,
+  FOREIGN KEY (repo_id) REFERENCES repository (id),
+  FOREIGN KEY (gateway_id) REFERENCES gateway (id),
+  PRIMARY KEY (repo_id, gateway_id)
+);
+EOF
+    return 0
+  fi
+
+  # Create token ring database
+  echo "Creating token ring database"
+  echo "$token_ring" > "$tokenring_db"
+  chown $CVMFS_USER "$tokenring_db" || die "Failed to set ownership of token ring database"
+}
