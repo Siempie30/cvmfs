@@ -1437,22 +1437,8 @@ create_tokenring_db() {
     echo "Token ring database does not exist yet, creating..."
     # Create token ring database
     sqlite3 "$tokenring_db" <<EOF
-CREATE TABLE repository (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE
-);
-
 CREATE TABLE gateway (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  address TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE repoGateway (
-  repo_id INTEGER NOT NULL,
-  gateway_id INTEGER NOT NULL,
-  FOREIGN KEY (repo_id) REFERENCES repository (id),
-  FOREIGN KEY (gateway_id) REFERENCES gateway (id),
-  PRIMARY KEY (repo_id, gateway_id)
+  address TEXT PRIMARY KEY,
 );
 EOF
     return 0
