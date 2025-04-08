@@ -1457,9 +1457,4 @@ CREATE TABLE repoGateway (
 EOF
     return 0
   fi
-
-  # Create token ring database
-  echo "Creating token ring database"
-  echo "$token_ring" > "$tokenring_db"
-  chown $CVMFS_USER "$tokenring_db" || die "Failed to set ownership of token ring database"
 }
