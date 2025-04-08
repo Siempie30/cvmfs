@@ -210,11 +210,11 @@ func getHostname() (string, error) {
 	return hostname, nil
 }
 
-func (s *Services) GetNextRingGateway(repository string, currentAddress string) (string, error) {
+func (s *Services) GetRingGateways(repository string) []string {
 	file, err := os.Open(s.Ringfile)
 	if err != nil {
 		fmt.Println("Error opening ring file:", err)
-		return "", err
+		return nil
 	}
 	defer file.Close()
 
@@ -227,10 +227,9 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string) 
 
 	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
 		fmt.Println("Error decoding ring file:", err)
-		return "", err
+		return nil
 	}
 
-	// Retrieve the gateways for the specified repository
 	var gateways []string
 	for _, repo := range ringData.Repos {
 		if repo.RepoName == repository {
@@ -238,6 +237,11 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string) 
 			break
 		}
 	}
+	return gateways
+}
+
+func (s *Services) GetNextRingGateway(repository string, currentAddress string) (string, error) {
+	gateways := s.GetRingGateways(repository)
 
 	if len(gateways) == 0 {
 		return "", fmt.Errorf("no gateways found for repo '%s'", repository)

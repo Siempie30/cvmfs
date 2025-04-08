@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,7 +23,11 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 				handlePostTokenRing(services, w, h, ps)
 			}
 		} else {
-			handleGetTokenRing(services, w, h, ps)
+			if repoName := ps.ByName("name"); repoName != "" {
+				handleGetGateways(services, h.Context(), repoName)
+			} else {
+				handleGetTokenRing(services, w, h, ps)
+			}
 		}
 	}
 }
@@ -90,6 +95,20 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
+}
+
+// GET method to get list of gateways in token ring for specified repo
+func handleGetGateways(services be.ActionController, ctx context.Context, repoName string) {
+	msg := make(map[string]interface{})
+	gateways := services.GetRingGateways(repoName)
+	if len(gateways) == 0 {
+		msg["status"] = "no gateways"
+		msg["gateways"] = []string{}
+	} else {
+		msg["status"] = "ok"
+		msg["gateways"] = gateways
+	}
+	replyJSON(ctx, nil, msg)
 }
 
 // GET method to see if this gateway has token
