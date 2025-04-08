@@ -1430,6 +1430,7 @@ get_token_ring() {
 
 create_tokenring_db() {
   local name="$1"
+  local token_ring="$2"
   local tokenring_db="${CVMFS_SPOOL_DIR}/tokenring.sqlite"
 
   # Check if tokenring_db already exists
@@ -1441,6 +1442,16 @@ CREATE TABLE gateway (
   address TEXT PRIMARY KEY
 );
 EOF
-    return 0
   fi
+
+  # Populate tokenring_db with token ring
+  IFS=',' read -ra gateways <<< "$token_ring"
+
+  # Loop through array and insert each item into the database
+  for gateway in "${gateways[@]}"; do
+    sqlite3 "$tokenring_db" "INSERT INTO gateway VALUES ('$gateway');"
+  done
+
+  echo "Token ring database created and populated successfully"
+  return 0
 }
