@@ -1410,7 +1410,7 @@ get_token_ring() {
   local gateway_address=$(echo "$upstream" | awk -F',' '{print $NF}')
   # Use API to get token ring
   token_ring=$(curl -X GET \
-    --data '{"repo","$name"}' \
+    --data "{\"repo\":\"$name\"}" \
     "$gateway_address/token-ring")
   if [ $? -ne 0 ]; then
     echo "Failed to get token ring from stratum0" >&2
@@ -1423,7 +1423,7 @@ get_token_ring() {
     return 1
   fi
   # Concatinate token ring
-  local token_ring_list=$(echo "$token_ring" | tr -d '[],"')
-  echo "${token_ring_list[@]}"
+  local token_ring_list=$(echo "$token_ring" | tr -d '[]" \n')
+  echo "$token_ring_list"
   return 0
 }
