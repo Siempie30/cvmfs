@@ -1404,13 +1404,14 @@ _run_catalog_migration() {
 }
 
 get_token_ring() {
-  local stratum0="$1"
+  local upstream="$1"
   local name="$2"
   local token_ring=""
+  local gateway_address=$(echo "$upstream" | awk -F',' '{print $NF}')
   # Use API to get token ring
   token_ring=$(curl -X GET \
     --data '{"repo","$name"}' \
-    "$stratum0/api/v1/token-ring")
+    "$gateway_address/token-ring")
   if [ $? -ne 0 ]; then
     echo "Failed to get token ring from stratum0" >&2
     return 1
