@@ -387,7 +387,10 @@ void Publisher::Session::Drop() {
   }
 
   CurlBuffer buffer;
-  MakeDropRequest(gw_key, token, settings_.service_endpoint, settings_.llvl,
+  std::string endpoint = "http://" + ReadGatewayAddresses(1) + ":4929/api/v1";
+  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", endpoint.c_str());
+  // Was settings_.service_endpoint
+  MakeDropRequest(gw_key, token, endpoint, settings_.llvl,
                   &buffer);
   LeaseReply rep = ParseDropReply(buffer, settings_.llvl);
   int rvi = 0;
