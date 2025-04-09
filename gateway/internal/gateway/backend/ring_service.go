@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -28,33 +29,33 @@ func (s *Services) InitTokenRing() error {
 	}
 	tokenMutex.Unlock()
 
-	// Get the hostname of the current gateway
-	currGw, err := getHostname()
+	// Get the address of the current gateway
+	address, err := getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
-		return fmt.Errorf("Error getting hostname: %w", err)
+		return fmt.Errorf("Error getting address: %w", err)
 	}
 
 	// Check if the current gateway is already in the ring for each repository
 	for _, repo := range repos {
-		lines, err := s.GetHostnames(repo)
+		lines, err := s.GetGwAddresses(repo)
 		if err != nil {
-			return fmt.Errorf("Error getting hostnames for repo %s: %w", repo, err)
+			return fmt.Errorf("Error getting addresses for repo %s: %w", repo, err)
 		}
 		var found bool
 		for _, line := range lines {
-			if line == currGw {
+			if line == address {
 				found = true
 				break
 			}
 		}
 		if !found {
 			// Gateway is not yet in the ring, so add it
-			err = s.RequestAddition(repo, currGw)
+			err = s.RequestAddition(repo, address)
 			if err != nil {
 				return fmt.Errorf("Error adding gateway to ring:, %w", err)
 			}
 			// Manually add to own ring, as the frontend is not loaded and therefore cannot receive the addition request
-			s.AddToRing(repo, currGw)
+			s.AddToRing(repo, address)
 		}
 	}
 	return nil
@@ -81,12 +82,12 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 
 // PostRingToken posts the token to the next gateway in the ring.
 func (s *Services) PostRingToken(repository string) error {
-	currGw, err := getHostname()
+	address, err := getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
-		fmt.Println("Error getting hostname:", err)
+		fmt.Println("Error getting address:", err)
 		return err
 	}
-	nextGw, err := s.GetNextRingGateway(repository, currGw)
+	nextGw, err := s.GetNextRingGateway(repository, address)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
@@ -100,11 +101,11 @@ func (s *Services) PostRingToken(repository string) error {
 	return nil
 }
 
-// retryPostToken posts the token to the specified gateway. targetGw should be the gateway hostname
+// retryPostToken posts the token to the specified gateway. targetGw should be the gateway's address
 func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
-	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
+	url := fmt.Sprintf("%s/token-ring", targetGw)
 	fmt.Println("Posting token for:", repository, "to:", url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
@@ -202,12 +203,13 @@ func (s *Services) CanStartLease(ctx context.Context, repository string) bool {
 	return time.Since(receptionTime) < s.Config.LeaseAcquisitionTime
 }
 
-func getHostname() (string, error) {
+func getAddress(port string) (string, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return "", fmt.Errorf("could not get hostname: %w", err)
 	}
-	return hostname, nil
+	address := "http://" + hostname + ":" + port + "/api/v1"
+	return address, nil
 }
 
 func (s *Services) GetRingGateways(repository string) []string {
@@ -255,35 +257,35 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string) 
 	return "", fmt.Errorf("current address not found in gateways")
 }
 
-func (s *Services) RequestAddition(repository string, hostName string) error {
-	// Get all the hostnames from the specified repository
-	lines, err := s.GetHostnames(repository)
+func (s *Services) RequestAddition(repository string, address string) error {
+	// Get all the addresses from the specified repository
+	lines, err := s.GetGwAddresses(repository)
 	if err != nil {
-		return fmt.Errorf("could not get hostnames: %w", err)
+		return fmt.Errorf("could not get addresses: %w", err)
 	}
 
-	// Create a payload containing the hostname and ring file name
+	// Create a payload containing the address and ring file name
 	payload := map[string]string{
-		"hostName": hostName,
-		"repo":     repository,
+		"address": address,
+		"repo":    repository,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("could not marshal payload: %w", err)
 	}
 
-	// Send HTTP addition request to each hostname except the current one
+	// Send HTTP addition request to each address except the current one
 	for _, line := range lines {
-		currGw, err := getHostname()
+		address, err := getAddress(strconv.Itoa(s.Config.Port))
 		if err != nil {
-			fmt.Println("could not get hostname:", err)
+			fmt.Println("could not get address:", err)
 			continue
 		}
-		if line == currGw {
-			fmt.Println("Skipping addition request to self:", currGw)
+		if line == address {
+			fmt.Println("Skipping addition request to self:", address)
 			continue
 		}
-		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/addition", line)
+		url := fmt.Sprintf("%s/token-ring/addition", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw addition request:", err)
@@ -301,30 +303,30 @@ func (s *Services) RequestAddition(repository string, hostName string) error {
 	return nil
 }
 
-func (s *Services) RequestRemoval(repository string, hostName string) error {
-	// Get all the hostnames for the specified repository
-	lines, err := s.GetHostnames(repository)
+func (s *Services) RequestRemoval(repository string, address string) error {
+	// Get all the addresses for the specified repository
+	lines, err := s.GetGwAddresses(repository)
 	if err != nil {
-		return fmt.Errorf("could not get hostnames: %w", err)
+		return fmt.Errorf("could not get addresses: %w", err)
 	}
 
-	// Create a payload containing the hostname and repo name
+	// Create a payload containing the address and repo name
 	payload := map[string]string{
-		"hostName": hostName,
-		"repo":     repository,
+		"address": address,
+		"repo":    repository,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("could not marshal payload: %w", err)
 	}
 
-	// Send HTTP removal request to each hostname except the current one
+	// Send HTTP removal request to each address except the current one
 	for _, line := range lines {
-		if line == hostName {
-			fmt.Println("Skipping removal request to self:", hostName)
+		if line == address {
+			fmt.Println("Skipping removal request to self:", address)
 			continue
 		}
-		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/removal", line)
+		url := fmt.Sprintf("%s/token-ring/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw removal request:", err)
@@ -339,11 +341,11 @@ func (s *Services) RequestRemoval(repository string, hostName string) error {
 		}
 		defer resp.Body.Close()
 	}
-	fmt.Println("Removal request of", hostName, "sent to all gateways")
+	fmt.Println("Removal request of", address, "sent to all gateways")
 	return nil
 }
 
-func (s *Services) AddToRing(repository string, hostName string) error {
+func (s *Services) AddToRing(repository string, address string) error {
 	// Load the ring file contents
 	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
 	if err != nil {
@@ -368,15 +370,15 @@ func (s *Services) AddToRing(repository string, hostName string) error {
 	for i, repo := range ringData.Repos {
 		if repo.RepoName == repository {
 			repoFound = true
-			// Check if the hostname is already in the ring
+			// Check if the address is already in the ring
 			for _, gateway := range repo.Gateways {
-				if gateway == hostName {
-					fmt.Println("Hostname already in gateways")
+				if gateway == address {
+					fmt.Println("Address already in gateways")
 					return nil
 				}
 			}
-			// Append the hostname to the ring
-			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, hostName)
+			// Append the address to the ring
+			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, address)
 			break
 		}
 	}
@@ -396,23 +398,23 @@ func (s *Services) AddToRing(repository string, hostName string) error {
 		return fmt.Errorf("could not encode ring file: %w", err)
 	}
 
-	fmt.Println("Added to ring file:", hostName)
+	fmt.Println("Added to ring file:", address)
 	return nil
 }
 
-func removeFromRing(repository string, hostName string, s *Services) error {
-	err := s.RequestRemoval(repository, hostName)
+func removeFromRing(repository string, address string, s *Services) error {
+	err := s.RequestRemoval(repository, address)
 	if err != nil {
 		return fmt.Errorf("could not request removal of: %w", err)
 	}
-	err = s.RemoveLocally(repository, hostName)
+	err = s.RemoveLocally(repository, address)
 	if err != nil {
 		return fmt.Errorf("could not remove locally: %w", err)
 	}
 	return nil
 }
 
-func (s *Services) RemoveLocally(repository string, hostName string) error {
+func (s *Services) RemoveLocally(repository string, address string) error {
 	// Load the ring file contents
 	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
 	if err != nil {
@@ -437,10 +439,10 @@ func (s *Services) RemoveLocally(repository string, hostName string) error {
 	for i, repo := range ringData.Repos {
 		if repo.RepoName == repository {
 			repoFound = true
-			// Remove the hostname from the gateways
+			// Remove the address from the gateways
 			var updatedGateways []string
 			for _, gateway := range repo.Gateways {
-				if gateway != hostName {
+				if gateway != address {
 					updatedGateways = append(updatedGateways, gateway)
 				}
 			}
@@ -464,7 +466,7 @@ func (s *Services) RemoveLocally(repository string, hostName string) error {
 		return fmt.Errorf("could not encode ring file: %w", err)
 	}
 
-	fmt.Println("Removed from ring file:", hostName)
+	fmt.Println("Removed from ring file:", address)
 	return nil
 }
 
@@ -496,7 +498,7 @@ func (s *Services) GetRepositories() ([]string, error) {
 	return repositories, nil
 }
 
-func (s *Services) GetHostnames(repository string) ([]string, error) {
+func (s *Services) GetGwAddresses(repository string) ([]string, error) {
 	file, err := os.Open(s.Ringfile)
 	if err != nil {
 		return nil, fmt.Errorf("could not open ring file: %w", err)
@@ -516,17 +518,17 @@ func (s *Services) GetHostnames(repository string) ([]string, error) {
 	}
 
 	// Collect all gateways from the specified repo
-	var hostnames []string
+	var addresses []string
 	for _, repo := range ringData.Repos {
 		if repo.RepoName == repository {
-			hostnames = append(hostnames, repo.Gateways...)
+			addresses = append(addresses, repo.Gateways...)
 			break
 		}
 	}
 
-	if len(hostnames) == 0 {
+	if len(addresses) == 0 {
 		return nil, fmt.Errorf("no gateways found for repo '%s'", repository)
 	}
 
-	return hostnames, nil
+	return addresses, nil
 }

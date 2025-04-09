@@ -33,17 +33,17 @@ func handleAddToRing(services be.ActionController, w http.ResponseWriter, h *htt
 
 	ctx := h.Context()
 	var reqMsg struct {
-		HostName string `json:"hostName"`
-		Repo     string `json:"repo"`
+		Address string `json:"address"`
+		Repo    string `json:"repo"`
 	}
 	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
 		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
 		return
 	}
 
-	err := services.AddToRing(reqMsg.Repo, reqMsg.HostName)
+	err := services.AddToRing(reqMsg.Repo, reqMsg.Address)
 	if err != nil {
-		fmt.Println("failed to add:", reqMsg.HostName, "to token ring for repo", reqMsg.Repo, ": ", err)
+		fmt.Println("failed to add:", reqMsg.Address, "to token ring for repo", reqMsg.Repo, ": ", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
@@ -56,17 +56,17 @@ func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h
 
 	ctx := h.Context()
 	var reqMsg struct {
-		HostName string `json:"hostName"`
-		Repo     string `json:"repo"`
+		Address string `json:"address"`
+		Repo    string `json:"repo"`
 	}
 	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
 		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
 		return
 	}
 
-	err := services.RemoveLocally(reqMsg.Repo, reqMsg.HostName)
+	err := services.RemoveLocally(reqMsg.Repo, reqMsg.Address)
 	if err != nil {
-		fmt.Println("Failed to remove", reqMsg.HostName, "from token ring for repository", reqMsg.Repo, ":", err)
+		fmt.Println("Failed to remove", reqMsg.Address, "from token ring for repository", reqMsg.Repo, ":", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
