@@ -64,7 +64,10 @@ static size_t RecvCB(void* buffer, size_t size, size_t nmemb, void* userp) {
   return my_buffer->data.size();
 }
 
-static void MakeAcquireRequest(
+/**
+ * @return true if request failed because of unreachable gateway, false otherwise
+ */
+static bool MakeAcquireRequest(
   const gateway::GatewayKey &key,
   const std::string& repo_path,
   const std::string& repo_service_url,
@@ -103,6 +106,12 @@ static void MakeAcquireRequest(
 
   ret = curl_easy_perform(h_curl);
   curl_easy_cleanup(h_curl);
+  if (ret == CURLE_COULDNT_CONNECT) {
+    LogCvmfs(kLogUploadGateway, llvl | kLogStderr,
+             "Make lease acquire request failed: %d. Reply: %s", ret,
+             buffer->data.c_str());
+    return true;
+  }
   if (ret != CURLE_OK) {
     LogCvmfs(kLogUploadGateway, llvl | kLogStderr,
              "Make lease acquire request failed: %d. Reply: %s", ret,
@@ -110,6 +119,7 @@ static void MakeAcquireRequest(
     throw publish::EPublish("cannot acquire lease",
                             publish::EPublish::kFailLeaseHttp);
   }
+  return false;
 }
 
 // TODO(jblomer): This should eventually also handle the POST request for
@@ -334,11 +344,19 @@ void Publisher::Session::Acquire() {
                    EPublish::kFailGatewayKey);
   }
   CurlBuffer buffer;
-  std::string endpoint = "http://" + ReadGatewayAddresses(1) + ":4929/api/v1";
-  LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoint.c_str());
-  // Was settings_.service_endpoint
-  MakeAcquireRequest(gw_key, settings_.repo_path, endpoint,
-                     settings_.llvl, &buffer);
+  bool retry{true};
+  int i {1};
+  while (retry) {
+    std::string endpoint = "http://" + ReadGatewayAddresses(i) + ":4929/api/v1";
+    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoint.c_str());
+    settings_.service_endpoint = endpoint;
+    retry = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
+                       settings_.llvl, &buffer);
+    ++i;
+    if (i > 3) {
+      throw EPublish("cannot acquire lease", EPublish::kFailLeaseHttp);
+    }
+  }
 
   std::string session_token;
   LeaseReply rep = ParseAcquireReply(buffer, &session_token, settings_.llvl);
@@ -387,10 +405,9 @@ void Publisher::Session::Drop() {
   }
 
   CurlBuffer buffer;
-  std::string endpoint = "http://" + ReadGatewayAddresses(1) + ":4929/api/v1";
-  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", endpoint.c_str());
+  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", settings_.service_endpoint.c_str());
   // Was settings_.service_endpoint
-  MakeDropRequest(gw_key, token, endpoint, settings_.llvl,
+  MakeDropRequest(gw_key, token, settings_.service_endpoint, settings_.llvl,
                   &buffer);
   LeaseReply rep = ParseDropReply(buffer, settings_.llvl);
   int rvi = 0;
