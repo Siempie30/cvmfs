@@ -292,12 +292,25 @@ void Publisher::Session::SetKeepAlive(bool value) {
   keep_alive_ = value;
 }
 
-std::string Publisher::Session::ReadGatewayAddresses(unsigned index) const {
+std::string Publisher::Session::ReadGatewayAddress(unsigned index, std::string repo_path) const {
   std::string address;
   sqlite3* db = NULL;
-  const char* db_path = "/var/spool/cvmfs/test.bucket.org/tokenring.sqlite";
 
-  int rc = sqlite3_open(db_path, &db);
+  // Extract the repo name from the repo path
+  if (repo_path.find("http://") != 0) {
+    throw EPublish("repoPath must start with 'http://'", EPublish::kFailInput);
+  }
+
+  size_t start_pos = std::string("http://").length();
+  size_t colon_pos = repo_path.find(':', start_pos);
+  if (colon_pos == std::string::npos) {
+    throw EPublish("repoPath must contain a colon after 'http://'", EPublish::kFailInput);
+  }
+
+  repo_path = repo_path.substr(start_pos, colon_pos - start_pos);
+  string db_path = "/var/spool/cvmfs/" + repo_path + "/tokenring.sqlite";
+
+  int rc = sqlite3_open(db_path.c_str(), &db);
   if (rc != SQLITE_OK) {
     throw EPublish("cannot open SQLite database: " + std::string(db_path),
                    EPublish::kFailSqlite);
@@ -347,7 +360,7 @@ void Publisher::Session::Acquire() {
   bool retry{true};
   int i {1};
   while (retry) {
-    std::string endpoint = "http://" + ReadGatewayAddresses(i) + ":4929/api/v1";
+    std::string endpoint = ReadGatewayAddress(i, settings_.repo_path);
     LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoint.c_str());
     settings_.service_endpoint = endpoint;
     retry = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,

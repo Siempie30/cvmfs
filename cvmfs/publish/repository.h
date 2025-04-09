@@ -258,7 +258,7 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
     void SetKeepAlive(bool value);
 
     bool has_lease() const { return has_lease_; }
-    std::string ReadGatewayAddresses(unsigned index) const;
+    std::string ReadGatewayAddress(unsigned index, std::string repo_path) const;
     std::string token_path() const { return settings_.token_path; }
 
    private:
