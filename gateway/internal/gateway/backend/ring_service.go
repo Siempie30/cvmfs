@@ -104,7 +104,7 @@ func (s *Services) PostRingToken(repository string) error {
 func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
-	url := fmt.Sprintf("http://%s:4929/api/v1/token-ring", targetGw)
+	url := fmt.Sprintf("%s/token-ring", targetGw)
 	fmt.Println("Posting token for:", repository, "to:", url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
@@ -283,7 +283,7 @@ func (s *Services) RequestAddition(repository string, hostName string) error {
 			fmt.Println("Skipping addition request to self:", currGw)
 			continue
 		}
-		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/addition", line)
+		url := fmt.Sprintf("%s/token-ring/addition", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw addition request:", err)
@@ -324,7 +324,7 @@ func (s *Services) RequestRemoval(repository string, hostName string) error {
 			fmt.Println("Skipping removal request to self:", hostName)
 			continue
 		}
-		url := fmt.Sprintf("http://%s:4929/api/v1/token-ring/removal", line)
+		url := fmt.Sprintf("%s/token-ring/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw removal request:", err)
