@@ -282,6 +282,47 @@ void Publisher::Session::SetKeepAlive(bool value) {
   keep_alive_ = value;
 }
 
+std::string Publisher::Session::ReadGatewayAddresses(unsigned index) const {
+  std::string address;
+  sqlite3* db = NULL;
+  const char* db_path = "/var/spool/cvmfs/test.bucket.org/tokenring.sqlite";
+
+  int rc = sqlite3_open(db_path, &db);
+  if (rc != SQLITE_OK) {
+    throw EPublish("cannot open SQLite database: " + std::string(db_path),
+                   EPublish::kFailSqlite);
+  }
+
+  std::string query = "SELECT address FROM gateway WHERE rowid = " + 
+                      StringifyInt(index) + ";";
+  LogCvmfs(kLogPublish, kLogStderr, "Session acquire: query: %s", query.c_str());
+  sqlite3_stmt* stmt = NULL;
+
+  rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    const unsigned char* addr = sqlite3_column_text(stmt, 0);
+    if (addr) {
+      address = reinterpret_cast<const char*>(addr);
+    }
+  }
+
+  if (rc != SQLITE_DONE) {
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    throw EPublish("error reading from SQLite database: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+  return address;
+}
 
 void Publisher::Session::Acquire() {
   if (has_lease_)
@@ -293,7 +334,10 @@ void Publisher::Session::Acquire() {
                    EPublish::kFailGatewayKey);
   }
   CurlBuffer buffer;
-  MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
+  std::string endpoint = "http://" + ReadGatewayAddresses(1) + ":4929/api/v1";
+  LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoint.c_str());
+  // Was settings_.service_endpoint
+  MakeAcquireRequest(gw_key, settings_.repo_path, endpoint,
                      settings_.llvl, &buffer);
 
   std::string session_token;
