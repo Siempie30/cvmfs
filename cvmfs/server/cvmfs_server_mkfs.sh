@@ -335,7 +335,8 @@ cvmfs_server_mkfs() {
 
   # Check for gateways in token ring
   if [ x"$upstream_type" = xgw ]; then
-    local token_ring="$(get_token_ring $upstream $name)" || die "failed to get token ring information"
+    local token_ring
+    token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
     if [ x"$token_ring" != x"" ]; then
       echo "Note: the repository $name is part of a token ring, with gateways $token_ring"
       create_tokenring_db $name $token_ring || die "failed to create token ring database"
