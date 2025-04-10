@@ -194,7 +194,10 @@ class AbstractObjectFetcher : public ObjectFetcherFailures {
     // Ensure data integrity
     shash::Any computed_hash(reflog_hash.algorithm);
     ReflogTN::HashDatabase(tmp_path, &computed_hash);
-    LogCvmfs(kLogDownload, kLogStderr, "skipping hash check in fetch reflog"); 
+    if (computed_hash != reflog_hash) {
+      unlink(tmp_path.c_str());
+      return kFailBadData;
+    }
 
     *reflog = ReflogTN::Open(tmp_path);
     if (NULL == *reflog) {
