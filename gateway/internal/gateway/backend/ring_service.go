@@ -67,13 +67,43 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	tokenMutex.Unlock()
 	fmt.Println("Token accepted for", repository)
 
-	// Post the token to the next gateway after lease acquisition time + max lease time
+	// Gateway has received the token, so it can start accepting leases for duration of LeaseAcquisitionTime
 	tokenReceptionTime[repository] = time.Now()
-	tokenPostTime := s.Config.LeaseAcquisitionTime + s.Config.MaxLeaseTime
-	time.AfterFunc(tokenPostTime, func() {
-		err := s.PostRingToken(repository)
+	time.AfterFunc(s.Config.LeaseAcquisitionTime, func() {
+		var err error
+		result, err := s.GetLeases(context.Background()) // Using background context is not really intented and slightly hacky
+		if err != nil {
+			fmt.Println("Error getting leases:", err)
+			return
+		}
+		if len(result) == 0 {
+			// If there's no leases active, post the token to the next gateway right away
+			fmt.Println("No active leases, posting token immediately")
+			err = s.PostRingToken(repository)
+		} else {
+			// Wait for either the lease notification to signal 0 leases, or for the max lease time
+			startTime := time.Now()
+
+			select {
+			case <-s.LeaseNotificationChan:
+				result, _ := s.GetLeases(context.Background())
+				if len(result) == 0 { // No more active leases, so token can be posted early
+					fmt.Println("Last lease cancelled or committed, posting token")
+					err = s.PostRingToken(repository)
+					break
+				}
+			case <-time.After(s.Config.MaxLeaseTime - time.Since(startTime)):
+				// Max lease time reached, so post the token
+				fmt.Println("Max lease time reached, posting token")
+				err = s.PostRingToken(repository)
+				break
+			}
+		}
+
 		if err != nil {
 			fmt.Println("Error posting token:", err)
+		} else {
+			fmt.Println("Token posted successfully")
 		}
 	})
 	return nil

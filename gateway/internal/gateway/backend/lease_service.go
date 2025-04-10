@@ -254,6 +254,11 @@ func (s *Services) CancelLease(ctx context.Context, token string) error {
 		return err
 	}
 
+	// Notify the channel about the cancellation
+	if s.LeaseNotificationChan != nil {
+		s.LeaseNotificationChan <- fmt.Sprintf("Lease cancelled: %s", token)
+	}
+
 	// We don't check the error - if the statistics are missing, the lease
 	// should still be cancelable
 	s.StatsMgr.PopLease(lease.CombinedLeasePath())
@@ -313,6 +318,11 @@ func (s *Services) CommitLease(ctx context.Context, token, oldRootHash, newRootH
 	if err := DeleteLeaseByToken(ctx, tx, token); err != nil {
 		outcome = err.Error()
 		return finalRev, err
+	}
+
+	// Notify the channel about the commit
+	if s.LeaseNotificationChan != nil {
+		s.LeaseNotificationChan <- fmt.Sprintf("Lease committed: %s", token)
 	}
 
 	if err := tx.Commit(); err != nil {

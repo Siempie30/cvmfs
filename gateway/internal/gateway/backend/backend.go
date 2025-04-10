@@ -13,13 +13,14 @@ import (
 // Services is a container for the various
 // backend services
 type Services struct {
-	Config        gw.Config
-	Access        AccessConfig
-	DB            *DB
-	Pool          *receiver.Pool
-	Notifications *NotificationSystem
-	StatsMgr      *stats.StatisticsMgr
-	Ringfile      string
+	Config                gw.Config
+	Access                AccessConfig
+	DB                    *DB
+	Pool                  *receiver.Pool
+	Notifications         *NotificationSystem
+	StatsMgr              *stats.StatisticsMgr
+	Ringfile              string
+	LeaseNotificationChan chan string
 }
 
 // ActionController contains the various actions that can be performed with the backend
@@ -84,7 +85,7 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 		return nil, fmt.Errorf("could not initialize notification system: %w", err)
 	}
 
-	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile}
+	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile, LeaseNotificationChan: make(chan string)}
 
 	if err := services.InitTokenRing(); err != nil {
 		return nil, fmt.Errorf("could not initialize token ring: %w", err)
