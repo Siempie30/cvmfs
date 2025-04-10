@@ -102,6 +102,7 @@ cvmfs_server_mkfs() {
   local external_data=false
   local require_masterkeycard=0
   local ignore_manifest_overwrite=0
+  local add_to_existing_S3=0
 
   local configure_apache=1
   local voms_authz=""
@@ -109,7 +110,7 @@ cvmfs_server_mkfs() {
 
   # parameter handling
   OPTIND=1
-  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:I" option; do
+  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:IE" option; do
     case $option in
       X)
         external_data=true
@@ -168,6 +169,9 @@ cvmfs_server_mkfs() {
       I)
         ignore_manifest_overwrite=1
       ;;
+      E)
+        add_to_existing_S3=1
+      ;;
       ?)
         shift $(($OPTIND-2))
         usage "Command mkfs: Unrecognized option: $1"
@@ -211,7 +215,7 @@ cvmfs_server_mkfs() {
   check_repository_existence $name  && die "The repository $name already exists"
   # if upstream is a gateway, we expect the repository to not be empty.
   if [ x"$upstream_type" != xgw ]; then
-      if [ $ignore_manifest_overwrite -eq 0 ]; then
+      if [ $ignore_manifest_overwrite -eq 0 ] && [ $add_to_existing_S3 -eq 0 ]; then
          is_empty_repository_from_url $stratum0 ||
              die "Error: A manifest already exists at this url: $stratum0/.cvmfspublished .\n
                  Delete it manually or use cvmfs_server  mkfs -I  to force the creation of a new repository in this non-empty
@@ -341,17 +345,19 @@ cvmfs_server_mkfs() {
   fi
 
   # create the whitelist
-  if [ x"$upstream_type" != xgw ]; then
+  if [ x"$upstream_type" != xgw ] && [ $add_to_existing_S3 -eq 0 ]; then
       create_whitelist $name $cvmfs_user $upstream $temp_dir
   fi
 
-  echo -n "Creating Initial Repository... "
-  local repoinfo_file=${temp_dir}/new_repoinfo
-  touch $repoinfo_file
-  create_repometa_skeleton $repoinfo_file
-  if is_local_upstream $upstream && [ $configure_apache -eq 1 ]; then
-    reload_apache > /dev/null
-    wait_for_apache "${stratum0}/.cvmfswhitelist" || die "fail (Apache configuration)"
+  if [ $add_to_existing_S3 -eq 0 ]; then
+    echo -n "Creating Initial Repository... "
+    local repoinfo_file=${temp_dir}/new_repoinfo
+    touch $repoinfo_file
+    create_repometa_skeleton $repoinfo_file
+    if is_local_upstream $upstream && [ $configure_apache -eq 1 ]; then
+      reload_apache > /dev/null
+      wait_for_apache "${stratum0}/.cvmfswhitelist" || die "fail (Apache configuration)"
+    fi
   fi
 
   local volatile_opt=
@@ -360,7 +366,7 @@ cvmfs_server_mkfs() {
     echo -n "(repository flagged volatile)... "
   fi
   local user_shell="$(get_user_shell $name)"
-  if [ x"$upstream_type" != xgw ]; then
+  if [ x"$upstream_type" != xgw -a $add_to_existing_S3 -eq 0 ]; then
       local create_cmd="$(__swissknife_cmd) create  \
       -t $temp_dir                                \
       -r $upstream                                \
@@ -391,7 +397,7 @@ cvmfs_server_mkfs() {
 
   health_check $name || die "fail! (health check after mount)"
 
-  if [ x"$upstream_type" != xgw -a "x$voms_authz" = "x" ]; then
+  if [ x"$upstream_type" != xgw -a "x$voms_authz" = "x" -a $add_to_existing_S3 -eq 0 ]; then
       echo -n "Initial commit... "
       cvmfs_server_transaction $name > /dev/null || die "fail (transaction)"
       echo "New CernVM-FS repository for $name" > /cvmfs/${name}/new_repository

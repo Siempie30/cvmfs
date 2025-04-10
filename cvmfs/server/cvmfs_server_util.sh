@@ -1172,7 +1172,7 @@ Supported Commands:
                   [-k path to existing keychain] [-p no apache config]
                   [-R require masterkeycard key ]
                   [-V VOMS authorization] [-X (external data)]
-                  [-x proxy url]
+                  [-x proxy url] [-E existing repo in S3 bucket]
                   <fully qualified repository name>
                   Creates a new repository with a given name
   add-replica     [-u stratum1 upstream storage] [-o owner] [-w stratum1 url]
