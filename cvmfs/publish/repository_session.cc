@@ -307,7 +307,7 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   // Make curl call to gateway to retrieve gateway addresses
   std::string address = ReadGatewayAddress(1, repo_path);
   if (address.empty()) {
-    throw EPublish("cannot read gateway address", EPublish::kFailGatewayKey);
+    throw EPublish("cannot read gateway address", EPublish::kFailLeaseHttp);
   }
   CurlBuffer buffer;
   CURL* h_curl = PrepareCurl("GET");
@@ -326,19 +326,19 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
 
   if (ret != CURLE_OK) {
     throw EPublish("failed to retrieve gateway addresses: " + std::string(curl_easy_strerror(ret)),
-                   EPublish::kFailGatewayKey);
+                   EPublish::kFailLeaseHttp);
   }
 
   // Interpret json
   std::vector<std::string> gateways;
   const UniquePtr<JsonDocument> reply(JsonDocument::Create(buffer.data));
   if (!reply.IsValid() || !reply->IsValid()) {
-    throw EPublish("failed to parse gateway addresses", EPublish::kFailGatewayKey);
+    throw EPublish("failed to parse gateway addresses", EPublish::kFailLeaseHttp);
   }
 
   const JSON* gateways_array = JsonDocument::SearchInObject(reply->root(), "gateways", JSON_ARRAY);
   if (gateways_array == NULL) {
-    throw EPublish("no 'gateways' array found in the response", EPublish::kFailGatewayKey);
+    throw EPublish("no 'gateways' array found in the response", EPublish::kFailLeaseHttp);
   }
 
   const JSON* gateway = gateways_array->first_child;
@@ -457,8 +457,20 @@ void Publisher::Session::Acquire() {
 
   // Update gateway db
   LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
-  UpdateGatewayDb(settings_.repo_path);
-  
+  try {
+    UpdateGatewayDb(settings_.repo_path);
+  } catch (EPublish &e) {
+    if (e.failure() == EPublish::kFailLeaseHttp) {
+      LogCvmfs(kLogPublish, kLogStderr, "Failed to retrieve gateway database, assuming db is unchanged: %s",
+               e.msg().c_str());
+    } else {
+      LogCvmfs(kLogPublish, kLogStderr, "Failed to update gateway database: %s",
+               e.msg().c_str());
+      throw;
+    }
+
+  }
+
   // Retrieve gateway address and make lease acquire request
   CurlBuffer buffer;
   bool retry{true};
