@@ -335,7 +335,8 @@ cvmfs_server_mkfs() {
 
   # Check for gateways in token ring
   if [ x"$upstream_type" = xgw ]; then
-    local token_ring="$(get_token_ring $upstream $name)" || die "failed to get token ring information"
+    local token_ring
+    token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
     if [ x"$token_ring" != x"" ]; then
       echo "Note: the repository $name is part of a token ring, with gateways $token_ring"
       create_tokenring_db $name $token_ring || die "failed to create token ring database"
@@ -366,7 +367,7 @@ cvmfs_server_mkfs() {
     echo -n "(repository flagged volatile)... "
   fi
   local user_shell="$(get_user_shell $name)"
-  if [ x"$upstream_type" != xgw -a $add_to_existing_S3 -eq 0 ]; then
+  if [ x"$upstream_type" != xgw ]; then
       local create_cmd="$(__swissknife_cmd) create  \
       -t $temp_dir                                \
       -r $upstream                                \
@@ -381,9 +382,14 @@ cvmfs_server_mkfs() {
           echo -n "(repository will be accessible with VOMS credentials $voms_authz)... "
           create_cmd="$create_cmd -V $voms_authz"
       fi
+      if [ $add_to_existing_S3 -eq 1 ]; then
+          create_cmd="$create_cmd -E"
+      fi
 
       $user_shell "$create_cmd" > /dev/null                       || die "fail! (cannot init repo)"
-      sign_manifest $name ${temp_dir}/new_manifest $repoinfo_file || die "fail! (cannot sign repo)"
+      if [ $add_to_existing_S3 - eq 0 ]; then
+        sign_manifest $name ${temp_dir}/new_manifest $repoinfo_file || die "fail! (cannot sign repo)"
+      fi
   fi
   echo "done"
 

@@ -109,6 +109,7 @@ int swissknife::CommandCreate::Main(const swissknife::ArgumentList &args) {
   const string spooler_definition = *args.find('r')->second;
   const string repo_name = *args.find('n')->second;
   const string reflog_chksum_path = *args.find('R')->second;
+  const bool skip_creation = args.find('E') != args.end();
   if (args.find('l') != args.end()) {
     unsigned log_level =
       kLogLevel0 << String2Uint64(*args.find('l')->second);
@@ -139,12 +140,15 @@ int swissknife::CommandCreate::Main(const swissknife::ArgumentList &args) {
   UniquePtr<upload::Spooler> spooler(upload::Spooler::Construct(sd));
   assert(spooler.IsValid());
 
-  UniquePtr<manifest::Manifest> manifest(
-      catalog::WritableCatalogManager::CreateRepository(
-          dir_temp, volatile_content, voms_authz, spooler.weak_ref()));
-  if (!manifest.IsValid()) {
-    PrintError("Swissknife Sync: Failed to create new repository");
-    return 1;
+  // Possibly disable this when repo already exists?
+  UniquePtr<manifest::Manifest> manifest;
+  if (!skip_creation) {
+    manifest = catalog::WritableCatalogManager::CreateRepository(
+        dir_temp, volatile_content, voms_authz, spooler.weak_ref());
+    if (!manifest.IsValid()) {
+      PrintError("Swissknife Sync: Failed to create new repository");
+      return 1;
+    }
   }
 
   UniquePtr<manifest::Reflog> reflog(CreateEmptyReflog(dir_temp, repo_name));
@@ -169,13 +173,15 @@ int swissknife::CommandCreate::Main(const swissknife::ArgumentList &args) {
   manifest::Reflog::WriteChecksum(reflog_chksum_path, reflog_hash);
 
   // set optional manifest fields
-  const bool needs_bootstrap_shortcuts = !voms_authz.empty();
-  manifest->set_garbage_collectability(garbage_collectable);
-  manifest->set_has_alt_catalog_path(needs_bootstrap_shortcuts);
+  if (!skip_creation) {
+    const bool needs_bootstrap_shortcuts = !voms_authz.empty();
+    manifest->set_garbage_collectability(garbage_collectable);
+    manifest->set_has_alt_catalog_path(needs_bootstrap_shortcuts);
 
-  if (!manifest->Export(manifest_path)) {
-    PrintError("Swissknife Sync: Failed to create new repository");
-    return 5;
+    if (!manifest->Export(manifest_path)) {
+      PrintError("Swissknife Sync: Failed to create new repository");
+      return 5;
+    }
   }
 
   return 0;
