@@ -254,8 +254,8 @@ func (s *Services) CancelLease(ctx context.Context, token string) error {
 		return err
 	}
 
-	// Notify the channel about the cancellation
-	if s.LeaseNotificationChan != nil {
+	// Notify the channel about the cancellation, but only when the ring service is listening to the cancelled leases (when it has the token but can no longer hand out leases).
+	if s.LeaseNotificationChan != nil && s.HasRingToken(ctx, lease.Repository) && !s.CanStartLease(ctx, lease.Repository) {
 		s.LeaseNotificationChan <- fmt.Sprintf("Lease cancelled: %s", token)
 	}
 
