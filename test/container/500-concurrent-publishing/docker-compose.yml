@@ -13,7 +13,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - var_spool_cvmfs1:/var/spool/cvmfs
-            - ../../../:/home/sftnight/cvmfs
+            #- ../../../:/home/sftnight/cvmfs
             - ./config/:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
@@ -33,7 +33,7 @@ services:
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
             - var_spool_cvmfs2:/var/spool/cvmfs
-            - ../../../:/home/sftnight/cvmfs
+            #- ../../../:/home/sftnight/cvmfs
 
     cvmfs-test-pub2:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -48,7 +48,7 @@ services:
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
             - var_spool_cvmfs3:/var/spool/cvmfs
-            - ../../../:/home/sftnight/cvmfs
+            #- ../../../:/home/sftnight/cvmfs
 
 volumes:
     var_spool_cvmfs1:

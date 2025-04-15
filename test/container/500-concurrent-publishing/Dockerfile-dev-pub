@@ -11,7 +11,9 @@ RUN echo '%sftnight ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 ENV USER sftnight
 
-RUN yum -y install rpm-build
+RUN yum -y install rpm-build httpd usbutils fuse
+RUN mkdir -p /home/sftnight/buildpackage
+RUN cd /home/sftnight; git clone https://github.com/cvmfs/cvmfs
 RUN cd /home/sftnight/cvmfs; ./ci/build_package.sh $PWD $PWD/../buildpackage/ cvmfs
 
 CMD ["/usr/sbin/init"]
