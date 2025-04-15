@@ -53,4 +53,3 @@ echo "++ $command_tmpl"
 echo "switching to $CVMFS_BUILD_LOCATION..."
 cd "$CVMFS_BUILD_LOCATION"
 $command_tmpl
-make install
