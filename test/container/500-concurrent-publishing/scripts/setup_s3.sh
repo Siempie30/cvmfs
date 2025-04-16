@@ -1,10 +1,7 @@
 #!/bin/bash
 
-# Configure alias for local MinIO server
+echo "Configuring alias for local MinIO server"
 mc alias set local http://localhost:9000 minioadmin minioadmin123
 
-# Create a bucket (change 'mybucket' to whatever you like)
-mc mb local/mybucket
-
-# Set public or specific policy if needed
+echo "Set policy to public"
 mc policy public local/mybucket
