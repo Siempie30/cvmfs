@@ -256,7 +256,7 @@ func (s *Services) CancelLease(ctx context.Context, token string) error {
 
 	// We don't check the error - if the statistics are missing, the lease
 	// should still be cancelable
-	s.StatsMgr.PopLease(lease.CombinedLeasePath());
+	s.StatsMgr.PopLease(lease.CombinedLeasePath())
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("could not commit transaction: %w", err)
@@ -286,7 +286,7 @@ func (s *Services) CommitLease(ctx context.Context, token, oldRootHash, newRootH
 		return 0, err
 	}
 
-	if lease == nil || lease.Expiration.Before(time.Now()) {
+	if lease == nil || lease.Expiration.Before(time.Now()) || !s.HasRingToken(ctx, lease.Repository) {
 		err := InvalidLeaseError{}
 		outcome = err.Error()
 		return 0, err

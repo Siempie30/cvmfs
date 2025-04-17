@@ -19,6 +19,7 @@ type Services struct {
 	Pool          *receiver.Pool
 	Notifications *NotificationSystem
 	StatsMgr      *stats.StatisticsMgr
+	Ringfile      string
 }
 
 // ActionController contains the various actions that can be performed with the backend
@@ -38,6 +39,20 @@ type ActionController interface {
 	PublishManifest(ctx context.Context, repository string, message NotificationMessage)
 	SubscribeToNotifications(ctx context.Context, repository string) SubscriberHandle
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
+	InitTokenRing() error
+	AcceptRingToken(ctx context.Context, repository string) error
+	PostRingToken(repository string) error
+	RetryPostToken(repository string, targetGw string) error
+	AddToRing(repository string, hostName string) error
+	RemoveLocally(repository string, hostName string) error
+	HasRingToken(ctx context.Context, repository string) bool
+	CanStartLease(ctx context.Context, repository string) bool
+	GetRepositories() ([]string, error)
+	GetGwAddresses(repository string) ([]string, error)
+	GetRingGateways(repository string) []string
+	GetNextRingGateway(repository string, currentAddress string) (string, error)
+	RequestAddition(repository string, hostName string) error
+	RequestRemoval(repository string, hostName string) error
 }
 
 // GetKey returns the key configuration associated with a key ID
@@ -69,7 +84,11 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 		return nil, fmt.Errorf("could not initialize notification system: %w", err)
 	}
 
-	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr}
+	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile}
+
+	if err := services.InitTokenRing(); err != nil {
+		return nil, fmt.Errorf("could not initialize token ring: %w", err)
+	}
 
 	if err := PopulateRepositories(&services); err != nil {
 		return nil, fmt.Errorf("could not populate repository table: %w", err)

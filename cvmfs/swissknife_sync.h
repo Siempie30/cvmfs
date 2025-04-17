@@ -152,6 +152,7 @@ class CommandCreate : public Command {
     r.push_back(Parameter::Optional('V',
                                     "VOMS authz requirement "
                                     "(default: none)"));
+    r.push_back(Parameter::Switch('E', "skip creation of repo(?)"));
     return r;
   }
   int Main(const ArgumentList &args);

@@ -64,7 +64,10 @@ static size_t RecvCB(void* buffer, size_t size, size_t nmemb, void* userp) {
   return my_buffer->data.size();
 }
 
-static void MakeAcquireRequest(
+/**
+ * @return true if request failed because of unreachable gateway, false otherwise
+ */
+static bool MakeAcquireRequest(
   const gateway::GatewayKey &key,
   const std::string& repo_path,
   const std::string& repo_service_url,
@@ -103,6 +106,12 @@ static void MakeAcquireRequest(
 
   ret = curl_easy_perform(h_curl);
   curl_easy_cleanup(h_curl);
+  if (ret == CURLE_COULDNT_CONNECT) {
+    LogCvmfs(kLogUploadGateway, llvl | kLogStderr,
+             "Make lease acquire request failed: %d. Reply: %s", ret,
+             buffer->data.c_str());
+    return true;
+  }
   if (ret != CURLE_OK) {
     LogCvmfs(kLogUploadGateway, llvl | kLogStderr,
              "Make lease acquire request failed: %d. Reply: %s", ret,
@@ -110,6 +119,7 @@ static void MakeAcquireRequest(
     throw publish::EPublish("cannot acquire lease",
                             publish::EPublish::kFailLeaseHttp);
   }
+  return false;
 }
 
 // TODO(jblomer): This should eventually also handle the POST request for
@@ -282,6 +292,158 @@ void Publisher::Session::SetKeepAlive(bool value) {
   keep_alive_ = value;
 }
 
+void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
+  // Extract the repo name from the repo path
+  size_t end_pos = repo_path.find('/', 0);
+  if (end_pos == 0) {
+    throw EPublish("repo_path cannot start with a '/'", EPublish::kFailInput);
+  }
+  if (end_pos == std::string::npos) {
+    throw EPublish("repo_path must contain a '/'", EPublish::kFailInput);
+  }
+
+  std::string repo_name = repo_path.substr(0, end_pos);
+
+  // Make curl call to gateway to retrieve gateway addresses
+  std::string address = ReadGatewayAddress(1, repo_path);
+  if (address.empty()) {
+    throw EPublish("cannot read gateway address", EPublish::kFailGatewayKey);
+  }
+  CurlBuffer buffer;
+  CURL* h_curl = PrepareCurl("GET");
+  std::string url = address + "/token-ring";
+
+  const std::string payload = "{\"repo\" : \"" + repo_name + "\"}";
+  curl_easy_setopt(h_curl, CURLOPT_POSTFIELDSIZE_LARGE,
+           static_cast<curl_off_t>(payload.length()));
+  curl_easy_setopt(h_curl, CURLOPT_POSTFIELDS, payload.c_str());
+  curl_easy_setopt(h_curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(h_curl, CURLOPT_WRITEFUNCTION, RecvCB);
+  curl_easy_setopt(h_curl, CURLOPT_WRITEDATA, &buffer);
+
+  CURLcode ret = curl_easy_perform(h_curl);
+  curl_easy_cleanup(h_curl);
+
+  if (ret != CURLE_OK) {
+    throw EPublish("failed to retrieve gateway addresses: " + std::string(curl_easy_strerror(ret)),
+                   EPublish::kFailGatewayKey);
+  }
+
+  // Interpret json
+  std::vector<std::string> gateways;
+  const UniquePtr<JsonDocument> reply(JsonDocument::Create(buffer.data));
+  if (!reply.IsValid() || !reply->IsValid()) {
+    throw EPublish("failed to parse gateway addresses", EPublish::kFailGatewayKey);
+  }
+
+  const JSON* gateways_array = JsonDocument::SearchInObject(reply->root(), "gateways", JSON_ARRAY);
+  if (gateways_array == NULL) {
+    throw EPublish("no 'gateways' array found in the response", EPublish::kFailGatewayKey);
+  }
+
+  const JSON* gateway = gateways_array->first_child;
+  while (gateway != nullptr) {
+    gateways.push_back(gateway->string_value);
+    gateway = gateway->next_sibling;
+  }
+
+  // Update the gateway database 
+  sqlite3* db = NULL;
+  std::string db_path = "/var/spool/cvmfs/" + repo_name + "/tokenring.sqlite";
+  int rc = sqlite3_open(db_path.c_str(), &db);
+  if (rc != SQLITE_OK) {
+    throw EPublish("cannot open SQLite database: " + std::string(db_path),
+                   EPublish::kFailSqlite);
+  }
+  std::string query = "DELETE FROM gateway;";
+  sqlite3_stmt* stmt = NULL;
+  rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    throw EPublish("error deleting from SQLite database: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+  sqlite3_finalize(stmt);
+
+  for (const auto& gateway : gateways) {
+    query = "INSERT INTO gateway VALUES ('" + gateway + "');";
+    rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+      sqlite3_close(db);
+      throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
+                     EPublish::kFailSqlite);
+    }
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_DONE) {
+      sqlite3_finalize(stmt);
+      sqlite3_close(db);
+      throw EPublish("error inserting into SQLite database: " + std::string(sqlite3_errmsg(db)),
+                     EPublish::kFailSqlite);
+    }
+    sqlite3_finalize(stmt);
+  }
+  sqlite3_close(db);
+}
+
+std::string Publisher::Session::ReadGatewayAddress(unsigned index, const std::string& repo_path) const {
+  std::string address;
+  sqlite3* db = NULL;
+
+  // Extract the repo name from the repo path
+  size_t end_pos = repo_path.find('/', 0);
+  if (end_pos == 0) {
+    throw EPublish("repo_path cannot start with a '/'", EPublish::kFailInput);
+  }
+  if (end_pos == std::string::npos) {
+    throw EPublish("repo_path must contain a '/'", EPublish::kFailInput);
+  }
+
+  std::string repo_name = repo_path.substr(0, end_pos);
+  string db_path = "/var/spool/cvmfs/" + repo_name + "/tokenring.sqlite";
+
+  int rc = sqlite3_open(db_path.c_str(), &db);
+  if (rc != SQLITE_OK) {
+    throw EPublish("cannot open SQLite database: " + std::string(db_path),
+                   EPublish::kFailSqlite);
+  }
+
+  std::string query = "SELECT address FROM gateway WHERE rowid = " + 
+                      StringifyInt(index) + ";";
+  LogCvmfs(kLogPublish, kLogStderr, "Session acquire: query: %s", query.c_str());
+  sqlite3_stmt* stmt = NULL;
+
+  rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    const unsigned char* addr = sqlite3_column_text(stmt, 0);
+    if (addr) {
+      address = reinterpret_cast<const char*>(addr);
+    }
+  }
+
+  if (rc != SQLITE_DONE) {
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    throw EPublish("error reading from SQLite database: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+  return address;
+}
 
 void Publisher::Session::Acquire() {
   if (has_lease_)
@@ -292,9 +454,26 @@ void Publisher::Session::Acquire() {
     throw EPublish("cannot read gateway key: " + settings_.gw_key_path,
                    EPublish::kFailGatewayKey);
   }
+
+  // Update gateway db
+  LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
+  UpdateGatewayDb(settings_.repo_path);
+  
+  // Retrieve gateway address and make lease acquire request
   CurlBuffer buffer;
-  MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
-                     settings_.llvl, &buffer);
+  bool retry{true};
+  int i {1};
+  while (retry) {
+    std::string endpoint = ReadGatewayAddress(i, settings_.repo_path);
+    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoint.c_str());
+    settings_.service_endpoint = endpoint;
+    retry = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
+                       settings_.llvl, &buffer);
+    ++i;
+    if (i > 3) {
+      throw EPublish("cannot acquire lease", EPublish::kFailLeaseHttp);
+    }
+  }
 
   std::string session_token;
   LeaseReply rep = ParseAcquireReply(buffer, &session_token, settings_.llvl);
@@ -343,6 +522,8 @@ void Publisher::Session::Drop() {
   }
 
   CurlBuffer buffer;
+  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", settings_.service_endpoint.c_str());
+  // Was settings_.service_endpoint
   MakeDropRequest(gw_key, token, settings_.service_endpoint, settings_.llvl,
                   &buffer);
   LeaseReply rep = ParseDropReply(buffer, settings_.llvl);

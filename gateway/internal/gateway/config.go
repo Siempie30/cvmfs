@@ -18,12 +18,16 @@ type Config struct {
 	PProfPortRangeMax int `mapstructure:"pprof_port_range_max"`
 	// MaxLeaseTime is the maximum lease duration in seconds
 	MaxLeaseTime time.Duration `mapstructure:"max_lease_time"`
+	// LeaseAcquisitionTime is the time in seconds after the gateway receives a token, in which it can hand out leases
+	LeaseAcquisitionTime time.Duration `mapstructure:"gw_lease_acquisition_time"`
 	// LogLevel sets the logging level
 	LogLevel string `mapstructure:"log_level"`
 	// LogTimestamps enables timestamps in the logging output
 	LogTimestamps bool `mapstructure:"log_timestamps"`
 	// AccessConfigFile is the file name of the repository access configuration
 	AccessConfigFile string `mapstructure:"access_config_file"`
+	// TokenRingFile is the file name of the token ring addresses
+	TokenRingFile string `mapstructure:"token_ring_file"`
 	// NumReceivers is the number of parallel (receiver) workers to run
 	NumReceivers int `mapstructure:"num_receivers"`
 	// ReceiverPath is the path of the cvmfs_receiver executable
@@ -39,10 +43,12 @@ func ReadConfig() (*Config, error) {
 	var configFile string
 	pflag.StringVar(&configFile, "user_config_file", "/etc/cvmfs/gateway/user.json", "config file with user modifiable settings")
 	pflag.String("access_config_file", "/etc/cvmfs/gateway/repo.json", "repository access configuration file")
+	pflag.String("token_ring_file", "/etc/cvmfs/gateway/token_ring.json", "file to store the token ring addresses per repo")
 	pflag.Int("port", 4929, "HTTP frontend port")
 	pflag.Int("pprof_port", 6060, "pprof port on localhost")
 	pflag.Int("pprof_port_range_max", 6260, "pprof port on localhost")
 	pflag.Int("max_lease_time", 7200, "maximum lease time in seconds")
+	pflag.Int("gw_lease_acquisition_time", 10, "amount of time in seconds after gateway receives a token, in which it can hand out leases")
 	pflag.String("log_level", "info", "log level (debug|info|warn|error|fatal|panic)")
 	pflag.Bool("log_timestamps", false, "enable timestamps in logging output")
 	pflag.Int("num_receivers", 1, "number of parallel cvmfs_receiver processes to run")
@@ -60,8 +66,9 @@ func ReadConfig() (*Config, error) {
 		return nil, fmt.Errorf("could not populate configuration object: %w", err)
 	}
 
-	// max_lease_time is given in seconds in the config file or at the command line
+	// max_lease_time and gw_lease_acquisition_time are given in seconds in the config file or at the command line
 	conf.MaxLeaseTime = conf.MaxLeaseTime * time.Second
+	conf.LeaseAcquisitionTime = conf.LeaseAcquisitionTime * time.Second
 
 	// Manually handler legacy parameter names
 

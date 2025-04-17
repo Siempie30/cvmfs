@@ -32,6 +32,7 @@ class EPublish : public std::runtime_error {
     kFailLayoutRevision,      // unsupported layout revision, migrate required
     kFailWhitelistExpired,    //
     kFailMissingDependency,   // a program or service was not found
+    kFailSqlite,              // SQLite error  
   };
 
   explicit EPublish(const std::string& what, EFailures f = kFailUnspecified)
