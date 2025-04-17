@@ -1,6 +1,8 @@
 #!/bin/bash
 #jsudo yum install -y https://cvmrepo.s3.cern.ch/cvmrepo/yum/cvmfs-release-latest.noarch.rpm
 #sudo yum install -y cvmfs cvmfs-server
+yum -y install jq sqlite
+
 FQRN=test.repo.org
 CVMFS_GATEWAY_URL=http://cvmfs-gw1
 CVMFS_STRATUM0_URL=http://cvmfs-s3:9000/mybucket

@@ -13,8 +13,8 @@ ENV USER sftnight
 
 RUN yum -y install rpm-build httpd usbutils fuse
 RUN mkdir -p /home/sftnight/buildpackage
-RUN cd /home/sftnight; git clone https://github.com/cvmfs/cvmfs
-RUN cd /home/sftnight/cvmfs; ./ci/build_package.sh $PWD $PWD/../buildpackage/ cvmfs
+RUN cd /home/sftnight; git clone https://github.com/siempie30/cvmfs
+RUN cd /home/sftnight/cvmfs; git checkout token-ring; ./ci/build_package.sh $PWD $PWD/../buildpackage/ cvmfs
 RUN cd /home/sftnight/buildpackage/BUILD/cvmfs-2.13.0/; make install
 
 CMD ["/usr/sbin/init"]
