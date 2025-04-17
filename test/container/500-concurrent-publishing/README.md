@@ -18,6 +18,6 @@ docker-compose up --build -d
 ## Resetting the containers
 This stops and removes the created containers and their volumes
 ```sh
-docker-compose down -v
+./teardown.sh
 ```
 
