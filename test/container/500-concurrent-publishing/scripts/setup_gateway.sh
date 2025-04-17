@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Install minio client
-curl -o /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc
-chmod +x /usr/local/bin/mc
-
 # Configure and create the bucket
 mc alias set local http://cvmfs-s3:9000 minioadmin minioadmin123
 mc mb local/mybucket
