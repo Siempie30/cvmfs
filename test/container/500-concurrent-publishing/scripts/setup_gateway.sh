@@ -1,9 +1,18 @@
 #!/bin/bash
 
-# Configure and create the bucket
-mc alias set local http://cvmfs-s3:9000 minioadmin minioadmin123
-mc mb local/mybucket
-mc anonymous set public local/mybucket
+# Check for the -E option
+ENABLE_E_FLAG=false
+while getopts "E" opt; do
+  case $opt in
+    E)
+      ENABLE_E_FLAG=true
+      ;;
+    *)
+      echo "Usage: $0 [-E]"
+      exit 1
+      ;;
+  esac
+done
 
 echo "plain_text mykey mysecret" > /etc/cvmfs/keys/test.repo.org.gw
 cp /etc/cvmfs/gateway/repo.json.backup /etc/cvmfs/gateway/repo.json
@@ -23,7 +32,8 @@ echo "{
     {
       \"repoName\": \"test.repo.org\",
       \"gateways\": [
-        \"http://cvmfs-gw1:4929/api/v1\"
+        \"http://cvmfs-gw1:4929/api/v1\",
+        \"http://cvmfs-gw2:4929/api/v1\"
       ]
     }
   ]
@@ -37,8 +47,17 @@ echo "{
     \"log_level\" : \"info\",
     \"log_timestamps\" : false,
     \"work_dir\": \"/var/lib/cvmfs-gateway\",
-	\"gw_lease_acquisition_time\": 20
+    \"gw_lease_acquisition_time\": 20
 }" > /etc/cvmfs/gateway/user.json
 
-cvmfs_server mkfs -s /etc/cvmfs/s3.conf -w http://cvmfs-s3:9000/mybucket -o root  test.repo.org
+# Add the -E flag if the option is enabled
+MKFS_CMD="cvmfs_server mkfs -s /etc/cvmfs/s3.conf -w http://cvmfs-s3:9000/mybucket -o root"
+if [ "$ENABLE_E_FLAG" = true ]; then
+  MKFS_CMD="$MKFS_CMD -E"
+fi
+MKFS_CMD="$MKFS_CMD test.repo.org"
+
+# Execute the mkfs command
+$MKFS_CMD
+
 systemctl start cvmfs-gateway

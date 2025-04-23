@@ -18,6 +18,23 @@ services:
         ports:
             - "4929"
             - "80"
+    cvmfs-test-gw2:
+        image: registry.cern.ch/cvmfs-dev:latest
+        container_name: cvmfs-gw2
+        hostname: cvmfs-gw2
+        privileged: true
+        build:
+            context: .
+            dockerfile: Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - var_spool_cvmfs2:/var/spool/cvmfs
+            - ./config/:/etc/cvmfs/gateway
+            - ./scripts:/scripts
+        ports:
+            - "4929"
+            - "80"
 
     cvmfs-test-pub1:
         image: registry.cern.ch/cvmfs-dev:latest
@@ -31,7 +48,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs2:/var/spool/cvmfs
+            - var_spool_cvmfs3:/var/spool/cvmfs
 
     cvmfs-test-pub2:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -45,7 +62,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs3:/var/spool/cvmfs
+            - var_spool_cvmfs4:/var/spool/cvmfs
 
     cvmfs-test-s3:
         image: minio/minio:latest
@@ -64,5 +81,6 @@ volumes:
     var_spool_cvmfs1:
     var_spool_cvmfs2:
     var_spool_cvmfs3:
+    var_spool_cvmfs4:
     minio-data:
 
