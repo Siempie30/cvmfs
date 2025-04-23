@@ -13,7 +13,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - var_spool_cvmfs1:/var/spool/cvmfs
-            - ./config/:/etc/cvmfs/gateway
+            - ./config/gw1:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
             - "4929"
@@ -30,7 +30,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - var_spool_cvmfs2:/var/spool/cvmfs
-            - ./config/:/etc/cvmfs/gateway
+            - ./config/gw2:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
             - "4929"

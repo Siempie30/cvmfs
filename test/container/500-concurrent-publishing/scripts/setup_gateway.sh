@@ -27,7 +27,21 @@ CVMFS_S3_BUCKET=mybucket
 CVMFS_S3_DNS_BUCKETS=false
 CVMFS_S3_USE_HTTPS=false" > /etc/cvmfs/s3.conf
 
-echo "{
+if [ "$ENABLE_E_FLAG" = true ]; then
+  echo "{
+  \"repos\": [
+    {
+      \"repoName\": \"test.repo.org\",
+      \"gateways\": [
+        \"http://cvmfs-gw2:4929/api/v1\",
+        \"http://cvmfs-gw1:4929/api/v1\"
+      ]
+    }
+  ]
+}" > /etc/cvmfs/gateway/token_ring.json
+else
+  echo "First one first"
+  echo "{
   \"repos\": [
     {
       \"repoName\": \"test.repo.org\",
@@ -38,6 +52,7 @@ echo "{
     }
   ]
 }" > /etc/cvmfs/gateway/token_ring.json
+fi
 
 echo "{
     \"max_lease_time\" : 21,
