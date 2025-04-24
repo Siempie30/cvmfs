@@ -6,6 +6,7 @@ services:
         container_name: cvmfs-gw1
         hostname: cvmfs-gw1
         privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
         build:
             context: .
             dockerfile: Dockerfile-dev-pub
@@ -13,8 +14,25 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - var_spool_cvmfs1:/var/spool/cvmfs
-            - ../../../:/home/sftnight/cvmfs
-            - ./config/:/etc/cvmfs/gateway
+            - ./config/gw1:/etc/cvmfs/gateway
+            - ./scripts:/scripts
+        ports:
+            - "4929"
+            - "80"
+    cvmfs-test-gw2:
+        image: registry.cern.ch/cvmfs-dev:latest
+        container_name: cvmfs-gw2
+        hostname: cvmfs-gw2
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: .
+            dockerfile: Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - var_spool_cvmfs2:/var/spool/cvmfs
+            - ./config/gw2:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
             - "4929"
@@ -25,21 +43,7 @@ services:
         container_name: cvmfs-pub1
         hostname: cvmfs-pub1
         privileged: true
-        build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
-        volumes:
-            - /sys/fs/cgroup:/sys/fs/cgroup
-            - ./keys/:/etc/cvmfs/keys
-            - ./scripts:/scripts
-            - var_spool_cvmfs2:/var/spool/cvmfs
-            - ../../../:/home/sftnight/cvmfs
-
-    cvmfs-test-pub2:
-        image: registry.cern.ch/cvmfs-dev-pub:latest
-        container_name: cvmfs-pub2
-        hostname: cvmfs-pub2
-        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
         build:
             context: .
             dockerfile: Dockerfile-dev-pub
@@ -48,10 +52,39 @@ services:
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
             - var_spool_cvmfs3:/var/spool/cvmfs
-            - ../../../:/home/sftnight/cvmfs
+
+    cvmfs-test-pub2:
+        image: registry.cern.ch/cvmfs-dev-pub:latest
+        container_name: cvmfs-pub2
+        hostname: cvmfs-pub2
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: .
+            dockerfile: Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - ./scripts:/scripts
+            - var_spool_cvmfs4:/var/spool/cvmfs
+
+    cvmfs-test-s3:
+        image: minio/minio:latest
+        container_name: cvmfs-s3
+        ports:
+            - "9000:9000"   # S3 API
+            - "9001:9001"   # Web UI
+        environment:
+            MINIO_ROOT_USER: minioadmin
+            MINIO_ROOT_PASSWORD: minioadmin123
+        volumes:
+            - minio-data:/data
+        command: server --console-address ":9001" /data
 
 volumes:
     var_spool_cvmfs1:
     var_spool_cvmfs2:
     var_spool_cvmfs3:
+    var_spool_cvmfs4:
+    minio-data:
 
