@@ -13,7 +13,7 @@ test/cloud_testing/ec2_config.sh
 python/dist/*
 python/python_cvmfsutils.egg-info/*
 python/MANIFEST
-test/container/500-concurrent-publishing/*/*/*.json
+test/container/500-concurrent-publishing/*/*/*.json*
 test/container/500-concurrent-publishing/keys
 
 # Visual Studio Code
