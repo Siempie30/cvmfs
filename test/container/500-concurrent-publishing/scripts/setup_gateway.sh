@@ -27,17 +27,6 @@ CVMFS_S3_BUCKET=mybucket
 CVMFS_S3_DNS_BUCKETS=false
 CVMFS_S3_USE_HTTPS=false" > /etc/cvmfs/s3.conf
 
-echo "{
-    \"max_lease_time\" : 21,
-    \"port\" : 4929,
-    \"num_receivers\": 1,
-    \"receiver_path\": \"/usr/bin/cvmfs_receiver\",
-    \"log_level\" : \"info\",
-    \"log_timestamps\" : false,
-    \"work_dir\": \"/var/lib/cvmfs-gateway\",
-    \"gw_lease_acquisition_time\": 20
-}" > /etc/cvmfs/gateway/user.json
-
 # Add the -E flag if the option is enabled
 MKFS_CMD="cvmfs_server mkfs -s /etc/cvmfs/s3.conf -w http://cvmfs-s3:9000/mybucket -o root"
 if [ "$ENABLE_E_FLAG" = true ]; then
