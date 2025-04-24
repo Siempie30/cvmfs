@@ -1,23 +1,23 @@
 # Test of concurrent publishing
 
 
-## Running the test
+## Running a test
 1. Build and start the containers
 ```sh
 docker-compose up --build -d
 ```
-2. Setup CVMFS
+2. Setup the test. Replace `<NNN>` and `<TESTNAME>` with the test number and name
 ```sh
-./setup.sh
+./<NNN>-<TESTNAME>/setup.sh
 ```
-3. Run the test
+3. Run the test. Replace `<NNN>` and `<TESTNAME>` with the test number and name
 ```sh
-./test.sh
+./<NNN>-<TESTNAME>/test.sh
 ```
 
 ## Resetting the containers
-This stops and removes the created containers and their volumes
+This stops and removes the created containers and their volumes. Make sure to do this before rerunning a test. Replace `<NNN>` and `<TESTNAME>` with the test number and name
 ```sh
-./teardown.sh
+./<NNN>-<TESTNAME>/teardown.sh
 ```
 
