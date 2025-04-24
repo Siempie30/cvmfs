@@ -2,15 +2,19 @@
 
 
 ## Running the test
-1. Build and start the containers
+1. Create tar of the cvmfs repo
+```sh
+tar -czvf repo.tar.gz ../../..
+```
+2. Build and start the containers
 ```sh
 docker-compose up --build -d
 ```
-2. Setup CVMFS
+3. Setup CVMFS
 ```sh
 ./setup.sh
 ```
-3. Run the test
+4. Run the test
 ```sh
 ./test.sh
 ```
