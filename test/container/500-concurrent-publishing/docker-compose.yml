@@ -8,8 +8,8 @@ services:
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
@@ -26,8 +26,8 @@ services:
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
@@ -45,8 +45,8 @@ services:
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
@@ -60,8 +60,8 @@ services:
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
