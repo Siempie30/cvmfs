@@ -11,25 +11,18 @@ ENV USER sftnight
 RUN mkdir -p /home/sftnight/buildpackage
 RUN mkdir -p /home/sftnight/cvmfs
 
-# Copy tar of the repo
-COPY cvmfs-repo.tar.gz /home/sftnight/
-RUN mkdir -p /home/sftnight/cvmfs-cache
-RUN tar -xzf /home/sftnight/cvmfs-repo.tar.gz -C /home/sftnight/cvmfs-cache
-RUN yum -y install rsync
-# Now check the diff for ecerything in the cache and copy if there is any diff
-RUN cd /home/sftnight; bash cvmfs-cache/test/container/500-concurrent-publishing/scripts/copy_repo.sh
-
+# Copy the repo
+COPY . /home/sftnight/cvmfs
 RUN cd /home/sftnight/cvmfs; ./ci/build_package.sh $PWD $PWD/../buildpackage/ cvmfs
 
 # Stage 2: Final
-FROM gitlab-registry.cern.ch/cernvm/build-images/centos_x86_64:9
+FROM almalinux:9
 
 USER root
 
-RUN yum -y install fuse httpd curl
-
 # Copy binaries from the builder stage
-COPY --from=builder /home/sftnight/buildpackage/BUILD/cvmfs-2.13.0/cvmfs /usr/local/bin
+COPY --from=builder /home/sftnight/buildpackage/RPM/*.rpm /tmp
+RUN yum -y install /tmp/*.rpm
 
 RUN echo '%sftnight ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 

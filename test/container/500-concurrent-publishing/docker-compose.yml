@@ -7,8 +7,8 @@ services:
         hostname: cvmfs-gw1
         privileged: true
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
@@ -24,8 +24,8 @@ services:
         hostname: cvmfs-gw2
         privileged: true
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
@@ -42,8 +42,8 @@ services:
         hostname: cvmfs-pub1
         privileged: true
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
@@ -56,8 +56,8 @@ services:
         hostname: cvmfs-pub2
         privileged: true
         build:
-            context: .
-            dockerfile: Dockerfile-dev-pub
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
