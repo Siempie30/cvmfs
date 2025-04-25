@@ -1,0 +1,604 @@
+{
+  "repos": [
+    {
+      "repoName": "1test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "2test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "3test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "4test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "5test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "6test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "7test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "8test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "9test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "10test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "11test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "12test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "13test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "14test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "15test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "16test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "17test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "18test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "19test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "20test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "21test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "22test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "23test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "24test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "25test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "26test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "27test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "28test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "29test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "30test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "31test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "32test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "33test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "34test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "35test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "36test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "37test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "38test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "39test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "40test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "41test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "42test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "43test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "44test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "45test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "46test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "47test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "48test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "49test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "50test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "51test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "52test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "53test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "54test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "55test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "56test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "57test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "58test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "59test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "60test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "61test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "62test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "63test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "64test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "65test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "66test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "67test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "68test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "69test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "70test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "71test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "72test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "73test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "74test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "75test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "76test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "77test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "78test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "79test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "80test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "81test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "82test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "83test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "84test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "85test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "86test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "87test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "88test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "89test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "90test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "91test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "92test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "93test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "94test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "95test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "96test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "97test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "98test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "99test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    },
+    {
+      "repoName": "100test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1"
+      ]
+    }
+  ]
+}
