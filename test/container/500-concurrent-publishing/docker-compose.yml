@@ -13,7 +13,7 @@ services:
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
-            - var_spool_cvmfs1:/var/spool/cvmfs
+            - var_spool_gw1:/var/spool/cvmfs
             - ./config/gw1:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
@@ -32,7 +32,7 @@ services:
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
-            - var_spool_cvmfs2:/var/spool/cvmfs
+            - var_spool_gw2:/var/spool/cvmfs
             - ./config/gw2:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
@@ -51,7 +51,7 @@ services:
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
-            - var_spool_cvmfs3:/var/spool/cvmfs
+            - var_spool_gw3:/var/spool/cvmfs
             - ./config/gw3:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
@@ -70,7 +70,7 @@ services:
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
-            - var_spool_cvmfs4:/var/spool/cvmfs
+            - var_spool_gw4:/var/spool/cvmfs
             - ./config/gw4:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
@@ -89,7 +89,7 @@ services:
         volumes:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
-            - var_spool_cvmfs5:/var/spool/cvmfs
+            - var_spool_gw5:/var/spool/cvmfs
             - ./config/gw5:/etc/cvmfs/gateway
             - ./scripts:/scripts
         ports:
@@ -109,7 +109,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs6:/var/spool/cvmfs
+            - var_spool_pub1:/var/spool/cvmfs
 
     cvmfs-test-pub2:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -124,7 +124,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs7:/var/spool/cvmfs
+            - var_spool_pub2:/var/spool/cvmfs
 
     cvmfs-test-pub3:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -139,7 +139,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs8:/var/spool/cvmfs
+            - var_spool_pub3:/var/spool/cvmfs
 
     cvmfs-test-pub4:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -154,7 +154,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs9:/var/spool/cvmfs
+            - var_spool_pub4:/var/spool/cvmfs
 
     cvmfs-test-pub5:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -169,7 +169,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs10:/var/spool/cvmfs
+            - var_spool_pub5:/var/spool/cvmfs
 
     cvmfs-test-s3:
         image: minio/minio:latest
@@ -185,15 +185,15 @@ services:
         command: server --console-address ":9001" /data
 
 volumes:
-    var_spool_cvmfs1:
-    var_spool_cvmfs2:
-    var_spool_cvmfs3:
-    var_spool_cvmfs4:
-    var_spool_cvmfs5:
-    var_spool_cvmfs6:
-    var_spool_cvmfs7:
-    var_spool_cvmfs8:
-    var_spool_cvmfs9:
-    var_spool_cvmfs10:
+    var_spool_gw1:
+    var_spool_gw2:
+    var_spool_gw3:
+    var_spool_gw4:
+    var_spool_gw5:
+    var_spool_pub1:
+    var_spool_pub2:
+    var_spool_pub3:
+    var_spool_pub4:
+    var_spool_pub5:
     minio-data:
 
