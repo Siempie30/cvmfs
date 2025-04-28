@@ -387,7 +387,7 @@ cvmfs_server_mkfs() {
       fi
 
       $user_shell "$create_cmd" > /dev/null                       || die "fail! (cannot init repo)"
-      if [ $add_to_existing_S3 - eq 0 ]; then
+      if [ $add_to_existing_S3 -eq 0 ]; then
         sign_manifest $name ${temp_dir}/new_manifest $repoinfo_file || die "fail! (cannot sign repo)"
       fi
   fi

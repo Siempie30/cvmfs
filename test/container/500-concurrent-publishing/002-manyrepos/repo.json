@@ -1,0 +1,912 @@
+{
+    "version": 2,
+    "repos": [
+        {
+            "domain": "1test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "2test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "3test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "4test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "5test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "6test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "7test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "8test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "9test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "10test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "11test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "12test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "13test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "14test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "15test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "16test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "17test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "18test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "19test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "20test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "21test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "22test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "23test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "24test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "25test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "26test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "27test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "28test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "29test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "30test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "31test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "32test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "33test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "34test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "35test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "36test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "37test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "38test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "39test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "40test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "41test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "42test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "43test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "44test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "45test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "46test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "47test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "48test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "49test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "50test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "51test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "52test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "53test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "54test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "55test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "56test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "57test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "58test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "59test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "60test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "61test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "62test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "63test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "64test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "65test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "66test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "67test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "68test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "69test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "70test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "71test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "72test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "73test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "74test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "75test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "76test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "77test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "78test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "79test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "80test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "81test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "82test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "83test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "84test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "85test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "86test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "87test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "88test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "89test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "90test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "91test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "92test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "93test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "94test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "95test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "96test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "97test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "98test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "99test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain": "100test.repo.org",
+            "keys": [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        }
+    ],
+    "keys": [
+        {
+            "type": "plain_text",
+            "id": "mykey",
+            "secret": "mysecret"
+        }
+    ]
+}
