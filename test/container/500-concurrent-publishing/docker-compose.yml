@@ -19,6 +19,7 @@ services:
         ports:
             - "4929"
             - "80"
+
     cvmfs-test-gw2:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-gw2
@@ -38,6 +39,63 @@ services:
             - "4929"
             - "80"
 
+    cvmfs-test-gw3:
+        image: registry.cern.ch/cvmfs-dev:latest
+        container_name: cvmfs-gw3
+        hostname: cvmfs-gw3
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - var_spool_cvmfs3:/var/spool/cvmfs
+            - ./config/gw3:/etc/cvmfs/gateway
+            - ./scripts:/scripts
+        ports:
+            - "4929"
+            - "80"
+
+    cvmfs-test-gw4:
+        image: registry.cern.ch/cvmfs-dev:latest
+        container_name: cvmfs-gw4
+        hostname: cvmfs-gw4
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - var_spool_cvmfs4:/var/spool/cvmfs
+            - ./config/gw2:/etc/cvmfs/gateway
+            - ./scripts:/scripts
+        ports:
+            - "4929"
+            - "80"
+
+    cvmfs-test-gw5:
+        image: registry.cern.ch/cvmfs-dev:latest
+        container_name: cvmfs-gw5
+        hostname: cvmfs-gw5
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - var_spool_cvmfs5:/var/spool/cvmfs
+            - ./config/gw2:/etc/cvmfs/gateway
+            - ./scripts:/scripts
+        ports:
+            - "4929"
+            - "80"
+
     cvmfs-test-pub1:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-pub1
@@ -51,7 +109,7 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs3:/var/spool/cvmfs
+            - var_spool_cvmfs6:/var/spool/cvmfs
 
     cvmfs-test-pub2:
         image: registry.cern.ch/cvmfs-dev-pub:latest
@@ -66,7 +124,52 @@ services:
             - /sys/fs/cgroup:/sys/fs/cgroup
             - ./keys/:/etc/cvmfs/keys
             - ./scripts:/scripts
-            - var_spool_cvmfs4:/var/spool/cvmfs
+            - var_spool_cvmfs7:/var/spool/cvmfs
+
+    cvmfs-test-pub3:
+        image: registry.cern.ch/cvmfs-dev-pub:latest
+        container_name: cvmfs-pub3
+        hostname: cvmfs-pub3
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - ./scripts:/scripts
+            - var_spool_cvmfs8:/var/spool/cvmfs
+
+    cvmfs-test-pub4:
+        image: registry.cern.ch/cvmfs-dev-pub:latest
+        container_name: cvmfs-pub4
+        hostname: cvmfs-pub4
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - ./scripts:/scripts
+            - var_spool_cvmfs9:/var/spool/cvmfs
+
+    cvmfs-test-pub5:
+        image: registry.cern.ch/cvmfs-dev-pub:latest
+        container_name: cvmfs-pub5
+        hostname: cvmfs-pub5
+        privileged: true
+        cgroup: host # required to run sbin/init with cgroups v2
+        build:
+            context: ../../..
+            dockerfile: test/container/500-concurrent-publishing/Dockerfile-dev-pub
+        volumes:
+            - /sys/fs/cgroup:/sys/fs/cgroup
+            - ./keys/:/etc/cvmfs/keys
+            - ./scripts:/scripts
+            - var_spool_cvmfs10:/var/spool/cvmfs
 
     cvmfs-test-s3:
         image: minio/minio:latest
@@ -86,5 +189,11 @@ volumes:
     var_spool_cvmfs2:
     var_spool_cvmfs3:
     var_spool_cvmfs4:
+    var_spool_cvmfs5:
+    var_spool_cvmfs6:
+    var_spool_cvmfs7:
+    var_spool_cvmfs8:
+    var_spool_cvmfs9:
+    var_spool_cvmfs10:
     minio-data:
 

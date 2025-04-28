@@ -1,0 +1,11 @@
+docker stop cvmfs-pub1 && docker rm cvmfs-pub1 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs6
+docker stop cvmfs-pub2 && docker rm cvmfs-pub2 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs7
+docker stop cvmfs-pub3 && docker rm cvmfs-pub3 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs8
+docker stop cvmfs-pub4 && docker rm cvmfs-pub4 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs9
+docker stop cvmfs-pub5 && docker rm cvmfs-pub5 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs10
+docker stop cvmfs-gw1 &&  docker rm cvmfs-gw1 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs1
+docker stop cvmfs-gw2 &&  docker rm cvmfs-gw2 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs2
+docker stop cvmfs-gw3 &&  docker rm cvmfs-gw3 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs3
+docker stop cvmfs-gw4 &&  docker rm cvmfs-gw4 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs4
+docker stop cvmfs-gw5 &&  docker rm cvmfs-gw5 && docker volume rm 500-concurrent-publishing_var_spool_cvmfs5
+docker stop cvmfs-s3 && docker rm cvmfs-s3 && docker volume rm 500-concurrent-publishing_minio-data
