@@ -37,5 +37,5 @@ docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw
 docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test1.repo.org || exit 12
 # Publisher 3
 docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test1.repo.org || exit 13
-docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 test3.repo.org || exit 14
+docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 test3.repo.org || exit 14
 
