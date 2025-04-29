@@ -305,13 +305,14 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   std::string repo_name = repo_path.substr(0, end_pos);
 
   // Make curl call to gateway to retrieve gateway addresses
-  std::string address = ReadGatewayAddress(1, repo_path);
-  if (address.empty()) {
-    throw EPublish("cannot read gateway address", EPublish::kFailGatewayKey);
+  std::vector<std::string> addresses;
+  ReadGatewayAddresses(repo_path, addresses);
+  if (addresses.empty()) {
+    throw EPublish("cannot read gateway addresses", EPublish::kFailGatewayKey);
   }
   CurlBuffer buffer;
   CURL* h_curl = PrepareCurl("GET");
-  std::string url = address + "/token-ring";
+  std::string url = addresses[0] + "/token-ring";
 
   const std::string payload = "{\"repo\" : \"" + repo_name + "\"}";
   curl_easy_setopt(h_curl, CURLOPT_POSTFIELDSIZE_LARGE,
@@ -392,8 +393,7 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   sqlite3_close(db);
 }
 
-std::string Publisher::Session::ReadGatewayAddress(unsigned index, const std::string& repo_path) const {
-  std::string address;
+void Publisher::Session::ReadGatewayAddresses(const std::string &repo_path, std::vector<std::string>& addresses) const {
   sqlite3* db = NULL;
 
   // Extract the repo name from the repo path
@@ -414,8 +414,7 @@ std::string Publisher::Session::ReadGatewayAddress(unsigned index, const std::st
                    EPublish::kFailSqlite);
   }
 
-  std::string query = "SELECT address FROM gateway WHERE rowid = " + 
-                      StringifyInt(index) + ";";
+  std::string query = "SELECT address FROM gateway;";
   LogCvmfs(kLogPublish, kLogStderr, "Session acquire: query: %s", query.c_str());
   sqlite3_stmt* stmt = NULL;
 
@@ -429,7 +428,7 @@ std::string Publisher::Session::ReadGatewayAddress(unsigned index, const std::st
   while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
     const unsigned char* addr = sqlite3_column_text(stmt, 0);
     if (addr) {
-      address = reinterpret_cast<const char*>(addr);
+       addresses.push_back(reinterpret_cast<const char*>(addr));
     }
   }
 
@@ -442,7 +441,6 @@ std::string Publisher::Session::ReadGatewayAddress(unsigned index, const std::st
 
   sqlite3_finalize(stmt);
   sqlite3_close(db);
-  return address;
 }
 
 void Publisher::Session::Acquire() {
@@ -462,11 +460,13 @@ void Publisher::Session::Acquire() {
   // Retrieve gateway address and make lease acquire request
   CurlBuffer buffer;
   bool retry{true};
-  int i {1};
+  int i {0};
+  std::vector<std::string> endpoints;
+  ReadGatewayAddresses(settings_.repo_path, endpoints);
+  // What does the endpoint initially contain? Maybe just start with that (if it's the correct gateway address)
   while (retry) {
-    std::string endpoint = ReadGatewayAddress(i, settings_.repo_path);
-    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoint.c_str());
-    settings_.service_endpoint = endpoint;
+    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoints[i].c_str());
+    settings_.service_endpoint = endpoints[i];
     retry = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
                        settings_.llvl, &buffer);
     ++i;
