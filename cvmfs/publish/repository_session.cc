@@ -292,7 +292,7 @@ void Publisher::Session::SetKeepAlive(bool value) {
   keep_alive_ = value;
 }
 
-void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
+void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std::string &gw_address) const {
   // Extract the repo name from the repo path
   size_t end_pos = repo_path.find('/', 0);
   if (end_pos == 0) {
@@ -312,7 +312,7 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   }
   CurlBuffer buffer;
   CURL* h_curl = PrepareCurl("GET");
-  std::string url = addresses[0] + "/token-ring";
+  std::string url = gw_address + "/token-ring";
 
   const std::string payload = "{\"repo\" : \"" + repo_name + "\"}";
   curl_easy_setopt(h_curl, CURLOPT_POSTFIELDSIZE_LARGE,
@@ -453,26 +453,37 @@ void Publisher::Session::Acquire() {
                    EPublish::kFailGatewayKey);
   }
 
+  std::string initial_endpoint = settings_.service_endpoint;
   // Update gateway db
   LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
-  UpdateGatewayDb(settings_.repo_path);
+  UpdateGatewayDb(settings_.repo_path, settings_.service_endpoint);
   
   // Retrieve gateway address and make lease acquire request
   CurlBuffer buffer;
-  bool retry{true};
-  int i {0};
+  bool gwUnavailable{true}; 
+
   std::vector<std::string> endpoints;
   ReadGatewayAddresses(settings_.repo_path, endpoints);
-  // What does the endpoint initially contain? Maybe just start with that (if it's the correct gateway address)
-  while (retry) {
-    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoints[i].c_str());
-    settings_.service_endpoint = endpoints[i];
-    retry = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
+  
+  auto it = std::find(endpoints.begin(), endpoints.end(), initial_endpoint);
+  if (it == endpoints.end()) {
+    LogCvmfs(kLogPublish, kLogStderr, "Initial endpoint (gateway address) not found in gateway address db");
+  }
+
+  int startIndex = std::distance(endpoints.begin(), it);
+  int n = endpoints.size();
+
+  // As long as 1. not all gateway addresses have been attempted and 2. The reason the lease request failed is because of an unavailable gateway
+  for (int i = 0; i < n && gwUnavailable; ++i) {
+    // Loop, starting at the start index (where our 'main' gateway is), and wrap around using modulo.
+    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoints[(startIndex+i)%n].c_str());
+    settings_.service_endpoint = endpoints[(startIndex+i)%n];
+    gwUnavailable = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
                        settings_.llvl, &buffer);
-    ++i;
-    if (i > 3) {
-      throw EPublish("cannot acquire lease", EPublish::kFailLeaseHttp);
-    }
+  }
+  if (gwUnavailable) {
+    // If gateway is still unavailable, this means all gateway addresses have been attempted, but none are available
+    throw EPublish("cannot acquire lease from any gateway", EPublish::kFailLeaseHttp);
   }
 
   std::string session_token;
