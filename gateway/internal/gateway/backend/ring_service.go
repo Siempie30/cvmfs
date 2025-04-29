@@ -37,7 +37,7 @@ func (s *Services) InitTokenRing() error {
 
 	// Check if the current gateway is already in the ring for each repository
 	for _, repo := range repos {
-		lines, err := s.GetGwAddresses(repo)
+		lines, err := s.GetRingGateways(repo)
 		if err != nil {
 			return fmt.Errorf("Error getting addresses for repo %s: %w", repo, err)
 		}
@@ -242,39 +242,12 @@ func getAddress(port string) (string, error) {
 	return address, nil
 }
 
-func (s *Services) GetRingGateways(repository string) []string {
-	file, err := os.Open(s.Ringfile)
-	if err != nil {
-		fmt.Println("Error opening ring file:", err)
-		return nil
-	}
-	defer file.Close()
-
-	var ringData struct {
-		Repos []struct {
-			RepoName string   `json:"repoName"`
-			Gateways []string `json:"gateways"`
-		} `json:"repos"`
-	}
-
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		fmt.Println("Error decoding ring file:", err)
-		return nil
-	}
-
-	var gateways []string
-	for _, repo := range ringData.Repos {
-		if repo.RepoName == repository {
-			gateways = repo.Gateways
-			break
-		}
-	}
-	return gateways
-}
-
 func (s *Services) GetNextRingGateway(repository string, currentAddress string) (string, error) {
-	gateways := s.GetRingGateways(repository)
+	gateways, err := s.GetRingGateways(repository)
 
+	if err != nil {
+		return "", fmt.Errorf("could not get gateways: %w", err)
+	}
 	if len(gateways) == 0 {
 		return "", fmt.Errorf("no gateways found for repo '%s'", repository)
 	}
@@ -289,7 +262,7 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string) 
 
 func (s *Services) RequestAddition(repository string, address string) error {
 	// Get all the addresses from the specified repository
-	lines, err := s.GetGwAddresses(repository)
+	lines, err := s.GetRingGateways(repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -335,7 +308,7 @@ func (s *Services) RequestAddition(repository string, address string) error {
 
 func (s *Services) RequestRemoval(repository string, address string) error {
 	// Get all the addresses for the specified repository
-	lines, err := s.GetGwAddresses(repository)
+	lines, err := s.GetRingGateways(repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -528,7 +501,7 @@ func (s *Services) GetRepositories() ([]string, error) {
 	return repositories, nil
 }
 
-func (s *Services) GetGwAddresses(repository string) ([]string, error) {
+func (s *Services) GetRingGateways(repository string) ([]string, error) {
 	file, err := os.Open(s.Ringfile)
 	if err != nil {
 		return nil, fmt.Errorf("could not open ring file: %w", err)
