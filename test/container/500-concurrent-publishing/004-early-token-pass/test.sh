@@ -51,7 +51,7 @@ echo "\n\n---Starting transaction on publisher"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 8
 execute_in_container cvmfs-pub1 "echo 'abc' > /cvmfs/test.repo.org/testfile" || exit 9
 
-sleep 3
+sleep 6
 
 # Check that gateway 1 has the token
 has_token=$(docker exec -it cvmfs-pub1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')

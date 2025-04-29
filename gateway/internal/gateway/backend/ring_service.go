@@ -82,17 +82,17 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 			err = s.PostRingToken(repository)
 		} else {
 			// Wait for either the lease notification to signal 0 leases, or for the max lease time
-			startTime := time.Now()
 
 			select {
 			case <-s.LeaseNotificationChan:
+				// TODO(siemv): I believe this only works if there is only one active lease after the lease acquisition period has passed. Check this!
 				result, _ := s.GetLeases(context.Background())
 				if len(result) == 0 { // No more active leases, so token can be posted early
 					fmt.Println("Last lease cancelled or committed, posting token")
 					err = s.PostRingToken(repository)
 					break
 				}
-			case <-time.After(s.Config.MaxLeaseTime - time.Since(startTime)):
+			case <-time.After(s.Config.MaxLeaseTime):
 				// Max lease time reached, so post the token
 				fmt.Println("Max lease time reached, posting token")
 				err = s.PostRingToken(repository)
