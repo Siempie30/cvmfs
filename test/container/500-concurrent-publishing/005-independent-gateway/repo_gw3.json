@@ -1,0 +1,30 @@
+{
+    "version": 2,
+    "repos" : [
+        {
+            "domain" : "test2.repo.org",
+            "keys" : [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        },
+        {
+            "domain" : "test3.repo.org",
+            "keys" : [
+                {
+                    "id": "mykey",
+                    "path": "/"
+                }
+            ]
+        }
+    ],
+    "keys" : [
+        {
+            "type" : "plain_text",
+            "id" : "mykey",
+            "secret" : "mysecret"
+        }
+    ]
+}
