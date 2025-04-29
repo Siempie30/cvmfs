@@ -25,13 +25,13 @@ docker rm -f cvmfs-gw1 && docker volume rm 500-concurrent-publishing_var_spool_g
 docker rm -f cvmfs-gw2 && docker volume rm 500-concurrent-publishing_var_spool_gw2 > /dev/null 2>&1
 docker-compose up -d cvmfs-test-gw1 cvmfs-test-gw2 > /dev/null 2>&1
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw1/user.json
-cp $SCRIPT_DIR/token_ring_gw1.json $SCRIPT_DIR/../config/gw1/token_ring.json
+cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw1/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw1/repo.json
 docker exec -it cvmfs-gw1 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 4
 docker exec -it cvmfs-gw1 systemctl start cvmfs-gateway
 
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
-cp $SCRIPT_DIR/token_ring_gw2.json $SCRIPT_DIR/../config/gw2/token_ring.json
+cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
 docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 5
 docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
@@ -75,13 +75,13 @@ docker rm -f cvmfs-gw1 && docker volume rm 500-concurrent-publishing_var_spool_g
 docker rm -f cvmfs-gw2 && docker volume rm 500-concurrent-publishing_var_spool_gw2 > /dev/null 2>&1
 docker-compose up -d cvmfs-test-gw1 cvmfs-test-gw2 > /dev/null 2>&1
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw1/user.json
-cp $SCRIPT_DIR/token_ring_gw1.json $SCRIPT_DIR/../config/gw1/token_ring.json
+cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw1/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw1/repo.json
 docker exec -it cvmfs-gw1 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 14
 docker exec -it cvmfs-gw1 systemctl start cvmfs-gateway
 
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
-cp $SCRIPT_DIR/token_ring_gw2.json $SCRIPT_DIR/../config/gw2/token_ring.json
+cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
 docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 15
 docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
