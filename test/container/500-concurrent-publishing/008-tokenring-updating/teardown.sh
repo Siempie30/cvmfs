@@ -1,0 +1,4 @@
+docker rm -f cvmfs-gw1 && docker volume rm 500-concurrent-publishing_var_spool_gw1
+docker rm -f cvmfs-gw2 && docker volume rm 500-concurrent-publishing_var_spool_gw2
+docker rm -f cvmfs-gw3 && docker volume rm 500-concurrent-publishing_var_spool_gw3
+docker rm -f cvmfs-s3 && docker volume rm 500-concurrent-publishing_minio-data

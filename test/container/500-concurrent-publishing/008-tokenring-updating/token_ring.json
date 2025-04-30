@@ -1,0 +1,11 @@
+{
+  "repos": [
+    {
+      "repoName": "test.repo.org",
+      "gateways": [
+        "http://cvmfs-gw1:4929/api/v1",
+        "http://cvmfs-gw2:4929/api/v1"
+      ]
+    }
+  ]
+}
