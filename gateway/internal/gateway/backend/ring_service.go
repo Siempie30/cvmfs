@@ -63,8 +63,8 @@ func (s *Services) InitTokenRing() error {
 
 func (s *Services) AcceptRingToken(ctx context.Context, repository string) error {
 	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
 	hasToken[repository] = true
-	tokenMutex.Unlock()
 	fmt.Println("Token accepted for", repository)
 
 	// Gateway has received the token, so it can start accepting leases for duration of LeaseAcquisitionTime
@@ -162,6 +162,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
+	req.Close = true
 	req.Header.Set("Content-Type", "application/json")
 
 	// Create an HTTP client with a timeout
@@ -205,9 +206,15 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	}
 
 	// Update token state
-	tokenMutex.Lock()
-	hasToken[repository] = false
-	tokenMutex.Unlock()
+	address, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		fmt.Println("Error getting address:", err)
+	}
+	if nextGw != address { // Only set hasToken to false if the token is not posted to self
+		tokenMutex.Lock()
+		hasToken[repository] = false
+		tokenMutex.Unlock()
+	}
 
 	return nil
 }
