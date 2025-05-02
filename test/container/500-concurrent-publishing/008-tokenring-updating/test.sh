@@ -52,6 +52,10 @@ execute_in_container cvmfs-gw2 "systemctl stop cvmfs-gateway" || exit 8
 
 sleep 3
 
+echo "\n---Verifying gateway 3 has token"
+has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "true" ]; then exit 9; fi
+
 echo "\n---Verifying updated token ring files"
 EXPECTED='{
   "repoName": "test.repo.org",
@@ -62,7 +66,7 @@ EXPECTED='{
 }'
 OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')
 echo "$OUTPUT"
-if [ "$OUTPUT" != "$EXPECTED" ]; then exit 9; fi
+if [ "$OUTPUT" != "$EXPECTED" ]; then exit 10; fi
 OUTPUT=$(docker exec -it cvmfs-gw3 cat $TOKEN_FILE | jq '.repos[0]')
 echo "$OUTPUT"
-if [ "$OUTPUT" != "$EXPECTED" ]; then exit 10; fi
+if [ "$OUTPUT" != "$EXPECTED" ]; then exit 11; fi
