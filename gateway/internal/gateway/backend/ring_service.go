@@ -135,6 +135,19 @@ func (s *Services) PostRingToken(repository string) error {
 func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
+	// If the target is the same as the current address, skip posting
+	address, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		fmt.Println("Error getting address:", err)
+	}
+	if targetGw == address {
+		fmt.Println("Target gateway is the same as current address, skipping posting")
+		tokenMutex.Lock()
+		hasToken[repository] = false
+		tokenMutex.Unlock()
+		s.AcceptRingToken(context.Background(), repository)
+		return nil
+	}
 	url := fmt.Sprintf("%s/token-ring", targetGw)
 	fmt.Println("Posting token for:", repository, "to:", url)
 
@@ -206,7 +219,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	}
 
 	// Update token state
-	address, err := getAddress(strconv.Itoa(s.Config.Port))
+	address, err = getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
 		fmt.Println("Error getting address:", err)
 	}
