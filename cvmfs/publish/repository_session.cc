@@ -325,6 +325,12 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
   CURLcode ret = curl_easy_perform(h_curl);
   curl_easy_cleanup(h_curl);
 
+  if (ret == CURLE_COULDNT_CONNECT) {
+    LogCvmfs(kLogUploadGateway, settings_.llvl | kLogStderr,
+             "failed to retrieve gateway addresses: %d. Reply: %s. Gateway most likely not available.", ret,
+             buffer.data.c_str());
+    return;
+  }
   if (ret != CURLE_OK) {
     throw EPublish("failed to retrieve gateway addresses: " + std::string(curl_easy_strerror(ret)),
                    EPublish::kFailGatewayKey);
