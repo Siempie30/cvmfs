@@ -70,3 +70,32 @@ if [ "$OUTPUT" != "$EXPECTED" ]; then exit 10; fi
 OUTPUT=$(docker exec -it cvmfs-gw3 cat $TOKEN_FILE | jq '.repos[0]')
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 11; fi
+
+sleep 3
+
+echo "\n---Verifying gateway 1 has token and gateway 3 doesn't"
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "true" ]; then exit 12; fi
+has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "false" ]; then exit 13; fi
+
+echo "\n---Stopping gateway 1"
+execute_in_container cvmfs-gw1 "systemctl stop cvmfs-gateway" || exit 13
+
+echo "\n---Verifying gateway 3 has token during cycle time (16 seconds)"
+
+sleep 4
+has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "false" ]; then exit 14; fi
+
+sleep 4
+has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "false" ]; then exit 15; fi
+
+sleep 4
+has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "false" ]; then exit 16; fi
+
+sleep 4
+has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+if [ "$has_token" != "true" ]; then exit 21; fi
