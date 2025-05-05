@@ -223,7 +223,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	if err != nil {
 		fmt.Println("Error getting address:", err)
 	}
-	if nextGw != address { // Only set hasToken to false if the token is not posted to self
+	if targetGw != address { // Only set hasToken to false if the token is not posted to self
 		tokenMutex.Lock()
 		hasToken[repository] = false
 		tokenMutex.Unlock()
