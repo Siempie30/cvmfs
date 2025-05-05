@@ -227,6 +227,28 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 		tokenMutex.Lock()
 		hasToken[repository] = false
 		tokenMutex.Unlock()
+		go func() {
+			// Calculate cycle time
+			gateways, err := s.GetRingGateways(repository)
+			if err != nil {
+				fmt.Println("Error getting gateways:", err)
+				return
+			}
+			n_gateways := len(gateways)
+			t_node := s.Config.LeaseAcquisitionTime + s.Config.MaxLeaseTime + (10 * time.Second) // The 10 seconds are the acknowledgement time.
+			t_cycle := time.Duration(n_gateways-1) * t_node
+			// Wait for the duration of the cycle time
+			time.Sleep(t_cycle)
+			// Check if the reception time has been updated to a more recent value (meaning that the token has completed a full cycle)
+			if !tokenReceptionTime[repository].After(time.Now().Add(-t_cycle)) {
+				// If not, generate a new token
+				fmt.Println("Cycle time reached, invalidating and regenerating token")
+				s.SendInvalidationRequest(repository)
+				s.InvalidateToken(context.Background(), repository)
+				// Take ownership of the new token
+				s.AcceptRingToken(context.Background(), repository)
+			}
+		}()
 	}
 
 	return nil
@@ -435,6 +457,54 @@ func removeFromRing(repository string, address string, s *Services) error {
 		return fmt.Errorf("could not remove locally: %w", err)
 	}
 	return nil
+}
+
+func (s *Services) SendInvalidationRequest(repository string) error {
+	// Get all the addresses from the specified repository
+	lines, err := s.GetRingGateways(repository)
+	if err != nil {
+		return fmt.Errorf("could not get addresses: %w", err)
+	}
+
+	// Create a payload containing the repository information
+	payload := map[string]string{
+		"repo": repository,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("could not marshal payload: %w", err)
+	}
+
+	// Send HTTP invalidation request to each address, except itself
+	address, err := getAddress(strconv.Itoa(s.Config.Port))
+	for _, line := range lines {
+		if line == address {
+			fmt.Println("Skipping invalidation request to self:", address)
+			continue
+		}
+		url := fmt.Sprintf("%s/token-ring/invalidation", line)
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+		if err != nil {
+			fmt.Println("could not create token invalidation request:", err)
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			fmt.Println("could not send gw invalidation request:", err)
+			continue
+		}
+		defer resp.Body.Close()
+	}
+
+	return nil
+}
+
+func (s *Services) InvalidateToken(ctx context.Context, repository string) {
+	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
+	hasToken[repository] = false
+	s.CancelLeases(ctx, repository+"/")
 }
 
 func (s *Services) RemoveLocally(repository string, address string) error {

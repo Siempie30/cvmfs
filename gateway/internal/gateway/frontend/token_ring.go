@@ -18,6 +18,8 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 				handleRemoveFromRing(services, w, h, ps)
 			} else if strings.HasSuffix(h.URL.Path, "addition") {
 				handleAddToRing(services, w, h, ps)
+			} else if strings.HasSuffix(h.URL.Path, "invalidation") {
+				handleInvalidateToken(services, w, h, ps)
 			} else {
 				handlePostTokenRing(services, w, h, ps)
 			}
@@ -90,6 +92,20 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
+}
+
+// POST method to invalidate token for specified repo
+func handleInvalidateToken(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+	ctx := h.Context()
+	var reqMsg struct {
+		Repo string `json:"repo"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+	services.InvalidateToken(ctx, reqMsg.Repo)
+	replyJSON(ctx, w, message{"acknowledgement": "ok"})
 }
 
 // GET method to see if this gateway has token

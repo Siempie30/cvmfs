@@ -53,6 +53,8 @@ type ActionController interface {
 	GetNextRingGateway(repository string, currentAddress string) (string, error)
 	RequestAddition(repository string, hostName string) error
 	RequestRemoval(repository string, hostName string) error
+	InvalidateToken(ctx context.Context, repository string)
+	SendInvalidationRequest(repository string) error
 }
 
 // GetKey returns the key configuration associated with a key ID
