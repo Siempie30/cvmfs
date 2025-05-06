@@ -1417,7 +1417,7 @@ get_token_ring() {
     return 1
   fi
   # Parse token ring
-  token_ring=$(echo "$token_ring" | jq -r '.gateways')
+  token_ring=$(echo "$token_ring" | jq -r '.gateways | map(.address) | join(",")')
   if [ $? -ne 0 ]; then
     echo "Failed to parse token ring" >&2
     return 1
