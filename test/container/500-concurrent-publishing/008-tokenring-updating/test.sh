@@ -7,8 +7,14 @@ echo "---Verifying initial token ring files"
 EXPECTED='{
   "repoName": "test.repo.org",
   "gateways": [
-    "http://cvmfs-gw1:4929/api/v1",
-    "http://cvmfs-gw2:4929/api/v1"
+    {
+      "address": "http://cvmfs-gw1:4929/api/v1",
+      "status": 0
+    },
+    {
+      "address": "http://cvmfs-gw2:4929/api/v1",
+      "status": 0
+    }
   ]
 }'
 OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')
@@ -29,9 +35,18 @@ echo "\n---Verifying updated token ring files"
 EXPECTED='{
   "repoName": "test.repo.org",
   "gateways": [
-    "http://cvmfs-gw1:4929/api/v1",
-    "http://cvmfs-gw2:4929/api/v1",
-    "http://cvmfs-gw3:4929/api/v1"
+    {
+      "address": "http://cvmfs-gw1:4929/api/v1",
+      "status": 0
+    },
+    {
+      "address": "http://cvmfs-gw2:4929/api/v1",
+      "status": 0
+    },
+    {
+      "address": "http://cvmfs-gw3:4929/api/v1",
+      "status": 0
+    }
   ]
 }'
 OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')
@@ -60,8 +75,14 @@ echo "\n---Verifying updated token ring files"
 EXPECTED='{
   "repoName": "test.repo.org",
   "gateways": [
-    "http://cvmfs-gw1:4929/api/v1",
-    "http://cvmfs-gw3:4929/api/v1"
+    {
+      "address": "http://cvmfs-gw1:4929/api/v1",
+      "status": 0
+    },
+    {
+      "address": "http://cvmfs-gw3:4929/api/v1",
+      "status": 0
+    }
   ]
 }'
 OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')

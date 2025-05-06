@@ -16,6 +16,15 @@ import (
 var hasToken map[string]bool = make(map[string]bool)
 var tokenReceptionTime map[string]time.Time = make(map[string]time.Time)
 var tokenMutex sync.Mutex
+var ringData struct {
+	Repos []struct {
+		RepoName string `json:"repoName"`
+		Gateways []struct {
+			Address string `json:"address"`
+			Status  int    `json:"status"`
+		} `json:"gateways"`
+	} `json:"repos"`
+}
 
 func (s *Services) InitTokenRing() error {
 	// Initialize the token state
@@ -398,13 +407,6 @@ func (s *Services) AddToRing(repository string, address string) error {
 	}
 	defer file.Close()
 
-	var ringData struct {
-		Repos []struct {
-			RepoName string   `json:"repoName"`
-			Gateways []string `json:"gateways"`
-		} `json:"repos"`
-	}
-
 	// Decode the existing JSON structure
 	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
 		return fmt.Errorf("could not decode ring file: %w", err)
@@ -417,13 +419,19 @@ func (s *Services) AddToRing(repository string, address string) error {
 			repoFound = true
 			// Check if the address is already in the ring
 			for _, gateway := range repo.Gateways {
-				if gateway == address {
+				if gateway.Address == address {
 					fmt.Println("Address already in gateways")
 					return nil
 				}
 			}
 			// Append the address to the ring
-			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, address)
+			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, struct {
+				Address string `json:"address"`
+				Status  int    `json:"status"`
+			}{
+				Address: address,
+				Status:  0,
+			})
 			break
 		}
 	}
@@ -515,13 +523,6 @@ func (s *Services) RemoveLocally(repository string, address string) error {
 	}
 	defer file.Close()
 
-	var ringData struct {
-		Repos []struct {
-			RepoName string   `json:"repoName"`
-			Gateways []string `json:"gateways"`
-		} `json:"repos"`
-	}
-
 	// Decode the existing JSON structure
 	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
 		return fmt.Errorf("could not decode ring file: %w", err)
@@ -533,9 +534,12 @@ func (s *Services) RemoveLocally(repository string, address string) error {
 		if repo.RepoName == repository {
 			repoFound = true
 			// Remove the address from the gateways
-			var updatedGateways []string
+			var updatedGateways []struct {
+				Address string `json:"address"`
+				Status  int    `json:"status"`
+			}
 			for _, gateway := range repo.Gateways {
-				if gateway != address {
+				if gateway.Address != address {
 					updatedGateways = append(updatedGateways, gateway)
 				}
 			}
@@ -571,13 +575,6 @@ func (s *Services) GetRepositories() ([]string, error) {
 	}
 	defer file.Close()
 
-	var ringData struct {
-		Repos []struct {
-			RepoName string   `json:"repoName"`
-			Gateways []string `json:"gateways"`
-		} `json:"repos"`
-	}
-
 	// Decode the existing JSON structure
 	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
 		return nil, fmt.Errorf("could not decode ring file: %w", err)
@@ -598,13 +595,6 @@ func (s *Services) GetRingGateways(repository string) ([]string, error) {
 	}
 	defer file.Close()
 
-	var ringData struct {
-		Repos []struct {
-			RepoName string   `json:"repoName"`
-			Gateways []string `json:"gateways"`
-		} `json:"repos"`
-	}
-
 	// Decode the JSON structure
 	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
 		return nil, fmt.Errorf("could not decode ring file: %w", err)
@@ -614,7 +604,9 @@ func (s *Services) GetRingGateways(repository string) ([]string, error) {
 	var addresses []string
 	for _, repo := range ringData.Repos {
 		if repo.RepoName == repository {
-			addresses = append(addresses, repo.Gateways...)
+			for _, gateway := range repo.Gateways {
+				addresses = append(addresses, gateway.Address)
+			}
 			break
 		}
 	}
