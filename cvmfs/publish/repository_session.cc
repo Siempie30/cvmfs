@@ -350,7 +350,8 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
 
   const JSON* gateway = gateways_array->first_child;
   while (gateway != nullptr) {
-    gateways.push_back(gateway->string_value);
+    const JSON *address = JsonDocument::SearchInObject(gateway, "address", JSON_STRING);
+    gateways.push_back(address->string_value);
     gateway = gateway->next_sibling;
   }
 
