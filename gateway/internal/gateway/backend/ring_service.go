@@ -18,12 +18,14 @@ var tokenReceptionTime map[string]time.Time = make(map[string]time.Time)
 var tokenMutex sync.Mutex
 var ringData struct {
 	Repos []struct {
-		RepoName string `json:"repoName"`
-		Gateways []struct {
-			Address string `json:"address"`
-			Status  int    `json:"status"`
-		} `json:"gateways"`
+		RepoName string     `json:"repoName"`
+		Gateways []gwStatus `json:"gateways"`
 	} `json:"repos"`
+}
+
+type gwStatus struct {
+	Address string `json:"address"`
+	Status  int    `json:"status"`
 }
 
 func (s *Services) InitTokenRing() error {
@@ -126,7 +128,7 @@ func (s *Services) PostRingToken(repository string) error {
 		fmt.Println("Error getting address:", err)
 		return err
 	}
-	nextGw, err := s.GetNextRingGateway(repository, address)
+	nextGw, err := s.GetNextRingGateway(repository, address, 0)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
@@ -161,7 +163,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	fmt.Println("Posting token for:", repository, "to:", url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
-	nextGw, err := s.GetNextRingGateway(repository, targetGw)
+	nextGw, err := s.GetNextRingGateway(repository, targetGw, 0)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
@@ -295,7 +297,11 @@ func getAddress(port string) (string, error) {
 	return address, nil
 }
 
-func (s *Services) GetNextRingGateway(repository string, currentAddress string) (string, error) {
+// GetNextRingGateway returns the next gateway in the ring for the specified repository
+// according to the current address. The maxStatus argument is used to ignore gateways with a status
+// greateer than the specified value.
+// If the current address is not found in the ring, an error is returned.
+func (s *Services) GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error) {
 	gateways, err := s.GetRingGateways(repository)
 
 	if err != nil {
@@ -627,10 +633,7 @@ func (s *Services) RemoveLocally(repository string, address string) error {
 		if repo.RepoName == repository {
 			repoFound = true
 			// Remove the address from the gateways
-			var updatedGateways []struct {
-				Address string `json:"address"`
-				Status  int    `json:"status"`
-			}
+			var updatedGateways []gwStatus
 			for _, gateway := range repo.Gateways {
 				if gateway.Address != address {
 					updatedGateways = append(updatedGateways, gateway)
@@ -709,4 +712,34 @@ func (s *Services) GetRingGateways(repository string) ([]string, error) {
 	}
 
 	return addresses, nil
+}
+
+func (s *Services) GetRingGatewaysStatus(repository string) ([]gwStatus, error) {
+	file, err := os.Open(s.Ringfile)
+	if err != nil {
+		return nil, fmt.Errorf("could not open ring file: %w", err)
+	}
+	defer file.Close()
+
+	// Decode the JSON structure
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		return nil, fmt.Errorf("could not decode ring file: %w", err)
+	}
+
+	// Collect all gateways from the specified repo
+	var gateways []gwStatus
+	for _, repo := range ringData.Repos {
+		if repo.RepoName == repository {
+			for _, gateway := range repo.Gateways {
+				gateways = append(gateways, gateway)
+			}
+			break
+		}
+	}
+
+	if len(gateways) == 0 {
+		return nil, fmt.Errorf("no gateways found for repo '%s'", repository)
+	}
+
+	return gateways, nil
 }
