@@ -311,6 +311,50 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string) 
 	return "", fmt.Errorf("current address not found in gateways")
 }
 
+func (s *Services) SetGwStatus(repository string, address string, status int) error {
+	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
+	if err != nil {
+		return fmt.Errorf("could not open ring file: %w", err)
+	}
+	defer file.Close()
+
+	// Decode the existing JSON structure
+	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
+		return fmt.Errorf("could not decode ring file: %w", err)
+	}
+
+	// Update the status of the specified gateway in the specified repository
+	var gatewayFound bool
+	for i, repo := range ringData.Repos {
+		if repo.RepoName == repository {
+			for j, gateway := range repo.Gateways {
+				if gateway.Address == address {
+					ringData.Repos[i].Gateways[j].Status = status
+					gatewayFound = true
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if !gatewayFound {
+		return fmt.Errorf("gateway %s not found in repository %s", address, repository)
+	}
+
+	// Write the updated JSON structure back to the file
+	file.Seek(0, 0)  // Reset file pointer to the beginning
+	file.Truncate(0) // Clear the file content
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // Pretty-print JSON
+	if err := encoder.Encode(&ringData); err != nil {
+		return fmt.Errorf("could not encode ring file: %w", err)
+	}
+
+	fmt.Println("Updated status of gateway:", address, "in repository:", repository)
+	return nil
+}
+
 func (s *Services) RequestAddition(repository string, address string) error {
 	// Get all the addresses from the specified repository
 	lines, err := s.GetRingGateways(repository)

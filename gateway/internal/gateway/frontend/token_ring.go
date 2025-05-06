@@ -14,7 +14,9 @@ import (
 func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	return func(w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 		if h.Method == "POST" {
-			if strings.HasSuffix(h.URL.Path, "removal") {
+			if strings.HasSuffix(h.URL.Path, "status") {
+				handleUpdateStatus(services, w, h, ps)
+			} else if strings.HasSuffix(h.URL.Path, "removal") {
 				handleRemoveFromRing(services, w, h, ps)
 			} else if strings.HasSuffix(h.URL.Path, "addition") {
 				handleAddToRing(services, w, h, ps)
@@ -26,6 +28,30 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 		} else {
 			handleGetTokenRing(services, w, h, ps)
 		}
+	}
+}
+
+// POST method to append a gateway to token ring of specified repo
+func handleUpdateStatus(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+	fmt.Println("Received status update request")
+
+	ctx := h.Context()
+	var reqMsg struct {
+		Address string `json:"address"`
+		Repo    string `json:"repo"`
+		Status  int    `json:"status"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+
+	err := services.SetGwStatus(reqMsg.Repo, reqMsg.Address, reqMsg.Status)
+	if err != nil {
+		fmt.Println("failed to add:", reqMsg.Address, "to token ring for repo", reqMsg.Repo, ": ", err)
+		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
+	} else {
+		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
 }
 
