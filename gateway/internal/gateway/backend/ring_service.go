@@ -180,7 +180,8 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
-		removeFromRing(repository, targetGw, s)
+		s.RequestStatusUpdate(repository, targetGw, 3)
+		s.SetGwStatus(repository, targetGw, 3)
 		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
@@ -195,7 +196,8 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
-		removeFromRing(repository, targetGw, s)
+		s.RequestStatusUpdate(repository, targetGw, 3)
+		s.SetGwStatus(repository, targetGw, 3)
 		err = s.RetryPostToken(repository, nextGw)
 		return err
 	}
@@ -309,6 +311,53 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string) 
 		}
 	}
 	return "", fmt.Errorf("current address not found in gateways")
+}
+
+// RequestStatusUpdate sends a request to update the status of a gateway in the ring, to all gateways in the specified repo's ring
+func (s *Services) RequestStatusUpdate(repository string, address string, status int) error {
+	// Get all the addresses from the specified repository
+	lines, err := s.GetRingGateways(repository)
+	if err != nil {
+		return fmt.Errorf("could not get addresses: %w", err)
+	}
+
+	// Create a payload containing the gateway address, repository name, and status
+	payload := map[string]interface{}{
+		"address": address,
+		"repo":    repository,
+		"status":  status,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("could not marshal payload: %w", err)
+	}
+
+	selfAddress, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		fmt.Println("could not get address:", err)
+	}
+	// Send HTTP addition request to each address except the current one
+	for _, line := range lines {
+		if line == selfAddress {
+			fmt.Println("Skipping update request to self:", selfAddress)
+			continue
+		}
+		url := fmt.Sprintf("%s/token-ring/status", line)
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+		if err != nil {
+			fmt.Println("could not create status update request:", err)
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			fmt.Println("could not send status update request:", err)
+			continue
+		}
+		defer resp.Body.Close()
+	}
+
+	return nil
 }
 
 func (s *Services) SetGwStatus(repository string, address string, status int) error {
