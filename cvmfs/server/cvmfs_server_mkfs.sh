@@ -339,7 +339,7 @@ cvmfs_server_mkfs() {
     token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
     if [ x"$token_ring" != x"" ]; then
       echo "Note: the repository $name is part of a token ring, with gateways $token_ring"
-      create_tokenring_db $name $token_ring || die "failed to create token ring database"
+      create_tokenring_db $name $token_ring $upstream || die "failed to create token ring database"
     else 
       echo "Warning: the repository $name is a gateway but not part of a token ring"
     fi

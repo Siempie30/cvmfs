@@ -1431,6 +1431,8 @@ get_token_ring() {
 create_tokenring_db() {
   local name="$1"
   local token_ring="$2"
+  local default_gw="$3"
+  default_gw=$(echo "$default_gw" | awk -F',' '{print $NF}')
   local tokenring_db="${CVMFS_SPOOL_DIR}/tokenring.sqlite"
 
   # Check if tokenring_db already exists
@@ -1439,7 +1441,9 @@ create_tokenring_db() {
     # Create token ring database
     sqlite3 "$tokenring_db" <<EOF
 CREATE TABLE gateway (
-  address TEXT PRIMARY KEY
+  address TEXT PRIMARY KEY,
+  status INT DEFAULT 0,
+  default_gw BOOL DEFAULT false
 );
 EOF
   fi
@@ -1449,8 +1453,13 @@ EOF
 
   # Loop through array and insert each item into the database
   for gateway in "${gateways[@]}"; do
-    sqlite3 "$tokenring_db" "INSERT INTO gateway VALUES ('$gateway');"
+    sqlite3 "$tokenring_db" "INSERT INTO gateway VALUES ('$gateway', 0, false);"
   done
+
+  # Set default gateway
+  if [ -n "$default_gw" ]; then
+    sqlite3 "$tokenring_db" "UPDATE gateway SET default_gw = true WHERE address = '$default_gw';"
+  fi
 
   echo "Token ring database created and populated successfully"
   return 0
