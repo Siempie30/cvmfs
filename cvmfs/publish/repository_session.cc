@@ -400,6 +400,7 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
                    EPublish::kFailSqlite);
   }
 
+  bool default_gw_down{false};
   // Insert new entries into the gateway table, based off the json response
   while (gateway != NULL) {
     const JSON* address = JsonDocument::SearchInObject(gateway, "address", JSON_STRING);
@@ -410,6 +411,11 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
                "Invalid gateway entry: missing address or status");
       gateway = gateway->next_sibling;
       continue;
+    }
+
+    if (address->string_value == default_gw && status->int_value >= 2) {
+      // If the default gateway is down, mark this so the new default gateway can be set
+      default_gw_down = true;
     }
 
     std::string insert_query = "INSERT INTO gateway (address, status) VALUES ('" +
@@ -439,18 +445,28 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
                      EPublish::kFailSqlite);
     }
     int rowsAffected = sqlite3_changes(db);
-    if (rowsAffected == 0) {
-      // No row affected, so default gateway has been removed. Set new default gateway to the first one in the list
-      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE status = 0 LIMIT 1;";
+    if (rowsAffected == 0 || default_gw_down) {
+      // No row affected, so default gateway has been removed, or its status is set to down.
+      // Reset the default gateway to 0
+      std::string reset_default_query = "UPDATE gateway SET default_gw = 0;";
+      rc = sqlite3_exec(db, reset_default_query.c_str(), NULL, NULL, &errmsg);
+      if (rc != SQLITE_OK) {
+      sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+      sqlite3_close(db);
+      throw EPublish("cannot reset default gateway: " + std::string(errmsg),
+               EPublish::kFailSqlite);
+      }
+      // Set a new default gateway: the first gateway with status 0
+      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE rowid = (SELECT rowid FROM gateway WHERE status = 0 LIMIT 1);";
       rc = sqlite3_exec(db, set_default_query.c_str(), NULL, NULL, &errmsg);
       if (rc != SQLITE_OK) {
-        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
-        sqlite3_close(db);
-        throw EPublish("cannot set new default gateway: " + std::string(errmsg),
-                       EPublish::kFailSqlite);
+      sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+      sqlite3_close(db);
+      throw EPublish("cannot set new default gateway: " + std::string(errmsg),
+               EPublish::kFailSqlite);
       }
       LogCvmfs(kLogUploadGateway, settings_.llvl | kLogStderr,
-               "No default gateway found in the database. Set new default gateway.");
+           "No default gateway found in the database. Set new default gateway.");
     }
   }
 
