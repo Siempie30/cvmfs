@@ -124,7 +124,10 @@ static bool MakeAcquireRequest(
 
 // TODO(jblomer): This should eventually also handle the POST request for
 // committing a transaction
-static void MakeDropRequest(
+/**
+ * @return true if request failed because of unreachable gateway, false otherwise
+ */
+static bool MakeDropRequest(
   const gateway::GatewayKey &key,
   const std::string &session_token,
   const std::string &repo_service_url,
@@ -158,6 +161,12 @@ static void MakeDropRequest(
 
   ret = curl_easy_perform(h_curl);
   curl_easy_cleanup(h_curl);
+  if (ret == CURLE_COULDNT_CONNECT) {
+    LogCvmfs(kLogUploadGateway, llvl | kLogStderr,
+             "Make lease drop request failed: %d. Reply: '%s'. Gateway most likely unavailable.",
+             ret, reply->data.c_str());
+    return true;
+  }
   if (ret != CURLE_OK) {
     LogCvmfs(kLogUploadGateway, llvl | kLogStderr,
              "Make lease drop request failed: %d. Reply: '%s'",
@@ -165,6 +174,8 @@ static void MakeDropRequest(
     throw publish::EPublish("cannot drop lease",
                             publish::EPublish::kFailLeaseHttp);
   }
+
+  return false;
 }
 
 static LeaseReply ParseAcquireReply(
@@ -630,11 +641,21 @@ void Publisher::Session::Drop() {
   }
 
   CurlBuffer buffer;
-  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", settings_.service_endpoint.c_str());
-  // Was settings_.service_endpoint
-  MakeDropRequest(gw_key, token, settings_.service_endpoint, settings_.llvl,
-                  &buffer);
-  LeaseReply rep = ParseDropReply(buffer, settings_.llvl);
+  std::vector<std::string> addresses;
+  GetRingGwsByPriority(settings_.repo_path, addresses);
+  if (addresses.empty()) {
+    throw EPublish("cannot read gateway addresses", EPublish::kFailGatewayKey);
+  }
+  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", addresses[0].c_str());
+  // Make the drop request at the default gateway
+  bool gwUnavailable = MakeDropRequest(gw_key, token, addresses[0], settings_.llvl, &buffer);
+  LeaseReply rep;
+  if (gwUnavailable) {
+    // If gateway is unavailable, treat it as a success and drop the lease
+    rep = kLeaseReplySuccess;    
+  } else {
+    rep = ParseDropReply(buffer, settings_.llvl);
+  }
   int rvi = 0;
   switch (rep) {
     case kLeaseReplySuccess:
