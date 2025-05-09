@@ -295,8 +295,9 @@ void Publisher::Session::SetKeepAlive(bool value) {
 /**
  * Update the local token ring SQLite database, by retreiving the information from the best available gateway
  * @param repo_path The path to the repository
+ * @return true if request failed because of unreachable gateway, false otherwise
  */
-void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
+bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std::string& src_gateway) const {
   // Extract the repo name from the repo path
   size_t end_pos = repo_path.find('/', 0);
   if (end_pos == 0) {
@@ -309,14 +310,9 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   std::string repo_name = repo_path.substr(0, end_pos);
 
   // Make curl call to gateway to retrieve gateway addresses
-  std::vector<std::string> addresses;
-  GetRingGwsByPriority(repo_path, addresses);
-  if (addresses.empty()) {
-    throw EPublish("cannot read gateway addresses", EPublish::kFailGatewayKey);
-  }
   CurlBuffer buffer;
   CURL* h_curl = PrepareCurl("GET");
-  std::string url = addresses[0] + "/token-ring";
+  std::string url = src_gateway + "/token-ring";
 
   const std::string payload = "{\"repo\" : \"" + repo_name + "\"}";
   curl_easy_setopt(h_curl, CURLOPT_POSTFIELDSIZE_LARGE,
@@ -333,7 +329,7 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
     LogCvmfs(kLogUploadGateway, settings_.llvl | kLogStderr,
              "failed to retrieve gateway addresses: %d. Reply: %s. Gateway most likely not available.", ret,
              buffer.data.c_str());
-    return;
+    return true;
   }
   if (ret != CURLE_OK) {
     throw EPublish("failed to retrieve gateway addresses: " + std::string(curl_easy_strerror(ret)),
@@ -468,6 +464,8 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   }
 
   sqlite3_close(db);
+
+  return false;
 }
 
 /**
@@ -538,20 +536,29 @@ void Publisher::Session::Acquire() {
   std::string initial_endpoint = settings_.service_endpoint;
   // Update gateway db
   LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
-  UpdateGatewayDb(settings_.repo_path);
+  std::vector<std::string> addresses;
+  GetRingGwsByPriority(settings_.repo_path, addresses);
+  if (addresses.empty()) {
+    throw EPublish("cannot read gateway addresses", EPublish::kFailGatewayKey);
+  }
+  bool gwUnavailable{true};
+  // As long as 1. not all gateway addresses have been attempted and 2. The reason the update request failed is because of an unavailable gateway
+  for (int i = 0; i < addresses.size() && gwUnavailable; ++i) {
+    gwUnavailable = UpdateGatewayDb(settings_.repo_path, addresses[i]);
+  }
   
   // Retrieve gateway address and make lease acquire request
   CurlBuffer buffer;
-  bool gwUnavailable{true}; 
+  gwUnavailable = true;
 
-  std::vector<std::string> endpoints;
-  GetRingGwsByPriority(settings_.repo_path, endpoints);
+  addresses.clear();
+  GetRingGwsByPriority(settings_.repo_path, addresses);
 
   // As long as 1. not all gateway addresses have been attempted and 2. The reason the lease request failed is because of an unavailable gateway
-  for (int i = 0; i < endpoints.size() && gwUnavailable; ++i) {
+  for (int i = 0; i < addresses.size() && gwUnavailable; ++i) {
     // Loop, starting at the start index (where our 'main' gateway is), and wrap around using modulo.
-    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoints[i].c_str());
-    settings_.service_endpoint = endpoints[i];
+    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", addresses[i].c_str());
+    settings_.service_endpoint = addresses[i];
     gwUnavailable = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
                        settings_.llvl, &buffer);
   }
