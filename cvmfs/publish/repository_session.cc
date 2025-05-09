@@ -292,7 +292,11 @@ void Publisher::Session::SetKeepAlive(bool value) {
   keep_alive_ = value;
 }
 
-void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std::string &gw_address) const {
+/**
+ * Update the local token ring SQLite database, by retreiving the information from the best available gateway
+ * @param repo_path The path to the repository
+ */
+void Publisher::Session::UpdateGatewayDb(const std::string& repo_path) const {
   // Extract the repo name from the repo path
   size_t end_pos = repo_path.find('/', 0);
   if (end_pos == 0) {
@@ -306,13 +310,13 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
 
   // Make curl call to gateway to retrieve gateway addresses
   std::vector<std::string> addresses;
-  ReadGatewayAddresses(repo_path, addresses);
+  GetRingGwsByPriority(repo_path, addresses);
   if (addresses.empty()) {
     throw EPublish("cannot read gateway addresses", EPublish::kFailGatewayKey);
   }
   CurlBuffer buffer;
   CURL* h_curl = PrepareCurl("GET");
-  std::string url = gw_address + "/token-ring";
+  std::string url = addresses[0] + "/token-ring";
 
   const std::string payload = "{\"repo\" : \"" + repo_name + "\"}";
   curl_easy_setopt(h_curl, CURLOPT_POSTFIELDSIZE_LARGE,
@@ -337,7 +341,6 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
   }
 
   // Interpret json
-  std::vector<std::string> gateways;
   const UniquePtr<JsonDocument> reply(JsonDocument::Create(buffer.data));
   if (!reply.IsValid() || !reply->IsValid()) {
     throw EPublish("failed to parse gateway addresses", EPublish::kFailGatewayKey);
@@ -347,15 +350,8 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
   if (gateways_array == NULL) {
     throw EPublish("no 'gateways' array found in the response", EPublish::kFailGatewayKey);
   }
-
   const JSON* gateway = gateways_array->first_child;
-  while (gateway != nullptr) {
-    const JSON *address = JsonDocument::SearchInObject(gateway, "address", JSON_STRING);
-    gateways.push_back(address->string_value);
-    gateway = gateway->next_sibling;
-  }
 
-  // Update the gateway database 
   sqlite3* db = NULL;
   std::string db_path = "/var/spool/cvmfs/" + repo_name + "/tokenring.sqlite";
   int rc = sqlite3_open(db_path.c_str(), &db);
@@ -363,44 +359,123 @@ void Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
     throw EPublish("cannot open SQLite database: " + std::string(db_path),
                    EPublish::kFailSqlite);
   }
-  std::string query = "DELETE FROM gateway;";
-  sqlite3_stmt* stmt = NULL;
-  rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+
+  // Begin transaction
+  char* errmsg = NULL;
+  rc = sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, &errmsg);
   if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot begin SQLite transaction: " + std::string(errmsg),
+                   EPublish::kFailSqlite);
+  }
+
+  // Determine the default gateway address
+  std::string default_gateway_query = "SELECT address FROM gateway WHERE default_gw = 1 LIMIT 1;";
+  sqlite3_stmt* stmt = NULL;
+
+  rc = sqlite3_prepare_v2(db, default_gateway_query.c_str(), -1, &stmt, NULL);
+  if (rc != SQLITE_OK) {
+    sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
     sqlite3_close(db);
     throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
                    EPublish::kFailSqlite);
   }
-  rc = sqlite3_step(stmt);
-  if (rc != SQLITE_DONE) {
+
+  std::string default_gw;
+  if ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    default_gw = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+  } else if (rc != SQLITE_DONE) {
     sqlite3_finalize(stmt);
+    sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
     sqlite3_close(db);
-    throw EPublish("error deleting from SQLite database: " + std::string(sqlite3_errmsg(db)),
+    throw EPublish("error reading default gateway from SQLite database: " + std::string(sqlite3_errmsg(db)),
                    EPublish::kFailSqlite);
   }
+
   sqlite3_finalize(stmt);
 
-  for (const auto& gateway : gateways) {
-    query = "INSERT INTO gateway VALUES ('" + gateway + "');";
-    rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
-    if (rc != SQLITE_OK) {
-      sqlite3_close(db);
-      throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
-                     EPublish::kFailSqlite);
-    }
-    rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-      sqlite3_finalize(stmt);
-      sqlite3_close(db);
-      throw EPublish("error inserting into SQLite database: " + std::string(sqlite3_errmsg(db)),
-                     EPublish::kFailSqlite);
-    }
-    sqlite3_finalize(stmt);
+  // Remove all entries from the gateway table
+  std::string delete_query = "DELETE FROM gateway;";
+  rc = sqlite3_exec(db, delete_query.c_str(), NULL, NULL, &errmsg);
+  if (rc != SQLITE_OK) {
+    sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+    sqlite3_close(db);
+    throw EPublish("cannot clear gateway table: " + std::string(errmsg),
+                   EPublish::kFailSqlite);
   }
+
+  // Insert new entries into the gateway table, based off the json response
+  while (gateway != NULL) {
+    const JSON* address = JsonDocument::SearchInObject(gateway, "address", JSON_STRING);
+    const JSON* status = JsonDocument::SearchInObject(gateway, "status", JSON_INT);
+
+    if (address == NULL || status == NULL) {
+      LogCvmfs(kLogUploadGateway, settings_.llvl | kLogStderr,
+               "Invalid gateway entry: missing address or status");
+      gateway = gateway->next_sibling;
+      continue;
+    }
+
+    std::string insert_query = "INSERT INTO gateway (address, status) VALUES ('" +
+                               std::string(address->string_value) + "', '" +
+                               StringifyInt(status->int_value) + "');";
+
+    rc = sqlite3_exec(db, insert_query.c_str(), NULL, NULL, &errmsg);
+    if (rc != SQLITE_OK) {
+      sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+      sqlite3_close(db);
+      throw EPublish("cannot insert into gateway table: " + std::string(errmsg),
+                     EPublish::kFailSqlite);
+    }
+
+    gateway = gateway->next_sibling;
+  }
+
+  // Search for the default gateway address in the database, and update the default_gw column
+  if (!default_gw.empty()) {
+    std::string update_query = "UPDATE gateway SET default_gw = 1 WHERE address = '" +
+                               default_gw + "';";
+    rc = sqlite3_exec(db, update_query.c_str(), NULL, NULL, &errmsg);
+    if (rc != SQLITE_OK) {
+      sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+      sqlite3_close(db);
+      throw EPublish("cannot update default gateway: " + std::string(errmsg),
+                     EPublish::kFailSqlite);
+    }
+    int rowsAffected = sqlite3_changes(db);
+    if (rowsAffected == 0) {
+      // No row affected, so default gateway has been removed. Set new default gateway to the first one in the list
+      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE status = 0 LIMIT 1;";
+      rc = sqlite3_exec(db, set_default_query.c_str(), NULL, NULL, &errmsg);
+      if (rc != SQLITE_OK) {
+        sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+        sqlite3_close(db);
+        throw EPublish("cannot set new default gateway: " + std::string(errmsg),
+                       EPublish::kFailSqlite);
+      }
+      LogCvmfs(kLogUploadGateway, settings_.llvl | kLogStderr,
+               "No default gateway found in the database. Set new default gateway.");
+    }
+  }
+
+  // Commit transaction
+  rc = sqlite3_exec(db, "COMMIT;", NULL, NULL, &errmsg);
+  if (rc != SQLITE_OK) {
+    sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+    sqlite3_close(db);
+    throw EPublish("cannot commit SQLite transaction: " + std::string(errmsg),
+                   EPublish::kFailSqlite);
+  }
+
   sqlite3_close(db);
 }
 
-void Publisher::Session::ReadGatewayAddresses(const std::string &repo_path, std::vector<std::string>& addresses) const {
+/**
+ * Read the gateway addresses from the local token ring SQLite database
+ * @param repo_path The path to the repository
+ * @param addresses The vector to store the addresses
+ */
+void Publisher::Session::GetRingGwsByPriority(const std::string &repo_path, std::vector<std::string>& addresses) const {
   sqlite3* db = NULL;
 
   // Extract the repo name from the repo path
@@ -421,7 +496,7 @@ void Publisher::Session::ReadGatewayAddresses(const std::string &repo_path, std:
                    EPublish::kFailSqlite);
   }
 
-  std::string query = "SELECT address FROM gateway;";
+  std::string query = "SELECT address FROM gateway WHERE status <= 1 ORDER BY default_gw DESC, status ASC;";
   LogCvmfs(kLogPublish, kLogStderr, "Session acquire: query: %s", query.c_str());
   sqlite3_stmt* stmt = NULL;
 
@@ -463,28 +538,20 @@ void Publisher::Session::Acquire() {
   std::string initial_endpoint = settings_.service_endpoint;
   // Update gateway db
   LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
-  UpdateGatewayDb(settings_.repo_path, settings_.service_endpoint);
+  UpdateGatewayDb(settings_.repo_path);
   
   // Retrieve gateway address and make lease acquire request
   CurlBuffer buffer;
   bool gwUnavailable{true}; 
 
   std::vector<std::string> endpoints;
-  ReadGatewayAddresses(settings_.repo_path, endpoints);
-  
-  auto it = std::find(endpoints.begin(), endpoints.end(), initial_endpoint);
-  if (it == endpoints.end()) {
-    LogCvmfs(kLogPublish, kLogStderr, "Initial endpoint (gateway address) not found in gateway address db");
-  }
-
-  int startIndex = std::distance(endpoints.begin(), it);
-  int n = endpoints.size();
+  GetRingGwsByPriority(settings_.repo_path, endpoints);
 
   // As long as 1. not all gateway addresses have been attempted and 2. The reason the lease request failed is because of an unavailable gateway
-  for (int i = 0; i < n && gwUnavailable; ++i) {
+  for (int i = 0; i < endpoints.size() && gwUnavailable; ++i) {
     // Loop, starting at the start index (where our 'main' gateway is), and wrap around using modulo.
-    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoints[(startIndex+i)%n].c_str());
-    settings_.service_endpoint = endpoints[(startIndex+i)%n];
+    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", endpoints[i].c_str());
+    settings_.service_endpoint = endpoints[i];
     gwUnavailable = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
                        settings_.llvl, &buffer);
   }
