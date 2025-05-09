@@ -50,7 +50,8 @@ type ActionController interface {
 	CanStartLease(ctx context.Context, repository string) bool
 	GetRepositories() ([]string, error)
 	GetRingGateways(repository string) ([]string, error)
-	GetNextRingGateway(repository string, currentAddress string) (string, error)
+	GetRingGatewaysStatus(repository string) ([]gwStatus, error)
+	GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error)
 	RequestAddition(repository string, hostName string) error
 	RequestRemoval(repository string, hostName string) error
 	InvalidateToken(ctx context.Context, repository string)
