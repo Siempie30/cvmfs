@@ -242,12 +242,18 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 		tokenMutex.Unlock()
 		go func() {
 			// Calculate cycle time
-			gateways, err := s.GetRingGateways(repository)
+			gateways, err := s.GetRingGatewaysStatus(repository)
 			if err != nil {
 				fmt.Println("Error getting gateways:", err)
 				return
 			}
-			n_gateways := len(gateways)
+			var functionalGateways []gwStatus
+			for _, gateway := range gateways {
+				if gateway.Status <= 1 {
+					functionalGateways = append(functionalGateways, gateway)
+				}
+			}
+			n_gateways := len(functionalGateways)
 			t_node := s.Config.LeaseAcquisitionTime + s.Config.MaxLeaseTime + (10 * time.Second) // The 10 seconds are the acknowledgement time.
 			t_cycle := time.Duration(n_gateways-1) * t_node
 			// Wait for the duration of the cycle time
