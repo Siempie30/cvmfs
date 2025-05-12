@@ -424,7 +424,7 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
       continue;
     }
 
-    if (address->string_value == default_gw && status->int_value >= 2) {
+    if (address->string_value == default_gw && status->int_value >= kGatewayMaintenance) {
       // If the default gateway is down, mark this so the new default gateway can be set
       default_gw_down = true;
     }
@@ -468,7 +468,7 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
                EPublish::kFailSqlite);
       }
       // Set a new default gateway: the first gateway with status 0
-      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE rowid = (SELECT rowid FROM gateway WHERE status = 0 LIMIT 1);";
+      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE rowid = (SELECT rowid FROM gateway WHERE status = " + std::to_string(kGatewayUp) + "LIMIT 1);";
       rc = sqlite3_exec(db, set_default_query.c_str(), NULL, NULL, &errmsg);
       if (rc != SQLITE_OK) {
       sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
@@ -521,7 +521,7 @@ void Publisher::Session::GetRingGwsByPriority(const std::string &repo_path, std:
                    EPublish::kFailSqlite);
   }
 
-  std::string query = "SELECT address FROM gateway WHERE status <= 1 ORDER BY default_gw DESC, status ASC;";
+  std::string query = "SELECT address FROM gateway WHERE status <= " + std::to_string(kGatewayHighLoad) + "ORDER BY default_gw DESC, status ASC;";
   LogCvmfs(kLogPublish, kLogStderr, "Session acquire: query: %s", query.c_str());
   sqlite3_stmt* stmt = NULL;
 

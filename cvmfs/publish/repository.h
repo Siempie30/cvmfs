@@ -272,6 +272,16 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
      */
     bool keep_alive_;
     bool has_lease_;
+
+    /**
+     * Possible status of the gateway endpoint
+     */
+    enum EGatewayStatus {
+      kGatewayUp = 0,
+      kGatewayHighLoad = 1,
+      kGatewayMaintenance = 2,
+      kGatewayDown = 3,
+    };
   };  // class Session
 
   /**
