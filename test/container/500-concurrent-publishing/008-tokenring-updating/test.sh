@@ -80,6 +80,10 @@ EXPECTED='{
       "status": 0
     },
     {
+      "address": "http://cvmfs-gw2:4929/api/v1",
+      "status": 3
+    },
+    {
       "address": "http://cvmfs-gw3:4929/api/v1",
       "status": 0
     }

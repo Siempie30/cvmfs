@@ -12,7 +12,7 @@ execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 2
 echo "\n---Verifying publisher db"
 OUTPUT=$(execute_in_container cvmfs-pub1 "sqlite3 $DB_FILE \"SELECT * FROM gateway;\"")
 echo "$OUTPUT"
-EXPECTED="http://cvmfs-gw1:4929/api/v1"
+EXPECTED="http://cvmfs-gw1:4929/api/v1|0|1" # Address, status is 0, default is 1
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 3; fi
 
 echo "\n---Aborting transaction"
@@ -34,8 +34,8 @@ execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 6
 echo "\n---Verifying publisher db"
 OUTPUT=$(execute_in_container cvmfs-pub1 "sqlite3 $DB_FILE \"SELECT * FROM gateway;\"")
 echo "$OUTPUT"
-EXPECTED="http://cvmfs-gw1:4929/api/v1
-http://cvmfs-gw2:4929/api/v1"
+EXPECTED="http://cvmfs-gw1:4929/api/v1|0|1
+http://cvmfs-gw2:4929/api/v1|0|0"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 7; fi
 
 echo "\n---Aborting transaction"
@@ -52,5 +52,6 @@ execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 10
 echo "\n---Verifying publisher db"
 OUTPUT=$(execute_in_container cvmfs-pub1 "sqlite3 $DB_FILE \"SELECT * FROM gateway;\"")
 echo "$OUTPUT"
-EXPECTED="http://cvmfs-gw1:4929/api/v1"
+EXPECTED="http://cvmfs-gw1:4929/api/v1|0|1
+http://cvmfs-gw2:4929/api/v1|3|0" # Status is now 3 (down)
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 11; fi
