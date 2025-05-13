@@ -1,7 +1,7 @@
 SCRIPT_DIR=$(dirname $0)
 
 # Set up S3
-docker exec -it cvmfs-gw1 /scripts/setup_minio.sh || exit 1
+bash $SCRIPT_DIR/../scripts/setup_minio.sh || exit 1
 
 # Set up gateways
 # Gateway 1
