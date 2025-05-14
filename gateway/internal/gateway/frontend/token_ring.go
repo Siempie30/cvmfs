@@ -113,7 +113,7 @@ func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h 
 	}
 	err := services.AcceptRingToken(ctx, reqMsg.Repo)
 	if err != nil {
-		fmt.Println("Error posting token: ", err)
+		fmt.Println("Error accepting token: ", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
 	} else {
 		replyJSON(ctx, w, message{"acknowledgement": "ok"})

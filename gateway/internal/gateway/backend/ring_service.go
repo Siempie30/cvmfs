@@ -74,6 +74,11 @@ func (s *Services) InitTokenRing() error {
 
 func (s *Services) AcceptRingToken(ctx context.Context, repository string) error {
 	tokenMutex.Lock()
+	if hasToken[repository] {
+		tokenMutex.Unlock()
+		fmt.Println("Token already accepted for", repository)
+		return fmt.Errorf("token already accepted for %s, are there multiple tokens at play?", repository)
+	}
 	defer tokenMutex.Unlock()
 	hasToken[repository] = true
 	fmt.Println("Token accepted for", repository)
