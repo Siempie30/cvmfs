@@ -1443,7 +1443,8 @@ create_tokenring_db() {
 CREATE TABLE gateway (
   address TEXT PRIMARY KEY,
   status INT DEFAULT 0,
-  default_gw BOOL DEFAULT false
+  default_gw BOOL DEFAULT false,
+  current_gw BOOL DEFAULT false
 );
 EOF
   fi
@@ -1453,7 +1454,7 @@ EOF
 
   # Loop through array and insert each item into the database
   for gateway in "${gateways[@]}"; do
-    sqlite3 "$tokenring_db" "INSERT INTO gateway VALUES ('$gateway', 0, false);"
+    sqlite3 "$tokenring_db" "INSERT INTO gateway VALUES ('$gateway', 0, false, false);"
   done
 
   # Set default gateway
@@ -1469,7 +1470,7 @@ substitue_upstream_to_default_gw() {
   local upstream="$1"
   local tokenring_db="${CVMFS_SPOOL_DIR}/tokenring.sqlite"
 
-  local default_gw=$(sqlite3 "$tokenring_db" "SELECT address FROM gateway WHERE default_gw = true;")
+  local default_gw=$(sqlite3 "$tokenring_db" "SELECT address FROM gateway WHERE current_gw = true;")
   if [ $? -ne 0 ]; then
     echo "Failed to get default gateway from token ring database" >&2
     return 1

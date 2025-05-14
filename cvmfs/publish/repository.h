@@ -259,6 +259,9 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
 
     bool has_lease() const { return has_lease_; }
     bool UpdateGatewayDb(const std::string& repo_path, const std::string& src_gateway) const;
+    void SetCurrentGw(const std::string& repo_path, const std::string& gateway) const;
+    void ResetCurrentGw(const std::string& repo_path) const;
+    std::string GetCurrentGw(const std::string& repo_path) const;
     void GetRingGwsByPriority(const std::string &repo_path, std::vector<std::string>& addresses) const;
     std::string token_path() const { return settings_.token_path; }
 

@@ -550,6 +550,130 @@ void Publisher::Session::GetRingGwsByPriority(const std::string &repo_path, std:
   sqlite3_close(db);
 }
 
+/**
+ * Set the current gateway address in the local token ring SQLite database
+ * @param repo_path The path to the repository
+ * @param address The address of the gateway to set as current
+ */
+void Publisher::Session::SetCurrentGw(const std::string &repo_path, const std::string &gw_address) const {
+  // Extract the repo name from the repo path
+  size_t end_pos = repo_path.find('/', 0);
+  if (end_pos == 0) {
+    throw EPublish("repo_path cannot start with a '/'", EPublish::kFailInput);
+  }
+  if (end_pos == std::string::npos) {
+    throw EPublish("repo_path must contain a '/'", EPublish::kFailInput);
+  }
+
+  std::string repo_name = repo_path.substr(0, end_pos);
+  std::string db_path = "/var/spool/cvmfs/" + repo_name + "/tokenring.sqlite";
+
+  sqlite3* db = NULL;
+  int rc = sqlite3_open(db_path.c_str(), &db);
+  if (rc != SQLITE_OK) {
+    throw EPublish("cannot open SQLite database: " + std::string(db_path),
+                   EPublish::kFailSqlite);
+  }
+
+  std::string query = "UPDATE gateway SET current_gw = 1 WHERE address = '" + gw_address + "';";
+  char* errmsg = NULL;
+  rc = sqlite3_exec(db, query.c_str(), NULL, NULL, &errmsg);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot update current gateway: " + std::string(errmsg),
+                   EPublish::kFailSqlite);
+  }
+
+  sqlite3_close(db);
+}
+
+/**
+ * Reset the current_gw bool for all gateways in the local token ring SQLite database
+ * @param repo_path The path to the repository
+ */
+void Publisher::Session::ResetCurrentGw(const std::string &repo_path) const {
+  // Extract the repo name from the repo path
+  size_t end_pos = repo_path.find('/', 0);
+  if (end_pos == 0) {
+    throw EPublish("repo_path cannot start with a '/'", EPublish::kFailInput);
+  }
+  if (end_pos == std::string::npos) {
+    throw EPublish("repo_path must contain a '/'", EPublish::kFailInput);
+  }
+
+  std::string repo_name = repo_path.substr(0, end_pos);
+  std::string db_path = "/var/spool/cvmfs/" + repo_name + "/tokenring.sqlite";
+
+  sqlite3* db = NULL;
+  int rc = sqlite3_open(db_path.c_str(), &db);
+  if (rc != SQLITE_OK) {
+    throw EPublish("cannot open SQLite database: " + std::string(db_path),
+                   EPublish::kFailSqlite);
+  }
+
+  std::string query = "UPDATE gateway SET current_gw = 0;";
+  char* errmsg = NULL;
+  rc = sqlite3_exec(db, query.c_str(), NULL, NULL, &errmsg);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot reset current gateway: " + std::string(errmsg),
+                   EPublish::kFailSqlite);
+  }
+
+  sqlite3_close(db);
+}
+
+std::string Publisher::Session::GetCurrentGw(const std::string &repo_path) const {
+  // Extract the repo name from the repo path
+  size_t end_pos = repo_path.find('/', 0);
+  if (end_pos == 0) {
+    throw EPublish("repo_path cannot start with a '/'", EPublish::kFailInput);
+  }
+  if (end_pos == std::string::npos) {
+    throw EPublish("repo_path must contain a '/'", EPublish::kFailInput);
+  }
+
+  std::string repo_name = repo_path.substr(0, end_pos);
+  std::string db_path = "/var/spool/cvmfs/" + repo_name + "/tokenring.sqlite";
+
+  sqlite3* db = NULL;
+  int rc = sqlite3_open(db_path.c_str(), &db);
+  if (rc != SQLITE_OK) {
+    throw EPublish("cannot open SQLite database: " + std::string(db_path),
+                   EPublish::kFailSqlite);
+  }
+
+  std::string query = "SELECT address FROM gateway WHERE current_gw = 1;";
+  sqlite3_stmt* stmt = NULL;
+
+  rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+  if (rc != SQLITE_OK) {
+    sqlite3_close(db);
+    throw EPublish("cannot prepare SQLite statement: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+
+  std::string gw_address;
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+    const unsigned char* addr = sqlite3_column_text(stmt, 0);
+    if (addr) {
+       gw_address = reinterpret_cast<const char*>(addr);
+    }
+  }
+
+  if (rc != SQLITE_DONE) {
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    throw EPublish("error reading from SQLite database: " + std::string(sqlite3_errmsg(db)),
+                   EPublish::kFailSqlite);
+  }
+
+  sqlite3_finalize(stmt);
+  sqlite3_close(db);
+
+  return gw_address;
+}
+
 void Publisher::Session::Acquire() {
   if (has_lease_)
     return;
@@ -582,7 +706,8 @@ void Publisher::Session::Acquire() {
   GetRingGwsByPriority(settings_.repo_path, addresses);
 
   // As long as 1. not all gateway addresses have been attempted and 2. The reason the lease request failed is because of an unavailable gateway
-  for (int i = 0; i < addresses.size() && gwUnavailable; ++i) {
+  int i;
+  for (i = 0; i < addresses.size() && gwUnavailable; ++i) {
     // Loop, starting at the start index (where our 'main' gateway is), and wrap around using modulo.
     LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", addresses[i].c_str());
     settings_.service_endpoint = addresses[i];
@@ -593,6 +718,7 @@ void Publisher::Session::Acquire() {
     // If gateway is still unavailable, this means all gateway addresses have been attempted, but none are available
     throw EPublish("cannot acquire lease from any gateway", EPublish::kFailLeaseHttp);
   }
+  SetCurrentGw(settings_.repo_path, addresses[i-1]); // Decrement becaues the loop increments i after the last successful request
 
   std::string session_token;
   LeaseReply rep = ParseAcquireReply(buffer, &session_token, settings_.llvl);
@@ -641,14 +767,13 @@ void Publisher::Session::Drop() {
   }
 
   CurlBuffer buffer;
-  std::vector<std::string> addresses;
-  GetRingGwsByPriority(settings_.repo_path, addresses);
-  if (addresses.empty()) {
-    throw EPublish("cannot read gateway addresses", EPublish::kFailGatewayKey);
+  std::string address = GetCurrentGw(settings_.repo_path);
+  if (address.empty()) {
+    throw EPublish("cannot read current gateway address", EPublish::kFailGatewayKey);
   }
-  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", addresses[0].c_str());
+  LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", address.c_str());
   // Make the drop request at the default gateway
-  bool gwUnavailable = MakeDropRequest(gw_key, token, addresses[0], settings_.llvl, &buffer);
+  bool gwUnavailable = MakeDropRequest(gw_key, token, address, settings_.llvl, &buffer);
   LeaseReply rep;
   if (gwUnavailable) {
     // If gateway is unavailable, treat it as a success and drop the lease
@@ -669,6 +794,7 @@ void Publisher::Session::Drop() {
       throw EPublish("gateway doesn't recognize the lease or cannot drop it",
                      EPublish::kFailLeaseBody);
   }
+  ResetCurrentGw(settings_.repo_path);
 }
 
 Publisher::Session::~Session() {
