@@ -381,6 +381,9 @@ void SettingsPublisher::SetIgnoreInvalidLease(bool value) {
   ignore_invalid_lease_ = value;
 }
 
+void SettingsPublisher::SetInMultiGateway(bool value) {
+  in_multi_gateway_ = value;
+}
 
 //------------------------------------------------------------------------------
 
@@ -596,6 +599,9 @@ void SettingsBuilder::ApplyOptionsFromServerPath(
       settings_publisher->GetTransaction()->GetSpoolArea()->SetRepairMode(
           kUnionMountRepairNever);
     }
+  }
+  if (options_mgr_.GetValue("CVMFS_MULTIPLE_GATEWAYS", &arg)) {
+    settings_publisher->SetInMultiGateway(options_mgr_.IsOn(arg));
   }
 }
 

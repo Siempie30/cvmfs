@@ -79,7 +79,7 @@ void Publisher::TransactionImpl(bool waiting_on_lease) {
 
   // On error, Transaction() will release the transaction lock and drop
   // the session
-  session_->Acquire();
+  session_->Acquire(settings_.in_multi_gateway());
 
   // We might have a valid lease for a non-existing path. Nevertheless, we run
   // run into problems when merging catalogs later, so for the time being we

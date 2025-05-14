@@ -32,12 +32,6 @@ struct CurlBuffer {
   std::string data;
 };
 
-enum LeaseReply {
-  kLeaseReplySuccess,
-  kLeaseReplyBusy,
-  kLeaseReplyFailure
-};
-
 static CURL* PrepareCurl(const std::string& method) {
   const char* user_agent_string = "cvmfs/" CVMFS_VERSION;
 
@@ -674,16 +668,15 @@ std::string Publisher::Session::GetCurrentGw(const std::string &repo_path) const
   return gw_address;
 }
 
-void Publisher::Session::Acquire() {
-  if (has_lease_)
-    return;
+LeaseReply Publisher::Session::AcquireInSingleGw(const gateway::GatewayKey &gw_key, std::string &session_token) {
+  CurlBuffer buffer;
+  MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
+                       settings_.llvl, &buffer);
 
-  gateway::GatewayKey gw_key = gateway::ReadGatewayKey(settings_.gw_key_path);
-  if (!gw_key.IsValid()) {
-    throw EPublish("cannot read gateway key: " + settings_.gw_key_path,
-                   EPublish::kFailGatewayKey);
-  }
+  return ParseAcquireReply(buffer, &session_token, settings_.llvl);
+}
 
+LeaseReply Publisher::Session::AcquireInMultiGw(const gateway::GatewayKey &gw_key, std::string &session_token) {
   std::string initial_endpoint = settings_.service_endpoint;
   // Update gateway db
   LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
@@ -719,9 +712,28 @@ void Publisher::Session::Acquire() {
     throw EPublish("cannot acquire lease from any gateway", EPublish::kFailLeaseHttp);
   }
   SetCurrentGw(settings_.repo_path, addresses[i-1]); // Decrement becaues the loop increments i after the last successful request
+  return ParseAcquireReply(buffer, &session_token, settings_.llvl);
+}
+
+void Publisher::Session::Acquire(bool multi_gateway) {
+  if (has_lease_)
+    return;
+
+  gateway::GatewayKey gw_key = gateway::ReadGatewayKey(settings_.gw_key_path);
+  if (!gw_key.IsValid()) {
+    throw EPublish("cannot read gateway key: " + settings_.gw_key_path,
+                   EPublish::kFailGatewayKey);
+  }
+
 
   std::string session_token;
-  LeaseReply rep = ParseAcquireReply(buffer, &session_token, settings_.llvl);
+  LeaseReply rep;
+  if (multi_gateway) {
+    rep = AcquireInMultiGw(gw_key, session_token);
+  } else {
+    rep = AcquireInSingleGw(gw_key, session_token);
+  }
+
   switch (rep) {
     case kLeaseReplySuccess:
       {

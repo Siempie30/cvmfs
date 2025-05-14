@@ -422,6 +422,7 @@ class SettingsPublisher {
   void SetIsSilent(bool value);
   void SetIsManaged(bool value);
   void SetIgnoreInvalidLease(bool value);
+  void SetInMultiGateway(bool value);
 
   std::string GetReadOnlyXAttr(const std::string &attr);
 
@@ -436,6 +437,7 @@ class SettingsPublisher {
   bool is_silent() const { return is_silent_(); }
   bool is_managed() const { return is_managed_(); }
   bool ignore_invalid_lease() const { return ignore_invalid_lease_(); }
+  bool in_multi_gateway() const { return in_multi_gateway_(); }
 
   const SettingsStorage &storage() const { return storage_; }
   const SettingsTransaction &transaction() const { return transaction_; }
@@ -456,6 +458,7 @@ class SettingsPublisher {
   // When trying to drop the session, ignore an invalid lease failure. Useful
   // to recover a publisher with abort -f.
   Setting<bool> ignore_invalid_lease_;
+  Setting<bool> in_multi_gateway_;
 
   SettingsStorage storage_;
   SettingsTransaction transaction_;

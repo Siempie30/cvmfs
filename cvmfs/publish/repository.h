@@ -16,6 +16,12 @@
 #include "util/pointer.h"
 #include "util/single_copy.h"
 
+enum LeaseReply {
+  kLeaseReplySuccess,
+  kLeaseReplyBusy,
+  kLeaseReplyFailure
+};
+
 namespace catalog {
 class DeltaCounters;
 class DirectoryEntry;
@@ -253,7 +259,7 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
      */
     ~Session();
 
-    void Acquire();
+    void Acquire(bool multi_gateway = false);
     void Drop();
     void SetKeepAlive(bool value);
 
@@ -266,6 +272,9 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
     std::string token_path() const { return settings_.token_path; }
 
    private:
+    LeaseReply AcquireInMultiGw(const gateway::GatewayKey& gw_key, std::string& session_token);
+    LeaseReply AcquireInSingleGw(const gateway::GatewayKey& gw_key, std::string& session_token);
+
     Settings settings_;
     /**
      * If set to true, the session is not closed on destruction, i.e. the
