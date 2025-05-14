@@ -32,10 +32,16 @@ docker exec -it cvmfs-gw3 systemctl start cvmfs-gateway
 docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 test1.repo.org || exit 8
 docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test3.repo.org || exit 9
 docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 test2.repo.org || exit 10
+docker exec -it cvmfs-pub1 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub1 cvmfs_config reload || exit 11
 # Publisher 2
-docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 test2.repo.org || exit 11
-docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test1.repo.org || exit 12
+docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 test2.repo.org || exit 12
+docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test1.repo.org || exit 13
+docker exec -it cvmfs-pub2 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub2 cvmfs_config reload || exit 14
 # Publisher 3
-docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test1.repo.org || exit 13
-docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 test3.repo.org || exit 14
+docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 test1.repo.org || exit 15
+docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 test3.repo.org || exit 16
+docker exec -it cvmfs-pub3 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub3 cvmfs_config reload || exit 17
 

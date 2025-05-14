@@ -19,8 +19,18 @@ done
 
 # Set up publishers
 docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 $REPO_NAME || exit 4
-docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 $REPO_NAME || exit 5
-docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 $REPO_NAME || exit 6
-docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh http://cvmfs-gw4 $REPO_NAME || exit 7
-docker exec -it cvmfs-pub5 /scripts/setup_connected_publisher.sh http://cvmfs-gw5 $REPO_NAME || exit 8
+docker exec -it cvmfs-pub1 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub1 cvmfs_config reload || exit 5
+docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw2 $REPO_NAME || exit 6
+docker exec -it cvmfs-pub2 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub2 cvmfs_config reload || exit 7
+docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh http://cvmfs-gw3 $REPO_NAME || exit 8
+docker exec -it cvmfs-pub3 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub3 cvmfs_config reload || exit 9
+docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh http://cvmfs-gw4 $REPO_NAME || exit 10
+docker exec -it cvmfs-pub4 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub4 cvmfs_config reload || exit 11
+docker exec -it cvmfs-pub5 /scripts/setup_connected_publisher.sh http://cvmfs-gw5 $REPO_NAME || exit 12
+docker exec -it cvmfs-pub5 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub5 cvmfs_config reload || exit 13
 

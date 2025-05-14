@@ -334,7 +334,7 @@ cvmfs_server_mkfs() {
   local scratch_dir="${CVMFS_SPOOL_DIR}/scratch/current"
 
   # Check for gateways in token ring
-  if [ x"$upstream_type" = xgw ]; then
+if [[ x"$upstream_type" == "xgw" && "$CVMFS_MULTIPLE_GATEWAYS" == "true" ]]; then
     local token_ring
     token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
     if [ x"$token_ring" != x"" ]; then

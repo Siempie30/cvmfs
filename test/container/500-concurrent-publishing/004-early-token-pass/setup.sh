@@ -19,4 +19,6 @@ docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
 
 # Set up publishers
 docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 $REPO_NAME || exit 4
+docker exec -it cvmfs-pub1 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+docker exec -it cvmfs-pub1 cvmfs_config reload || exit 5
 
