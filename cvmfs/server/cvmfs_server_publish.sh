@@ -91,6 +91,10 @@ cvmfs_server_publish() {
     load_repo_config $name
     # We need the upstream type for configuring the health_check function
     upstream=$CVMFS_UPSTREAM_STORAGE
+    if [ x"$CVMFS_MULTIPLE_GATEWAYS" = xtrue ]; then
+      # Substitue the path to storage with the one in the local db
+      upstream=$(substitue_upstream_to_default_gw $upstream)
+    fi
     upstream_type=$(get_upstream_type $upstream)
 
     # sanity checks

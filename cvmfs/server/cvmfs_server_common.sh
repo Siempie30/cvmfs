@@ -1464,3 +1464,23 @@ EOF
   echo "Token ring database created and populated successfully"
   return 0
 }
+
+substitue_upstream_to_default_gw() {
+  local upstream="$1"
+  local tokenring_db="${CVMFS_SPOOL_DIR}/tokenring.sqlite"
+
+  local default_gw=$(sqlite3 "$tokenring_db" "SELECT address FROM gateway WHERE default_gw = true;")
+  if [ $? -ne 0 ]; then
+    echo "Failed to get default gateway from token ring database" >&2
+    return 1
+  fi
+
+  # Check if default gateway is empty
+  if [ -z "$default_gw" ]; then
+    echo "No default gateway found in token ring database" >&2
+    return 1
+  fi
+
+  # Substitue the upstream with the default gateway
+  echo "$(echo "$upstream" | rev | cut -d',' -f2- | rev),$default_gw"
+}
