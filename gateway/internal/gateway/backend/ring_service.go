@@ -74,6 +74,24 @@ func (s *Services) InitTokenRing() error {
 
 func (s *Services) AcceptRingToken(ctx context.Context, repository string) error {
 	tokenMutex.Lock()
+	reposMap, err := s.GetRepos(ctx)
+	if err != nil {
+		tokenMutex.Unlock()
+		return fmt.Errorf("Error getting repositories: %w", err)
+	}
+	// Check if the repository is managed by this gateway
+	repoFound := false
+	for k := range reposMap {
+		if k == repository {
+			repoFound = true
+			break
+		}
+	}
+	if !repoFound {
+		tokenMutex.Unlock()
+		return fmt.Errorf("repository %s not found in repos", repository)
+	}
+
 	if hasToken[repository] {
 		tokenMutex.Unlock()
 		fmt.Println("Token already accepted for", repository)
