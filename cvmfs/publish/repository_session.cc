@@ -725,6 +725,7 @@ void Publisher::Session::Acquire(bool multi_gateway) {
                    EPublish::kFailGatewayKey);
   }
 
+  ResetCurrentGw(settings_.repo_path);
 
   std::string session_token;
   LeaseReply rep;
@@ -806,7 +807,6 @@ void Publisher::Session::Drop() {
       throw EPublish("gateway doesn't recognize the lease or cannot drop it",
                      EPublish::kFailLeaseBody);
   }
-  ResetCurrentGw(settings_.repo_path);
 }
 
 Publisher::Session::~Session() {
