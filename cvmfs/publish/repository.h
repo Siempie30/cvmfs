@@ -260,7 +260,7 @@ class __attribute__((visibility("default"))) Publisher : public Repository {
     ~Session();
 
     void Acquire(bool multi_gateway = false);
-    void Drop();
+    void Drop(bool multi_gateway = false);
     void SetKeepAlive(bool value);
 
     bool has_lease() const { return has_lease_; }

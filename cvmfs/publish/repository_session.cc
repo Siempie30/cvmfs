@@ -678,6 +678,8 @@ LeaseReply Publisher::Session::AcquireInSingleGw(const gateway::GatewayKey &gw_k
 
 LeaseReply Publisher::Session::AcquireInMultiGw(const gateway::GatewayKey &gw_key, std::string &session_token) {
   std::string initial_endpoint = settings_.service_endpoint;
+  ResetCurrentGw(settings_.repo_path);
+
   // Update gateway db
   LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
   std::vector<std::string> addresses;
@@ -725,8 +727,6 @@ void Publisher::Session::Acquire(bool multi_gateway) {
                    EPublish::kFailGatewayKey);
   }
 
-  ResetCurrentGw(settings_.repo_path);
-
   std::string session_token;
   LeaseReply rep;
   if (multi_gateway) {
@@ -757,7 +757,7 @@ void Publisher::Session::Acquire(bool multi_gateway) {
   }
 }
 
-void Publisher::Session::Drop() {
+void Publisher::Session::Drop(bool multi_gateway) {
   if (!has_lease_)
     return;
   // TODO(jblomer): there might be a better way to distinguish between the
@@ -780,11 +780,19 @@ void Publisher::Session::Drop() {
   }
 
   CurlBuffer buffer;
-  std::string address = GetCurrentGw(settings_.repo_path);
-  if (address.empty()) {
-    throw EPublish("cannot read current gateway address", EPublish::kFailGatewayKey);
+  
+  // Get gateway address
+  std::string address;
+  if (multi_gateway) {
+    address = GetCurrentGw(settings_.repo_path);
+    if (address.empty()) {
+      throw EPublish("cannot read current gateway address", EPublish::kFailGatewayKey);
+    }
+  } else {
+    address = settings_.service_endpoint;
   }
   LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", address.c_str());
+  
   // Make the drop request at the default gateway
   bool gwUnavailable = MakeDropRequest(gw_key, token, address, settings_.llvl, &buffer);
   LeaseReply rep;

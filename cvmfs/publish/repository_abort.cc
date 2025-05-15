@@ -18,10 +18,10 @@
 namespace {
 
 void TrySessionDrop(publish::Publisher::Session *session,
-                    bool ignore_invalid_lease)
+                    bool ignore_invalid_lease, bool multi_gateway = false)
 {
   try {
-    session->Drop();
+    session->Drop(multi_gateway);
   } catch (const publish::EPublish &e) {
     if (ignore_invalid_lease &&
         ((e.failure() == e.kFailLeaseBody) ||
@@ -56,14 +56,14 @@ void Publisher::Abort() {
     if (session_->has_lease()) {
       LogCvmfs(kLogCvmfs, kLogSyslogWarn, "removing stale session token for %s",
                settings_.fqrn().c_str());
-      TrySessionDrop(session_.weak_ref(), settings_.ignore_invalid_lease());
+      TrySessionDrop(session_.weak_ref(), settings_.ignore_invalid_lease(), settings_.in_multi_gateway());
     }
     throw EPublish(
       "Repository " + settings_.fqrn() + " is not in a transaction",
       EPublish::kFailTransactionState);
   }
 
-  TrySessionDrop(session_.weak_ref(), settings_.ignore_invalid_lease());
+  TrySessionDrop(session_.weak_ref(), settings_.ignore_invalid_lease(), settings_.in_multi_gateway());
 
   if (managed_node_.IsValid()) {
     // We already checked for is_publishing and in_transaction.  Normally, at
