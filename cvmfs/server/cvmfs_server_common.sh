@@ -973,6 +973,7 @@ create_config_files_for_new_repository() {
   local voms_authz=${12}
   local auto_tag_timespan="${13}"
   local proxy_url=${14}
+  local multiple_gateways=${15}
 
   # other configurations
   local spool_dir="/var/spool/cvmfs/${name}"
@@ -1037,6 +1038,10 @@ EOF
     remove_apache_config_file "$(get_apache_conf_filename $name)" || true
     create_apache_config_for_endpoint $name $repository_dir
     create_apache_config_for_global_info
+  fi
+
+  if [ $multiple_gateways -eq 1 ]; then
+    echo "CVMFS_MULTIPLE_GATEWAYS=true" >> $server_conf
   fi
 
   cat > $client_conf << EOF

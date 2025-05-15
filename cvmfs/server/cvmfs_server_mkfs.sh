@@ -103,6 +103,7 @@ cvmfs_server_mkfs() {
   local require_masterkeycard=0
   local ignore_manifest_overwrite=0
   local add_to_existing_S3=0
+  local multiple_gateways=0
 
   local configure_apache=1
   local voms_authz=""
@@ -110,7 +111,7 @@ cvmfs_server_mkfs() {
 
   # parameter handling
   OPTIND=1
-  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:IE" option; do
+  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:IEM" option; do
     case $option in
       X)
         external_data=true
@@ -171,6 +172,9 @@ cvmfs_server_mkfs() {
       ;;
       E)
         add_to_existing_S3=1
+      ;;
+      M)
+        multiple_gateways=1
       ;;
       ?)
         shift $(($OPTIND-2))
@@ -299,7 +303,8 @@ cvmfs_server_mkfs() {
                                          "$external_data"       \
                                          "$voms_authz"          \
                                          "$auto_tag_timespan"   \
-                                         "$proxy_url" || die "fail"
+                                         "$proxy_url"           \
+                                         "$multiple_gateways" || die "fail"
   echo "done"
 
   # create or import security keys and certificates
@@ -334,7 +339,7 @@ cvmfs_server_mkfs() {
   local scratch_dir="${CVMFS_SPOOL_DIR}/scratch/current"
 
   # Check for gateways in token ring
-if [[ x"$upstream_type" == "xgw" && "$CVMFS_MULTIPLE_GATEWAYS" == "true" ]]; then
+if [ x"$upstream_type" == "xgw" ] && [ $multiple_gateways -eq 1 ]; then
     local token_ring
     token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
     if [ x"$token_ring" != x"" ]; then
