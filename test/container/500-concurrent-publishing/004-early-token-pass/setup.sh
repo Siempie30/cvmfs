@@ -18,5 +18,5 @@ docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E $REPO_NAME || exit 3
 docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
 
 # Set up publishers
-docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 4
+docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 4
 

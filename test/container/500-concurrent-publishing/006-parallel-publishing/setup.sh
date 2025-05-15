@@ -12,9 +12,9 @@ docker exec -it cvmfs-gw1 /scripts/gateway_mkfs.sh $REPO_NAME || exit 2
 docker exec -it cvmfs-gw1 systemctl start cvmfs-gateway
 
 # Set up publishers
-docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 3
-docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 4
-docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 5
-docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 6
-docker exec -it cvmfs-pub5 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 7
+docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 3
+docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 4
+docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 5
+docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 6
+docker exec -it cvmfs-pub5 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 7
 

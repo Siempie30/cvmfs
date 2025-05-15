@@ -8,7 +8,7 @@ done
 
 echo "\n\n---Adding repos to publisher"
 for i in $(seq 100); do
-  execute_in_container cvmfs-pub1 "/scripts/setup_connected_publisher.sh http://cvmfs-gw1 ${i}test.repo.org" || exit 2
+  execute_in_container cvmfs-pub1 "/scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F ${i}test.repo.org -M" || exit 2
 done
 
 echo "\n\n---Handing out token for each repo"

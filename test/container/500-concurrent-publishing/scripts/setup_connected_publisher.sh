@@ -1,37 +1,42 @@
 #!/bin/bash
 
-# Initialize variables
-MKFS_OPTIONS=""
+set -e
 
-# Parse options
-while getopts ":M" opt; do
-  case $opt in
-    M)
-      MKFS_OPTIONS="-M"
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      exit 1
-      ;;
-  esac
+usage() {
+    echo "Usage: $0 -G <gateway url> -F <repo name> [-M]"
+    exit 1
+}
+
+# Default values
+MKFS_OPTS=""
+
+# Parse arguments
+while getopts "G:F:M" opt; do
+    case ${opt} in
+        G)
+            cvmfs_gateway_url="$OPTARG"
+            ;;
+        F)
+            fqrn="$OPTARG"
+            ;;
+        M)
+            MKFS_OPTS="-M"
+            ;;
+        *)
+            usage
+            ;;
+    esac
 done
 
-# Shift positional arguments after options
-shift $((OPTIND - 1))
-
-# Check if the gateway URL and repo name are provided as arguments
-if [ $# -lt 2 ]; then
-  echo "Usage: $0 [-M] <CVMFS_GATEWAY_URL> <REPO_NAME>"
-  exit 1
+# Check required arguments
+if [ -z "$cvmfs_gateway_url" ] || [ -z "$fqrn" ]; then
+    usage
 fi
-
-CVMFS_GATEWAY_URL=$1
-FQRN=$2
 
 yum -y install jq sqlite
 
 CVMFS_STRATUM0_URL=http://cvmfs-s3:9000/mybucket
-CVMFS_SERVER_DEBUG=3 cvmfs_server mkfs -w $CVMFS_STRATUM0_URL/$FQRN \
-                         -u gw,/srv/cvmfs/$FQRN/data/txn,$CVMFS_GATEWAY_URL:4929/api/v1 \
-                         -k /etc/cvmfs/keys -o `whoami` "$MKFS_OPTIONS" $FQRN
+CVMFS_SERVER_DEBUG=3 cvmfs_server mkfs -w $CVMFS_STRATUM0_URL/$fqrn \
+                         -u gw,/srv/cvmfs/$fqrn/data/txn,$cvmfs_gateway_url:4929/api/v1 \
+                         -k /etc/cvmfs/keys -o `whoami` $MKFS_OPTS $fqrn
 

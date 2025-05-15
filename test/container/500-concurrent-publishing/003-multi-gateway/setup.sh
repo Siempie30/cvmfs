@@ -18,9 +18,9 @@ for i in $(seq 2 5); do
 done
 
 # Set up publishers
-docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 4
-docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw2 $REPO_NAME || exit 5
-docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw3 $REPO_NAME || exit 6
-docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw4 $REPO_NAME || exit 7
-docker exec -it cvmfs-pub5 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw5 $REPO_NAME || exit 8
+docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F $REPO_NAME -M || exit 4
+docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw2 -F $REPO_NAME -M || exit 5
+docker exec -it cvmfs-pub3 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw3 -F $REPO_NAME -M || exit 6
+docker exec -it cvmfs-pub4 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw4 -F $REPO_NAME -M || exit 7
+docker exec -it cvmfs-pub5 /scripts/setup_connected_publisher.sh -G http://cvmfs-gw5 -F $REPO_NAME -M || exit 8
 
