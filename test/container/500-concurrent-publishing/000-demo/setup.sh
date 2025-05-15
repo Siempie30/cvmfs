@@ -11,10 +11,6 @@ cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
 docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
 docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E $REPO_NAME || exit 3
-docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 $REPO_NAME || exit 4
-docker exec -it cvmfs-pub1 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
-docker exec -it cvmfs-pub1 cvmfs_config reload || exit 5
-docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh http://cvmfs-gw1 $REPO_NAME || exit 6
-docker exec -it cvmfs-pub2 sh -c "echo CVMFS_MULTIPLE_GATEWAYS=true >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
-docker exec -it cvmfs-pub2 cvmfs_config reload || exit 7
+docker exec -it cvmfs-pub1 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 4
+docker exec -it cvmfs-pub2 /scripts/setup_connected_publisher.sh -M http://cvmfs-gw1 $REPO_NAME || exit 5
 
