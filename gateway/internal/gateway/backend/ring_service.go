@@ -30,12 +30,12 @@ type gwStatus struct {
 
 func (s *Services) InitTokenRing() error {
 	// Initialize the token state
-	repos, err := s.GetRepositories()
+	repos, err := s.GetRepos(context.Background())
 	if err != nil {
 		return fmt.Errorf("Error getting repositories: %w", err)
 	}
 	tokenMutex.Lock()
-	for _, repo := range repos {
+	for repo, _ := range repos {
 		hasToken[repo] = false
 	}
 	tokenMutex.Unlock()
@@ -47,7 +47,7 @@ func (s *Services) InitTokenRing() error {
 	}
 
 	// Check if the current gateway is already in the ring for each repository
-	for _, repo := range repos {
+	for repo, _ := range repos {
 		lines, err := s.GetRingGateways(repo)
 		if err != nil {
 			return fmt.Errorf("Error getting addresses for repo %s: %w", repo, err)
@@ -690,27 +690,6 @@ func (s *Services) RemoveLocally(repository string, address string) error {
 
 	fmt.Println("Removed from ring file:", address)
 	return nil
-}
-
-func (s *Services) GetRepositories() ([]string, error) {
-	// Load the ring file contents
-	file, err := os.Open(s.Ringfile)
-	if err != nil {
-		return nil, fmt.Errorf("could not open ring file: %w", err)
-	}
-	defer file.Close()
-
-	// Decode the existing JSON structure
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		return nil, fmt.Errorf("could not decode ring file: %w", err)
-	}
-
-	var repositories []string
-	for _, repo := range ringData.Repos {
-		repositories = append(repositories, repo.RepoName)
-	}
-
-	return repositories, nil
 }
 
 func (s *Services) GetRingGateways(repository string) ([]string, error) {

@@ -48,7 +48,6 @@ type ActionController interface {
 	RemoveLocally(repository string, hostName string) error
 	HasRingToken(ctx context.Context, repository string) bool
 	CanStartLease(ctx context.Context, repository string) bool
-	GetRepositories() ([]string, error)
 	GetRingGateways(repository string) ([]string, error)
 	GetRingGatewaysStatus(repository string) ([]gwStatus, error)
 	GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error)
@@ -90,12 +89,12 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 
 	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile, LeaseNotificationChan: make(chan string)}
 
-	if err := services.InitTokenRing(); err != nil {
-		return nil, fmt.Errorf("could not initialize token ring: %w", err)
-	}
-
 	if err := PopulateRepositories(&services); err != nil {
 		return nil, fmt.Errorf("could not populate repository table: %w", err)
+	}
+
+	if err := services.InitTokenRing(); err != nil {
+		return nil, fmt.Errorf("could not initialize token ring: %w", err)
 	}
 
 	return &services, nil
