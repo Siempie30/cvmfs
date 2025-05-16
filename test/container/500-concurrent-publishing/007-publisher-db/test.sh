@@ -21,7 +21,7 @@ execute_in_container cvmfs-pub1 "cvmfs_server abort" || exit 4
 echo "\n---Setting up gateway 2"
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
 cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
-cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw1/repo.json
+cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
 docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E test.repo.org || exit 5
 docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
 
