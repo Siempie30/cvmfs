@@ -100,6 +100,13 @@ create table if not exists Repository (
 	Manifest string,
 	Enabled bool not null
 );
+create table if not exists TokenRing (
+	Address string not null,
+	Repository string not null,
+	Status int not null,
+	Primary key (Address, Repository),
+	foreign key (Repository) references Repository(Name)
+);
 `,
 		latestSchemaVersion)
 	if _, err := db.Exec(statement); err != nil {
