@@ -44,7 +44,7 @@ type ActionController interface {
 	AcceptRingToken(ctx context.Context, repository string) error
 	PostRingToken(repository string) error
 	RetryPostToken(repository string, targetGw string) error
-	AddToRing(repository string, hostName string) error
+	AddToRing(ctx context.Context, repository string, hostName string) error
 	RemoveLocally(repository string, hostName string) error
 	HasRingToken(ctx context.Context, repository string) bool
 	CanStartLease(ctx context.Context, repository string) bool

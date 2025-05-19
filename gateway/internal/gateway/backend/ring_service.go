@@ -73,7 +73,7 @@ func (s *Services) InitTokenRing() error {
 				return fmt.Errorf("Error adding gateway to ring:, %w", err)
 			}
 			// Manually add to own ring, as the frontend is not loaded and therefore cannot receive the addition request
-			s.AddToRing(repo, address)
+			s.AddToRing(context.Background(), repo, address)
 		}
 	}
 	return nil
@@ -586,59 +586,29 @@ func (s *Services) RequestRemoval(repository string, address string) error {
 	return nil
 }
 
-func (s *Services) AddToRing(repository string, address string) error {
-	// Load the ring file contents
-	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
+// Add a gateway to the token ring for the specified repository
+// If the repository does not exist or the address is already in the ring, an error is returned
+func (s *Services) AddToRing(ctx context.Context, repository string, address string) error {
+	t0 := time.Now()
+
+	outcome := "success"
+	defer logAction(ctx, "add_to_ring", &outcome, t0)
+
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("could not open ring file: %w", err)
+		outcome = err.Error()
+		return fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer file.Close()
+	defer tx.Rollback()
 
-	// Decode the existing JSON structure
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		return fmt.Errorf("could not decode ring file: %w", err)
-	}
-
-	// Check if the specified repo exists
-	var repoFound bool
-	for i, repo := range ringData.Repos {
-		if repo.RepoName == repository {
-			repoFound = true
-			// Check if the address is already in the ring
-			for _, gateway := range repo.Gateways {
-				if gateway.Address == address {
-					fmt.Println("Address already in gateways")
-					return nil
-				}
-			}
-			// Append the address to the ring
-			ringData.Repos[i].Gateways = append(ringData.Repos[i].Gateways, struct {
-				Address string `json:"address"`
-				Status  int    `json:"status"`
-			}{
-				Address: address,
-				Status:  0,
-			})
-			break
-		}
+	_, err = tx.ExecContext(ctx,
+		"INSERT INTO TokenRing (Address, Repository, Status) VALUES (?, ?, 0);",
+		address, repository)
+	if err != nil {
+		outcome = err.Error()
+		return fmt.Errorf("could not insert gateway %s into token ring for repo %s: %w", address, repository, err)
 	}
 
-	// Repo does not exist, so ignore the addition
-	if !repoFound {
-		fmt.Println("Repo", repository, "not found in ring file, ignoring addition")
-		return nil
-	}
-
-	// Write the updated JSON structure back to the file
-	file.Seek(0, 0)  // Reset file pointer to the beginning
-	file.Truncate(0) // Clear the file content
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ") // Pretty-print JSON
-	if err := encoder.Encode(&ringData); err != nil {
-		return fmt.Errorf("could not encode ring file: %w", err)
-	}
-
-	fmt.Println("Added to ring file:", address)
 	return nil
 }
 
