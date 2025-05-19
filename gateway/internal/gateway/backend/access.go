@@ -15,8 +15,9 @@ type KeyPaths map[string]string
 // RepositoryConfig contains the access configuration (registered keys and
 // enabled status) for a repository
 type RepositoryConfig struct {
-	Keys    KeyPaths `json:"keys"`
-	Enabled bool     `json:"enabled"`
+	Keys      KeyPaths `json:"keys"`
+	TokenRing []string `json:"token_ring"`
+	Enabled   bool     `json:"enabled"`
 }
 
 // KeyConfig contains the secret part and the enabled status of a key
@@ -45,6 +46,7 @@ type RepositorySpecV2 struct {
 		Admin bool   `json:"admin"`
 		Path  string `json:"path"`
 	} `json:"keys"`
+	TokenRing []string `json:"token_ring"`
 }
 
 // KeySpec is a gateway key specification from the configuration file
@@ -242,8 +244,13 @@ func (c *AccessConfig) loadV2(cfg rawConfig, importer KeyImportFun) error {
 				for _, k := range spec.Keys {
 					ks[k.ID] = k.Path
 				}
+				addresses := make([]string, 0)
+				for _, addr := range spec.TokenRing {
+					addresses = append(addresses, addr)
+				}
 				c.Repositories[spec.Name] = RepositoryConfig{
-					Keys: ks,
+					Keys:      ks,
+					TokenRing: addresses,
 				}
 			}
 		}
