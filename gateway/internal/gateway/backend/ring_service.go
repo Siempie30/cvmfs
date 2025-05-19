@@ -55,7 +55,7 @@ func (s *Services) InitTokenRing() error {
 	// Check if the current gateway is already in the ring for each repository
 	// TODO (siemv): Change this to use the gw.db instead of the json file
 	for repo, _ := range repos {
-		lines, err := s.GetRingGateways(repo)
+		lines, err := s.GetRingGateways(context.Background(), repo)
 		if err != nil {
 			return fmt.Errorf("Error getting addresses for repo %s: %w", repo, err)
 		}
@@ -390,7 +390,7 @@ func getAddress(port string) (string, error) {
 // greateer than the specified value.
 // If the current address is not found in the ring, an error is returned.
 func (s *Services) GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error) {
-	gateways, err := s.GetRingGateways(repository)
+	gateways, err := s.GetRingGateways(context.Background(), repository)
 
 	if err != nil {
 		return "", fmt.Errorf("could not get gateways: %w", err)
@@ -410,7 +410,7 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string, 
 // RequestStatusUpdate sends a request to update the status of a gateway in the ring, to all gateways in the specified repo's ring
 func (s *Services) RequestStatusUpdate(repository string, address string, status int) error {
 	// Get all the addresses from the specified repository
-	lines, err := s.GetRingGateways(repository)
+	lines, err := s.GetRingGateways(context.Background(), repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -500,7 +500,7 @@ func (s *Services) SetGwStatus(repository string, address string, status int) er
 
 func (s *Services) RequestAddition(repository string, address string) error {
 	// Get all the addresses from the specified repository
-	lines, err := s.GetRingGateways(repository)
+	lines, err := s.GetRingGateways(context.Background(), repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -546,7 +546,7 @@ func (s *Services) RequestAddition(repository string, address string) error {
 
 func (s *Services) RequestRemoval(repository string, address string) error {
 	// Get all the addresses for the specified repository
-	lines, err := s.GetRingGateways(repository)
+	lines, err := s.GetRingGateways(context.Background(), repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -656,7 +656,7 @@ func removeFromRing(repository string, address string, s *Services) error {
 
 func (s *Services) SendInvalidationRequest(repository string) error {
 	// Get all the addresses from the specified repository
-	lines, err := s.GetRingGateways(repository)
+	lines, err := s.GetRingGateways(context.Background(), repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -751,31 +751,43 @@ func (s *Services) RemoveLocally(repository string, address string) error {
 	return nil
 }
 
-func (s *Services) GetRingGateways(repository string) ([]string, error) {
-	file, err := os.Open(s.Ringfile)
+// GetRingGateways returns the addresses of all gateways in the token ring of the
+// specified repository. It retrieves this information from the gateway db.
+func (s *Services) GetRingGateways(ctx context.Context, repository string) ([]string, error) {
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("could not open ring file: %w", err)
+		return nil, fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer file.Close()
+	defer tx.Rollback()
 
-	// Decode the JSON structure
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		return nil, fmt.Errorf("could not decode ring file: %w", err)
+	// Query the database
+	rows, err := tx.QueryContext(ctx, "SELECT Address FROM TokenRing WHERE Repository = ?;", repository)
+	if err != nil {
+		return nil, fmt.Errorf("could not query token ring: %w", err)
 	}
+	defer rows.Close()
 
-	// Collect all gateways from the specified repo
+	// Collect the addresses
 	var addresses []string
-	for _, repo := range ringData.Repos {
-		if repo.RepoName == repository {
-			for _, gateway := range repo.Gateways {
-				addresses = append(addresses, gateway.Address)
-			}
-			break
+	for rows.Next() {
+		var address string
+		if err := rows.Scan(&address); err != nil {
+			return nil, fmt.Errorf("could not scan address: %w", err)
 		}
+		addresses = append(addresses, address)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
 
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("could not commit transaction: %w", err)
+	}
+
+	// Check if any addresses were found
 	if len(addresses) == 0 {
-		return nil, fmt.Errorf("no gateways found for repo '%s'", repository)
+		return nil, fmt.Errorf("no gateways found for repository '%s'", repository)
 	}
 
 	return addresses, nil

@@ -129,6 +129,11 @@ func DeleteAllRepositories(ctx context.Context, tx *sql.Tx) error {
 		return fmt.Errorf("could not update repository: %w", err)
 	}
 
+	_, err = tx.ExecContext(ctx, "delete from TokenRing;")
+	if err != nil {
+		return fmt.Errorf("could not update repository: %w", err)
+	}
+
 	gw.LogC(ctx, "repository_entity", gw.LogDebug).
 		Str("operation", "delete_all").
 		Dur("task_dt", time.Since(t0)).

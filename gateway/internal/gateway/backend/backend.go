@@ -48,7 +48,7 @@ type ActionController interface {
 	RemoveLocally(repository string, hostName string) error
 	HasRingToken(ctx context.Context, repository string) bool
 	CanStartLease(ctx context.Context, repository string) bool
-	GetRingGateways(repository string) ([]string, error)
+	GetRingGateways(ctx context.Context, repository string) ([]string, error)
 	GetRingGatewaysStatus(repository string) ([]gwStatus, error)
 	GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error)
 	RequestAddition(repository string, hostName string) error
