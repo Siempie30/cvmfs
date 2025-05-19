@@ -159,6 +159,7 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	tokenReceptionTime[repository] = time.Now()
 	time.AfterFunc(s.Config.LeaseAcquisitionTime, func() {
 		var err error
+		ctx := context.Background()
 		result, err := s.GetLeases(ctx) // Using background context is not really intented and slightly hacky
 		if err != nil {
 			fmt.Println("Error getting leases:", err)
