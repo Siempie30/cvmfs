@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 
@@ -43,18 +44,18 @@ type ActionController interface {
 	InitTokenRing() error
 	AcceptRingToken(ctx context.Context, repository string) error
 	PostRingToken(repository string) error
-	RetryPostToken(repository string, targetGw string) error
+	RetryPostToken(ctx context.Context, repository string, targetGw string) error
 	AddToRing(ctx context.Context, repository string, hostName string) error
 	RemoveLocally(repository string, hostName string) error
 	HasRingToken(ctx context.Context, repository string) bool
 	CanStartLease(ctx context.Context, repository string) bool
-	GetRingGateways(ctx context.Context, repository string) ([]string, error)
+	GetRingGateways(ctx context.Context, tx *sql.Tx, repository string) ([]string, error)
 	GetRingGatewaysStatus(ctx context.Context, repository string) ([]gwStatus, error)
-	GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error)
-	RequestAddition(repository string, hostName string) error
-	RequestRemoval(repository string, hostName string) error
+	GetNextRingGateway(ctx context.Context, repository string, currentAddress string, maxStatus int) (string, error)
+	RequestAddition(ctx context.Context, tx *sql.Tx, repository string, hostName string) error
+	RequestRemoval(ctx context.Context, repository string, hostName string) error
 	InvalidateToken(ctx context.Context, repository string)
-	SendInvalidationRequest(repository string) error
+	SendInvalidationRequest(ctx context.Context, repository string) error
 	SetGwStatus(repository string, address string, status int) error
 }
 

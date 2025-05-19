@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,8 +30,9 @@ type gwStatus struct {
 }
 
 func (s *Services) InitTokenRing() error {
+	ctx := context.Background()
 	// Initialize the token state
-	repos, err := s.GetRepos(context.Background())
+	repos, err := s.GetRepos(ctx)
 	if err != nil {
 		return fmt.Errorf("Error getting repositories: %w", err)
 	}
@@ -41,7 +43,7 @@ func (s *Services) InitTokenRing() error {
 	tokenMutex.Unlock()
 
 	// Populate the database's token ring table
-	err = populateDbTokenring(context.Background(), s)
+	err = populateDbTokenring(ctx, s)
 	if err != nil {
 		return fmt.Errorf("Error populating token ring table: %w", err)
 	}
@@ -104,7 +106,7 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 		}
 		if !foundSelf {
 			// If this gateway is not in the ring, request other gateways to add it and add it locally
-			err = s.RequestAddition(repoName, address)
+			err = s.RequestAddition(ctx, tx, repoName, address)
 			if err != nil {
 				outcome = err.Error()
 				return fmt.Errorf("could not request addition of %s to token ring for repo %s: %w", address, repoName, err)
@@ -157,7 +159,7 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	tokenReceptionTime[repository] = time.Now()
 	time.AfterFunc(s.Config.LeaseAcquisitionTime, func() {
 		var err error
-		result, err := s.GetLeases(context.Background()) // Using background context is not really intented and slightly hacky
+		result, err := s.GetLeases(ctx) // Using background context is not really intented and slightly hacky
 		if err != nil {
 			fmt.Println("Error getting leases:", err)
 			return
@@ -172,7 +174,7 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 			select {
 			case <-s.LeaseNotificationChan:
 				// TODO(siemv): I believe this only works if there is only one active lease after the lease acquisition period has passed. Check this!
-				result, _ := s.GetLeases(context.Background())
+				result, _ := s.GetLeases(ctx)
 				if len(result) == 0 { // No more active leases, so token can be posted early
 					fmt.Println("Last lease cancelled or committed, posting token")
 					err = s.PostRingToken(repository)
@@ -198,17 +200,18 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 
 // PostRingToken posts the token to the next gateway in the ring.
 func (s *Services) PostRingToken(repository string) error {
+	ctx := context.Background()
 	address, err := getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
 		fmt.Println("Error getting address:", err)
 		return err
 	}
-	nextGw, err := s.GetNextRingGateway(repository, address, 0)
+	nextGw, err := s.GetNextRingGateway(ctx, repository, address, 0)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
 	}
-	err = s.RetryPostToken(repository, nextGw)
+	err = s.RetryPostToken(ctx, repository, nextGw)
 	if err != nil {
 		fmt.Println("Error posting token to next gateway:", err)
 		return err
@@ -218,7 +221,7 @@ func (s *Services) PostRingToken(repository string) error {
 }
 
 // retryPostToken posts the token to the specified gateway. targetGw should be the gateway's address
-func (s *Services) RetryPostToken(repository string, targetGw string) error {
+func (s *Services) RetryPostToken(ctx context.Context, repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
 	// If the target is the same as the current address, skip posting
@@ -231,14 +234,14 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 		tokenMutex.Lock()
 		hasToken[repository] = false
 		tokenMutex.Unlock()
-		s.AcceptRingToken(context.Background(), repository)
+		s.AcceptRingToken(ctx, repository)
 		return nil
 	}
 	url := fmt.Sprintf("%s/token-ring", targetGw)
 	fmt.Println("Posting token for:", repository, "to:", url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
-	nextGw, err := s.GetNextRingGateway(repository, targetGw, 0)
+	nextGw, err := s.GetNextRingGateway(ctx, repository, targetGw, 0)
 	if err != nil {
 		fmt.Println("Error getting next gateway:", err)
 		return err
@@ -257,9 +260,9 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
-		s.RequestStatusUpdate(repository, targetGw, 3)
+		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
 		s.SetGwStatus(repository, targetGw, 3)
-		err = s.RetryPostToken(repository, nextGw)
+		err = s.RetryPostToken(ctx, repository, nextGw)
 		return err
 	}
 	req.Close = true
@@ -273,9 +276,9 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
-		s.RequestStatusUpdate(repository, targetGw, 3)
+		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
 		s.SetGwStatus(repository, targetGw, 3)
-		err = s.RetryPostToken(repository, nextGw)
+		err = s.RetryPostToken(ctx, repository, nextGw)
 		return err
 	}
 	defer resp.Body.Close()
@@ -297,12 +300,12 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 				fmt.Printf("Error message: %s\n", errMsg)
 			}
 			fmt.Println("received error acknowledgment:", ack, "attempting next gateway in ring")
-			err = s.RetryPostToken(repository, nextGw)
+			err = s.RetryPostToken(ctx, repository, nextGw)
 			return err
 		}
 	} else {
 		fmt.Println("Acknowledgment not found in response. Attempting next gateway in ring")
-		err = s.RetryPostToken(repository, nextGw)
+		err = s.RetryPostToken(ctx, repository, nextGw)
 		return err
 	}
 
@@ -317,7 +320,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 		tokenMutex.Unlock()
 		go func() {
 			// Calculate cycle time
-			gateways, err := s.GetRingGatewaysStatus(context.Background(), repository)
+			gateways, err := s.GetRingGatewaysStatus(ctx, repository)
 			if err != nil {
 				fmt.Println("Error getting gateways:", err)
 				return
@@ -337,10 +340,10 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 			if !tokenReceptionTime[repository].After(time.Now().Add(-t_cycle)) {
 				// If not, generate a new token
 				fmt.Println("Cycle time reached, invalidating and regenerating token")
-				s.SendInvalidationRequest(repository)
-				s.InvalidateToken(context.Background(), repository)
+				s.SendInvalidationRequest(ctx, repository)
+				s.InvalidateToken(ctx, repository)
 				// Take ownership of the new token
-				s.AcceptRingToken(context.Background(), repository)
+				s.AcceptRingToken(ctx, repository)
 			}
 		}()
 	}
@@ -382,12 +385,23 @@ func getAddress(port string) (string, error) {
 // according to the current address. The maxStatus argument is used to ignore gateways with a status
 // greateer than the specified value.
 // If the current address is not found in the ring, an error is returned.
-func (s *Services) GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error) {
-	gateways, err := s.GetRingGateways(context.Background(), repository)
+func (s *Services) GetNextRingGateway(ctx context.Context, repository string, currentAddress string, maxStatus int) (string, error) {
+	// Start a transaction
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("could not begin transaction: %w", err)
+	}
+	defer tx.Rollback()
 
+	gateways, err := s.GetRingGateways(ctx, tx, repository)
 	if err != nil {
 		return "", fmt.Errorf("could not get gateways: %w", err)
 	}
+
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("could not commit transaction: %w", err)
+	}
+
 	if len(gateways) == 0 {
 		return "", fmt.Errorf("no gateways found for repo '%s'", repository)
 	}
@@ -401,11 +415,23 @@ func (s *Services) GetNextRingGateway(repository string, currentAddress string, 
 }
 
 // RequestStatusUpdate sends a request to update the status of a gateway in the ring, to all gateways in the specified repo's ring
-func (s *Services) RequestStatusUpdate(repository string, address string, status int) error {
+// TODO(siemv) I don't think this needs to be in the services interface? It can just be local?
+func (s *Services) RequestStatusUpdate(ctx context.Context, repository string, address string, status int) error {
+	// Start a transaction
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Get all the addresses from the specified repository
-	lines, err := s.GetRingGateways(context.Background(), repository)
+	lines, err := s.GetRingGateways(ctx, tx, repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
 	// Create a payload containing the gateway address, repository name, and status
@@ -491,9 +517,9 @@ func (s *Services) SetGwStatus(repository string, address string, status int) er
 	return nil
 }
 
-func (s *Services) RequestAddition(repository string, address string) error {
+func (s *Services) RequestAddition(ctx context.Context, tx *sql.Tx, repository string, address string) error {
 	// Get all the addresses from the specified repository
-	lines, err := s.GetRingGateways(context.Background(), repository)
+	lines, err := s.GetRingGateways(ctx, tx, repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
 	}
@@ -537,11 +563,22 @@ func (s *Services) RequestAddition(repository string, address string) error {
 	return nil
 }
 
-func (s *Services) RequestRemoval(repository string, address string) error {
+func (s *Services) RequestRemoval(ctx context.Context, repository string, address string) error {
+	// Start a transaction
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Get all the addresses for the specified repository
-	lines, err := s.GetRingGateways(context.Background(), repository)
+	lines, err := s.GetRingGateways(ctx, tx, repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
 	// Create a payload containing the address and repo name
@@ -605,8 +642,8 @@ func (s *Services) AddToRing(ctx context.Context, repository string, address str
 	return nil
 }
 
-func removeFromRing(repository string, address string, s *Services) error {
-	err := s.RequestRemoval(repository, address)
+func removeFromRing(ctx context.Context, repository string, address string, s *Services) error {
+	err := s.RequestRemoval(ctx, repository, address)
 	if err != nil {
 		return fmt.Errorf("could not request removal of: %w", err)
 	}
@@ -617,11 +654,22 @@ func removeFromRing(repository string, address string, s *Services) error {
 	return nil
 }
 
-func (s *Services) SendInvalidationRequest(repository string) error {
+func (s *Services) SendInvalidationRequest(ctx context.Context, repository string) error {
+	// Start a transaction
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("could not begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Get all the addresses from the specified repository
-	lines, err := s.GetRingGateways(context.Background(), repository)
+	lines, err := s.GetRingGateways(ctx, tx, repository)
 	if err != nil {
 		return fmt.Errorf("could not get addresses: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
 	// Create a payload containing the repository information
@@ -716,13 +764,7 @@ func (s *Services) RemoveLocally(repository string, address string) error {
 
 // GetRingGateways returns the addresses of all gateways in the token ring of the
 // specified repository. It retrieves this information from the gateway db.
-func (s *Services) GetRingGateways(ctx context.Context, repository string) ([]string, error) {
-	tx, err := s.DB.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("could not begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
+func (s *Services) GetRingGateways(ctx context.Context, tx *sql.Tx, repository string) ([]string, error) {
 	// Query the database
 	rows, err := tx.QueryContext(ctx, "SELECT Address FROM TokenRing WHERE Repository = ?;", repository)
 	if err != nil {
@@ -746,11 +788,6 @@ func (s *Services) GetRingGateways(ctx context.Context, repository string) ([]st
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("could not commit transaction: %w", err)
-	}
-
-	// Check if any addresses were found
-	if len(addresses) == 0 {
-		return nil, fmt.Errorf("no gateways found for repository '%s'", repository)
 	}
 
 	return addresses, nil
