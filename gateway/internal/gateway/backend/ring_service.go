@@ -40,42 +40,12 @@ func (s *Services) InitTokenRing() error {
 	}
 	tokenMutex.Unlock()
 
-	// Get the address of the current gateway
-	address, err := getAddress(strconv.Itoa(s.Config.Port))
-	if err != nil {
-		return fmt.Errorf("Error getting address: %w", err)
-	}
-
 	// Populate the database's token ring table
 	err = populateDbTokenring(context.Background(), s)
 	if err != nil {
 		return fmt.Errorf("Error populating token ring table: %w", err)
 	}
 
-	// Check if the current gateway is already in the ring for each repository
-	// TODO (siemv): Change this to use the gw.db instead of the json file
-	for repo, _ := range repos {
-		lines, err := s.GetRingGateways(context.Background(), repo)
-		if err != nil {
-			return fmt.Errorf("Error getting addresses for repo %s: %w", repo, err)
-		}
-		var found bool
-		for _, line := range lines {
-			if line == address {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// Gateway is not yet in the ring, so add it
-			err = s.RequestAddition(repo, address)
-			if err != nil {
-				return fmt.Errorf("Error adding gateway to ring:, %w", err)
-			}
-			// Manually add to own ring, as the frontend is not loaded and therefore cannot receive the addition request
-			s.AddToRing(context.Background(), repo, address)
-		}
-	}
 	return nil
 }
 
@@ -98,10 +68,17 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 		return fmt.Errorf("could not get repositories: %w", err)
 	}
 
+	address, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		outcome = "could not get own address: " + err.Error()
+		return fmt.Errorf("could not get own address: %w", err)
+	}
+
 	// Loop through the repos
 	for repoName, cfg := range repos {
 		// Loop through the gateways per repo
 		fmt.Println("Repo:", repoName)
+		foundSelf := false
 		for _, gateway := range cfg.TokenRing {
 			fmt.Println("Gateway:", gateway)
 			// Insert the repo into the token ring table
@@ -120,6 +97,22 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 			if err == nil && numInserts == 0 {
 				outcome = "new token ring entry" + gateway + "for repo" + repoName + "not inserted"
 				return fmt.Errorf("new token ring entry %s for repo %s not inserted", gateway, repoName)
+			}
+			if gateway == address {
+				foundSelf = true
+			}
+		}
+		if !foundSelf {
+			// If this gateway is not in the ring, request other gateways to add it and add it locally
+			err = s.RequestAddition(repoName, address)
+			if err != nil {
+				outcome = err.Error()
+				return fmt.Errorf("could not request addition of %s to token ring for repo %s: %w", address, repoName, err)
+			}
+			err = s.AddToRing(ctx, repoName, address)
+			if err != nil {
+				outcome = err.Error()
+				return fmt.Errorf("could not add %s to token ring for repo %s: %w", address, repoName, err)
 			}
 		}
 	}
