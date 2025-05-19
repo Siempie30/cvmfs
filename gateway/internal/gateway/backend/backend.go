@@ -49,7 +49,7 @@ type ActionController interface {
 	HasRingToken(ctx context.Context, repository string) bool
 	CanStartLease(ctx context.Context, repository string) bool
 	GetRingGateways(ctx context.Context, repository string) ([]string, error)
-	GetRingGatewaysStatus(repository string) ([]gwStatus, error)
+	GetRingGatewaysStatus(ctx context.Context, repository string) ([]gwStatus, error)
 	GetNextRingGateway(repository string, currentAddress string, maxStatus int) (string, error)
 	RequestAddition(repository string, hostName string) error
 	RequestRemoval(repository string, hostName string) error

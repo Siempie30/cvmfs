@@ -324,7 +324,7 @@ func (s *Services) RetryPostToken(repository string, targetGw string) error {
 		tokenMutex.Unlock()
 		go func() {
 			// Calculate cycle time
-			gateways, err := s.GetRingGatewaysStatus(repository)
+			gateways, err := s.GetRingGatewaysStatus(context.Background(), repository)
 			if err != nil {
 				fmt.Println("Error getting gateways:", err)
 				return
@@ -793,27 +793,39 @@ func (s *Services) GetRingGateways(ctx context.Context, repository string) ([]st
 	return addresses, nil
 }
 
-func (s *Services) GetRingGatewaysStatus(repository string) ([]gwStatus, error) {
-	file, err := os.Open(s.Ringfile)
+func (s *Services) GetRingGatewaysStatus(ctx context.Context, repository string) ([]gwStatus, error) {
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("could not open ring file: %w", err)
+		return nil, fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer file.Close()
+	defer tx.Rollback()
 
-	// Decode the JSON structure
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		return nil, fmt.Errorf("could not decode ring file: %w", err)
+	// Query the database
+	rows, err := tx.QueryContext(ctx, "SELECT Address, Status FROM TokenRing WHERE Repository = ?;", repository)
+	if err != nil {
+		return nil, fmt.Errorf("could not query token ring: %w", err)
 	}
+	defer rows.Close()
 
 	// Collect all gateways from the specified repo
 	var gateways []gwStatus
-	for _, repo := range ringData.Repos {
-		if repo.RepoName == repository {
-			for _, gateway := range repo.Gateways {
-				gateways = append(gateways, gateway)
-			}
-			break
+	for rows.Next() {
+		var address string
+		var status int
+		if err := rows.Scan(&address, &status); err != nil {
+			return nil, fmt.Errorf("could not scan address: %w", err)
 		}
+		gateways = append(gateways, gwStatus{
+			Address: address,
+			Status:  status,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over rows: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("could not commit transaction: %w", err)
 	}
 
 	if len(gateways) == 0 {

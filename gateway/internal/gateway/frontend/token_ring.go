@@ -145,7 +145,7 @@ func handleGetTokenRing(services be.ActionController, w http.ResponseWriter, h *
 		return
 	}
 	msg := make(map[string]interface{})
-	gateways, err := services.GetRingGatewaysStatus(reqMsg.Repo)
+	gateways, err := services.GetRingGatewaysStatus(ctx, reqMsg.Repo)
 	if err != nil {
 		fmt.Println("Error getting token ring gateways: ", err)
 	}
