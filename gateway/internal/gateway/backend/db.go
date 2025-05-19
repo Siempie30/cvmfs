@@ -33,7 +33,7 @@ func OpenDB(config gw.Config) (*DB, error) {
 		createDB = true
 	}
 
-	sqlDB, err := sql.Open("sqlite3", "file:"+dbFile+"?mode=rwc")
+	sqlDB, err := sql.Open("sqlite3", "file:"+dbFile+"?mode=rwc&_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("could not open DB: %w", err)
 	}
@@ -106,6 +106,8 @@ create table if not exists TokenRing (
 	Status int not null,
 	Primary key (Address, Repository),
 	foreign key (Repository) references Repository(Name)
+		on delete cascade
+		on update cascade
 );
 `,
 		latestSchemaVersion)
