@@ -640,7 +640,7 @@ func removeFromRing(ctx context.Context, repository string, address string, s *S
 	if err != nil {
 		return fmt.Errorf("could not request removal of: %w", err)
 	}
-	err = s.RemoveLocally(repository, address)
+	err = s.RemoveLocally(ctx, repository, address)
 	if err != nil {
 		return fmt.Errorf("could not remove locally: %w", err)
 	}
@@ -706,52 +706,24 @@ func (s *Services) InvalidateToken(ctx context.Context, repository string) {
 	s.CancelLeases(ctx, repository+"/")
 }
 
-func (s *Services) RemoveLocally(repository string, address string) error {
-	// Load the ring file contents
-	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
+func (s *Services) RemoveLocally(ctx context.Context, repository string, address string) error {
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("could not open ring file: %w", err)
+		return fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer file.Close()
+	defer tx.Rollback()
 
-	// Decode the existing JSON structure
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		return fmt.Errorf("could not decode ring file: %w", err)
-	}
-
-	// Check if the specified repo exists
-	var repoFound bool
-	for i, repo := range ringData.Repos {
-		if repo.RepoName == repository {
-			repoFound = true
-			// Remove the address from the gateways
-			var updatedGateways []gwStatus
-			for _, gateway := range repo.Gateways {
-				if gateway.Address != address {
-					updatedGateways = append(updatedGateways, gateway)
-				}
-			}
-			ringData.Repos[i].Gateways = updatedGateways
-			break
-		}
+	_, err = tx.ExecContext(ctx,
+		"DELETE FROM TokenRing WHERE Repository = ? AND Address = ?",
+		repository, address)
+	if err != nil {
+		return fmt.Errorf("could not remove gateway %s from token ring for repo %s: %w", address, repository, err)
 	}
 
-	// If the repo does not exist, ignore the removal
-	if !repoFound {
-		fmt.Println("repo", repository, "not found in ring file")
-		return nil
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
-	// Write the updated JSON structure back to the file
-	file.Seek(0, 0)  // Reset file pointer to the beginning
-	file.Truncate(0) // Clear the file content
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ") // Pretty-print JSON
-	if err := encoder.Encode(&ringData); err != nil {
-		return fmt.Errorf("could not encode ring file: %w", err)
-	}
-
-	fmt.Println("Removed from ring file:", address)
 	return nil
 }
 
