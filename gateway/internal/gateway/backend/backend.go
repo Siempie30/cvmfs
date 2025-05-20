@@ -56,7 +56,7 @@ type ActionController interface {
 	RequestRemoval(ctx context.Context, repository string, hostName string) error
 	InvalidateToken(ctx context.Context, repository string)
 	SendInvalidationRequest(ctx context.Context, repository string) error
-	SetGwStatus(repository string, address string, status int) error
+	SetGwStatus(ctx context.Context, repository string, address string, status int) error
 }
 
 // GetKey returns the key configuration associated with a key ID

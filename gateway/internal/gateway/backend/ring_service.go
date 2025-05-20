@@ -262,7 +262,7 @@ func (s *Services) RetryPostToken(ctx context.Context, repository string, target
 	if err != nil {
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
 		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
-		s.SetGwStatus(repository, targetGw, 3)
+		s.SetGwStatus(ctx, repository, targetGw, 3)
 		err = s.RetryPostToken(ctx, repository, nextGw)
 		return err
 	}
@@ -278,7 +278,7 @@ func (s *Services) RetryPostToken(ctx context.Context, repository string, target
 	if err != nil {
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
 		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
-		s.SetGwStatus(repository, targetGw, 3)
+		s.SetGwStatus(ctx, repository, targetGw, 3)
 		err = s.RetryPostToken(ctx, repository, nextGw)
 		return err
 	}
@@ -474,47 +474,27 @@ func (s *Services) RequestStatusUpdate(ctx context.Context, repository string, a
 	return nil
 }
 
-func (s *Services) SetGwStatus(repository string, address string, status int) error {
-	file, err := os.OpenFile(s.Ringfile, os.O_RDWR, 0644)
+// SetGwStatus updates the status of a gateway in the token ring table of the gw db for the specified repository
+func (s *Services) SetGwStatus(ctx context.Context, repository string, address string, status int) error {
+	// Start a transaction
+	tx, err := s.DB.SQL.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("could not open ring file: %w", err)
+		return fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer file.Close()
+	defer tx.Rollback()
 
-	// Decode the existing JSON structure
-	if err := json.NewDecoder(file).Decode(&ringData); err != nil {
-		return fmt.Errorf("could not decode ring file: %w", err)
-	}
-
-	// Update the status of the specified gateway in the specified repository
-	var gatewayFound bool
-	for i, repo := range ringData.Repos {
-		if repo.RepoName == repository {
-			for j, gateway := range repo.Gateways {
-				if gateway.Address == address {
-					ringData.Repos[i].Gateways[j].Status = status
-					gatewayFound = true
-					break
-				}
-			}
-			break
-		}
+	// Update the status of the gateway in the database
+	_, err = tx.ExecContext(ctx,
+		"UPDATE TokenRing SET Status = ? WHERE Repository = ? AND Address = ?",
+		status, repository, address)
+	if err != nil {
+		return fmt.Errorf("could not update gateway status: %w", err)
 	}
 
-	if !gatewayFound {
-		return fmt.Errorf("gateway %s not found in repository %s", address, repository)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
-	// Write the updated JSON structure back to the file
-	file.Seek(0, 0)  // Reset file pointer to the beginning
-	file.Truncate(0) // Clear the file content
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ") // Pretty-print JSON
-	if err := encoder.Encode(&ringData); err != nil {
-		return fmt.Errorf("could not encode ring file: %w", err)
-	}
-
-	fmt.Println("Updated status of gateway:", address, "in repository:", repository)
 	return nil
 }
 

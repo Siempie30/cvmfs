@@ -46,7 +46,7 @@ func handleUpdateStatus(services be.ActionController, w http.ResponseWriter, h *
 		return
 	}
 
-	err := services.SetGwStatus(reqMsg.Repo, reqMsg.Address, reqMsg.Status)
+	err := services.SetGwStatus(ctx, reqMsg.Repo, reqMsg.Address, reqMsg.Status)
 	if err != nil {
 		fmt.Println("failed to add:", reqMsg.Address, "to token ring for repo", reqMsg.Repo, ": ", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
