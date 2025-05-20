@@ -8,6 +8,9 @@
                     "id": "mykey",
                     "path": "/"
                 }
+            ],
+            "token_ring": [
+                "http://cvmfs-gw1:4929/api/v1"
             ]
         }
     ],
