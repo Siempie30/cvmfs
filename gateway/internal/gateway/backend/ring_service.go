@@ -786,11 +786,6 @@ func (s *Services) GetRingGateways(ctx context.Context, tx *sql.Tx, repository s
 		return nil, fmt.Errorf("error iterating over rows: %w", err)
 	}
 
-	// Commit the transaction
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("could not commit transaction: %w", err)
-	}
-
 	return addresses, nil
 }
 
