@@ -92,7 +92,7 @@ func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h
 		return
 	}
 
-	err := services.RemoveLocally(reqMsg.Repo, reqMsg.Address)
+	err := services.RemoveLocally(ctx, reqMsg.Repo, reqMsg.Address)
 	if err != nil {
 		fmt.Println("Failed to remove", reqMsg.Address, "from token ring for repository", reqMsg.Repo, ":", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})

@@ -20,7 +20,6 @@ type Services struct {
 	Pool                  *receiver.Pool
 	Notifications         *NotificationSystem
 	StatsMgr              *stats.StatisticsMgr
-	Ringfile              string
 	LeaseNotificationChan chan string
 }
 
@@ -41,7 +40,6 @@ type ActionController interface {
 	PublishManifest(ctx context.Context, repository string, message NotificationMessage)
 	SubscribeToNotifications(ctx context.Context, repository string) SubscriberHandle
 	UnsubscribeFromNotifications(ctx context.Context, repository string, handle SubscriberHandle) error
-	InitTokenRing() error
 	AcceptRingToken(ctx context.Context, repository string) error
 	PostRingToken(repository string) error
 	RetryPostToken(ctx context.Context, repository string, targetGw string) error
@@ -88,13 +86,13 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 		return nil, fmt.Errorf("could not initialize notification system: %w", err)
 	}
 
-	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, Ringfile: cfg.TokenRingFile, LeaseNotificationChan: make(chan string)}
+	services := Services{Config: cfg, Access: *ac, DB: db, Pool: pool, Notifications: ns, StatsMgr: smgr, LeaseNotificationChan: make(chan string)}
 
 	if err := PopulateRepositories(&services); err != nil {
 		return nil, fmt.Errorf("could not populate repository table: %w", err)
 	}
 
-	if err := services.InitTokenRing(); err != nil {
+	if err := InitTokenRing(&services); err != nil {
 		return nil, fmt.Errorf("could not initialize token ring: %w", err)
 	}
 

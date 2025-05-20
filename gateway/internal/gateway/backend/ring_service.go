@@ -29,7 +29,7 @@ type gwStatus struct {
 	Status  int    `json:"status"`
 }
 
-func (s *Services) InitTokenRing() error {
+func InitTokenRing(s *Services) error {
 	ctx := context.Background()
 	// Initialize the token state
 	repos, err := s.GetRepos(ctx)
