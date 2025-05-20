@@ -69,7 +69,7 @@ func handleAddToRing(services be.ActionController, w http.ResponseWriter, h *htt
 		return
 	}
 
-	err := services.AddToRing(ctx, reqMsg.Repo, reqMsg.Address)
+	err := services.AddToRing(ctx, nil /* No transaction */, reqMsg.Repo, reqMsg.Address)
 	if err != nil {
 		fmt.Println("failed to add:", reqMsg.Address, "to token ring for repo", reqMsg.Repo, ": ", err)
 		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})

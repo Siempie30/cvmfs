@@ -111,7 +111,7 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 				outcome = err.Error()
 				return fmt.Errorf("could not request addition of %s to token ring for repo %s: %w", address, repoName, err)
 			}
-			err = s.AddToRing(ctx, repoName, address)
+			err = s.AddToRing(ctx, tx, repoName, address)
 			if err != nil {
 				outcome = err.Error()
 				return fmt.Errorf("could not add %s to token ring for repo %s: %w", address, repoName, err)
@@ -619,25 +619,36 @@ func (s *Services) RequestRemoval(ctx context.Context, repository string, addres
 
 // Add a gateway to the token ring for the specified repository
 // If the repository does not exist or the address is already in the ring, an error is returned
-func (s *Services) AddToRing(ctx context.Context, repository string, address string) error {
+func (s *Services) AddToRing(ctx context.Context, tx *sql.Tx, repository string, address string) error {
 	t0 := time.Now()
 
 	outcome := "success"
 	defer logAction(ctx, "add_to_ring", &outcome, t0)
 
-	tx, err := s.DB.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		outcome = err.Error()
-		return fmt.Errorf("could not begin transaction: %w", err)
+	commitTx := false
+	if tx == nil {
+		// Start a transaction
+		tx, err := s.DB.SQL.BeginTx(ctx, nil)
+		if err != nil {
+			outcome = err.Error()
+			return fmt.Errorf("could not begin transaction: %w", err)
+		}
+		commitTx = true
+		defer tx.Rollback()
 	}
-	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx,
+	_, err := tx.ExecContext(ctx,
 		"INSERT INTO TokenRing (Address, Repository, Status) VALUES (?, ?, 0);",
 		address, repository)
 	if err != nil {
 		outcome = err.Error()
 		return fmt.Errorf("could not insert gateway %s into token ring for repo %s: %w", address, repository, err)
+	}
+
+	if commitTx {
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("could not commit transaction: %w", err)
+		}
 	}
 
 	return nil
