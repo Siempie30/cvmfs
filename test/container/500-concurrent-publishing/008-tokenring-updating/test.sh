@@ -1,26 +1,15 @@
 SCRIPT_DIR=$(dirname $0)
 UTIL_SCRIPT="$SCRIPT_DIR/../test_util.sh"
 . $UTIL_SCRIPT
-TOKEN_FILE="/etc/cvmfs/gateway/token_ring.json"
+DB_FILE="/var/lib/cvmfs-gateway/gw.db"
 
-echo "---Verifying initial token ring files"
-EXPECTED='{
-  "repoName": "test.repo.org",
-  "gateways": [
-    {
-      "address": "http://cvmfs-gw1:4929/api/v1",
-      "status": 0
-    },
-    {
-      "address": "http://cvmfs-gw2:4929/api/v1",
-      "status": 0
-    }
-  ]
-}'
-OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')
+echo "---Verifying initial token ring tables"
+EXPECTED="http://cvmfs-gw1:4929/api/v1|test.repo.org|0
+http://cvmfs-gw2:4929/api/v1|test.repo.org|0"
+OUTPUT=$(execute_in_container cvmfs-gw1 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 1; fi
-OUTPUT=$(docker exec -it cvmfs-gw2 cat $TOKEN_FILE | jq '.repos[0]')
+OUTPUT=$(execute_in_container cvmfs-gw2 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 2; fi
 
@@ -31,31 +20,17 @@ cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw3/repo.json
 docker exec -it cvmfs-gw3 /scripts/gateway_mkfs.sh -E test.repo.org || exit 3
 docker exec -it cvmfs-gw3 systemctl start cvmfs-gateway
 
-echo "\n---Verifying updated token ring files"
-EXPECTED='{
-  "repoName": "test.repo.org",
-  "gateways": [
-    {
-      "address": "http://cvmfs-gw1:4929/api/v1",
-      "status": 0
-    },
-    {
-      "address": "http://cvmfs-gw2:4929/api/v1",
-      "status": 0
-    },
-    {
-      "address": "http://cvmfs-gw3:4929/api/v1",
-      "status": 0
-    }
-  ]
-}'
-OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')
+echo "\n---Verifying updated token ring tables"
+EXPECTED="http://cvmfs-gw1:4929/api/v1|test.repo.org|0
+http://cvmfs-gw2:4929/api/v1|test.repo.org|0
+http://cvmfs-gw3:4929/api/v1|test.repo.org|0"
+OUTPUT=$(execute_in_container cvmfs-gw1 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 4; fi
-OUTPUT=$(docker exec -it cvmfs-gw2 cat $TOKEN_FILE | jq '.repos[0]')
+OUTPUT=$(execute_in_container cvmfs-gw2 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 5; fi
-OUTPUT=$(docker exec -it cvmfs-gw3 cat $TOKEN_FILE | jq '.repos[0]')
+OUTPUT=$(execute_in_container cvmfs-gw3 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 6; fi
 
@@ -71,28 +46,14 @@ echo "\n---Verifying gateway 3 has token"
 has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
 if [ "$has_token" != "true" ]; then exit 9; fi
 
-echo "\n---Verifying updated token ring files"
-EXPECTED='{
-  "repoName": "test.repo.org",
-  "gateways": [
-    {
-      "address": "http://cvmfs-gw1:4929/api/v1",
-      "status": 0
-    },
-    {
-      "address": "http://cvmfs-gw2:4929/api/v1",
-      "status": 3
-    },
-    {
-      "address": "http://cvmfs-gw3:4929/api/v1",
-      "status": 0
-    }
-  ]
-}'
-OUTPUT=$(docker exec -it cvmfs-gw1 cat $TOKEN_FILE | jq '.repos[0]')
+echo "\n---Verifying updated token ring tables"
+EXPECTED="http://cvmfs-gw1:4929/api/v1|test.repo.org|0
+http://cvmfs-gw2:4929/api/v1|test.repo.org|3
+http://cvmfs-gw3:4929/api/v1|test.repo.org|0"
+OUTPUT=$(execute_in_container cvmfs-gw1 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 10; fi
-OUTPUT=$(docker exec -it cvmfs-gw3 cat $TOKEN_FILE | jq '.repos[0]')
+OUTPUT=$(execute_in_container cvmfs-gw3 "sqlite3 $DB_FILE \"SELECT * FROM TokenRing;\"")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 11; fi
 
