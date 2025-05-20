@@ -11,7 +11,7 @@ execute_in_container cvmfs-gw1 "cvmfs_server publish" || exit 3
 
 echo "\n---Copying repo data to host"
 mkdir -p $SCRIPT_DIR/tmp
-docker cp cvmfs-s3:/data/mybucket/test.repo.org/data/. $SCRIPT_DIR/tmp/1 || exit 4
+docker cp cvmfs-s3:/data/stratum0bucket/test.repo.org/data/. $SCRIPT_DIR/tmp/1 || exit 4
 
 echo "\n---Creating gateway 2"
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
@@ -20,7 +20,7 @@ cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
 docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E test.repo.org || exit 5
 
 echo "\n---Verifying repository data"
-docker cp cvmfs-s3:/data/mybucket/test.repo.org/data/. $SCRIPT_DIR/tmp/2 || exit 6
+docker cp cvmfs-s3:/data/stratum0bucket/test.repo.org/data/. $SCRIPT_DIR/tmp/2 || exit 6
 diff --recursive $SCRIPT_DIR/tmp/1 $SCRIPT_DIR/tmp/2 || exit 7
 
 echo "\nStarting transaction on gateway 2"
@@ -31,11 +31,11 @@ echo "\nPublishing transaction on gateway 2"
 execute_in_container cvmfs-gw2 "cvmfs_server publish" || exit 10
 
 echo "\n---Copying repo data to host"
-docker cp cvmfs-s3:/data/mybucket/test.repo.org/data/. $SCRIPT_DIR/tmp/3 || exit 11
+docker cp cvmfs-s3:/data/stratum0bucket/test.repo.org/data/. $SCRIPT_DIR/tmp/3 || exit 11
 
 echo "\n---Removing repository from gateway 1"
 execute_in_container cvmfs-gw1 "cvmfs_server rmfs -f test.repo.org" || exit 12
 
 echo "\n---Verifying repository data"
-docker cp cvmfs-s3:/data/mybucket/test.repo.org/data/. $SCRIPT_DIR/tmp/4 || exit 13
+docker cp cvmfs-s3:/data/stratum0bucket/test.repo.org/data/. $SCRIPT_DIR/tmp/4 || exit 13
 diff --recursive $SCRIPT_DIR/tmp/3 $SCRIPT_DIR/tmp/4 || exit 14

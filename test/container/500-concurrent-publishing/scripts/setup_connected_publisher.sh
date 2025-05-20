@@ -35,7 +35,7 @@ fi
 
 yum -y install jq sqlite
 
-CVMFS_STRATUM0_URL=http://cvmfs-s3:9000/mybucket
+CVMFS_STRATUM0_URL=http://cvmfs-s3:9000/stratum0bucket
 CVMFS_SERVER_DEBUG=3 cvmfs_server mkfs -w $CVMFS_STRATUM0_URL/$fqrn \
                          -u gw,/srv/cvmfs/$fqrn/data/txn,$cvmfs_gateway_url:4929/api/v1 \
                          -k /etc/cvmfs/keys -o `whoami` $MKFS_OPTS $fqrn

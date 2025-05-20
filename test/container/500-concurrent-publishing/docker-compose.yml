@@ -4,6 +4,9 @@ services:
     cvmfs-test-gw1:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-gw1
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-gw1
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -23,6 +26,9 @@ services:
     cvmfs-test-gw2:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-gw2
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-gw2
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -42,6 +48,9 @@ services:
     cvmfs-test-gw3:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-gw3
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-gw3
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -61,6 +70,9 @@ services:
     cvmfs-test-gw4:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-gw4
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-gw4
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -80,6 +92,9 @@ services:
     cvmfs-test-gw5:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-gw5
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-gw5
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -99,6 +114,9 @@ services:
     cvmfs-test-pub1:
         image: registry.cern.ch/cvmfs-dev:latest
         container_name: cvmfs-pub1
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-pub1
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -114,6 +132,9 @@ services:
     cvmfs-test-pub2:
         image: registry.cern.ch/cvmfs-dev-pub:latest
         container_name: cvmfs-pub2
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-pub2
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -129,6 +150,9 @@ services:
     cvmfs-test-pub3:
         image: registry.cern.ch/cvmfs-dev-pub:latest
         container_name: cvmfs-pub3
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-pub3
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -144,6 +168,9 @@ services:
     cvmfs-test-pub4:
         image: registry.cern.ch/cvmfs-dev-pub:latest
         container_name: cvmfs-pub4
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-pub4
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -159,6 +186,9 @@ services:
     cvmfs-test-pub5:
         image: registry.cern.ch/cvmfs-dev-pub:latest
         container_name: cvmfs-pub5
+        depends_on:
+            cvmfs-test-s3-creator:
+                condition: service_completed_successfully
         hostname: cvmfs-pub5
         privileged: true
         cgroup: host # required to run sbin/init with cgroups v2
@@ -183,6 +213,26 @@ services:
         volumes:
             - minio-data:/data
         command: server --console-address ":9001" /data
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+            interval: 1s
+            timeout: 5s
+            retries: 3
+    
+    cvmfs-test-s3-creator:
+        image: minio/mc:latest
+        container_name: cvmfs-s3-creator
+        depends_on:
+            cvmfs-test-s3:
+                condition: service_healthy
+        entrypoint: >
+            /bin/sh -c "
+            /usr/bin/mc alias set myminio http://cvmfs-s3:9000 minioadmin minioadmin123;
+            /usr/bin/mc rb --force myminio/stratum0bucket;
+            /usr/bin/mc mb myminio/stratum0bucket;
+            /usr/bin/mc anonymous set public myminio/stratum0bucket;
+            exit 0;
+            "
 
 volumes:
     var_spool_gw1:
