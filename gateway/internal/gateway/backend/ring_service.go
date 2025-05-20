@@ -628,7 +628,8 @@ func (s *Services) AddToRing(ctx context.Context, tx *sql.Tx, repository string,
 	commitTx := false
 	if tx == nil {
 		// Start a transaction
-		tx, err := s.DB.SQL.BeginTx(ctx, nil)
+		var err error
+		tx, err = s.DB.SQL.BeginTx(ctx, nil)
 		if err != nil {
 			outcome = err.Error()
 			return fmt.Errorf("could not begin transaction: %w", err)
