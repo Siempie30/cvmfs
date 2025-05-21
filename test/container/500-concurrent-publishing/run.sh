@@ -13,7 +13,6 @@ for dir in [0-9][0-9][0-9]*/; do
     if [[ -d "$dir" ]]; then
         echo "Executing test: $dir"
         sudo docker-compose up -d
-        sleep 5
         
         # Execute setup.sh if it exists
         if [[ -f "$dir/setup.sh" ]]; then

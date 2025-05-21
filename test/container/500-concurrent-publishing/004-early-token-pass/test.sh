@@ -18,23 +18,10 @@ has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.
 if [ "$has_token" != "false" ]; then exit 3; fi
 
 # Restart the gateways
-SCRIPT_DIR=$(dirname $0)
-REPO_NAME=test.repo.org
-echo "\n\n---Restarting gateways"
-docker rm -f cvmfs-gw1 && docker volume rm 500-concurrent-publishing_var_spool_gw1 > /dev/null 2>&1
-docker rm -f cvmfs-gw2 && docker volume rm 500-concurrent-publishing_var_spool_gw2 > /dev/null 2>&1
-docker-compose up -d cvmfs-test-gw1 cvmfs-test-gw2 > /dev/null 2>&1
-cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw1/user.json
-cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw1/token_ring.json
-cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw1/repo.json
-docker exec -it cvmfs-gw1 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 4
-docker exec -it cvmfs-gw1 systemctl start cvmfs-gateway
-
-cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
-cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
-cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
-docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 5
-docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
+execute_in_container cvmfs-gw1 "systemctl stop cvmfs-gateway" || exit 4
+execute_in_container cvmfs-gw2 "systemctl stop cvmfs-gateway" || exit 5
+execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 6
+execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 7
 
 # Post the token to the first gateway
 echo "\n\n---Handing out token to gateway 1"
@@ -68,23 +55,10 @@ has_token=$(docker exec -it cvmfs-pub1 curl -s -X GET --data '{"repo":"test.repo
 if [ "$has_token" != "true" ]; then exit 13; fi
 
 # Restart the gateways
-SCRIPT_DIR=$(dirname $0)
-REPO_NAME=test.repo.org
-echo "\n\n---Restarting gateways"
-docker rm -f cvmfs-gw1 && docker volume rm 500-concurrent-publishing_var_spool_gw1 > /dev/null 2>&1
-docker rm -f cvmfs-gw2 && docker volume rm 500-concurrent-publishing_var_spool_gw2 > /dev/null 2>&1
-docker-compose up -d cvmfs-test-gw1 cvmfs-test-gw2 > /dev/null 2>&1
-cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw1/user.json
-cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw1/token_ring.json
-cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw1/repo.json
-docker exec -it cvmfs-gw1 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 14
-docker exec -it cvmfs-gw1 systemctl start cvmfs-gateway
-
-cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
-cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
-cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
-docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E $REPO_NAME > /dev/null 2>&1 || exit 15
-docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
+execute_in_container cvmfs-gw1 "systemctl stop cvmfs-gateway" || exit 14
+execute_in_container cvmfs-gw2 "systemctl stop cvmfs-gateway" || exit 15
+execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 16
+execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 17
 
 # Post the token to the first gateway
 echo "\n\n---Handing out token to gateway 1"
