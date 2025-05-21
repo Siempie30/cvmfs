@@ -92,8 +92,10 @@ func StartBackend(cfg gw.Config) (*Services, error) {
 		return nil, fmt.Errorf("could not populate repository table: %w", err)
 	}
 
-	if err := InitTokenRing(&services); err != nil {
-		return nil, fmt.Errorf("could not initialize token ring: %w", err)
+	if cfg.EnableMultiGateway {
+		if err := InitTokenRing(&services); err != nil {
+			return nil, fmt.Errorf("could not initialize token ring: %w", err)
+		}
 	}
 
 	return &services, nil

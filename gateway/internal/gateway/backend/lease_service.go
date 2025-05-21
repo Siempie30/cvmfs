@@ -254,9 +254,10 @@ func (s *Services) CancelLease(ctx context.Context, token string) error {
 		return err
 	}
 
-	// Notify the channel about the cancellation, but only when the ring service is listening to the cancelled leases (when it has the token but can no longer hand out leases), and when there are no more remaining leases.
+	// Notify the channel about the cancellation, but only when the ring service is active and listening to the cancelled leases (when it has the token but can no longer hand out leases), and when there are no more remaining leases.
 	remainingLeases, _ := FindAllActiveLeases(ctx, tx)
-	if s.LeaseNotificationChan != nil && s.HasRingToken(ctx, lease.Repository) && !s.CanStartLease(ctx, lease.Repository) && len(remainingLeases) == 0 {
+	notifyTokenRing := s.Config.EnableMultiGateway && s.HasRingToken(ctx, lease.Repository) && !s.CanStartLease(ctx, lease.Repository)
+	if s.LeaseNotificationChan != nil && notifyTokenRing && len(remainingLeases) == 0 {
 		s.LeaseNotificationChan <- fmt.Sprintf("Lease cancelled: %s", token)
 	}
 
@@ -292,7 +293,8 @@ func (s *Services) CommitLease(ctx context.Context, token, oldRootHash, newRootH
 		return 0, err
 	}
 
-	if lease == nil || lease.Expiration.Before(time.Now()) || !s.HasRingToken(ctx, lease.Repository) {
+	tokenRingAllowCommit := !s.Config.EnableMultiGateway || s.HasRingToken(ctx, lease.Repository)
+	if lease == nil || lease.Expiration.Before(time.Now()) || !tokenRingAllowCommit {
 		err := InvalidLeaseError{}
 		outcome = err.Error()
 		return 0, err
@@ -321,9 +323,10 @@ func (s *Services) CommitLease(ctx context.Context, token, oldRootHash, newRootH
 		return finalRev, err
 	}
 
-	// Notify the channel about the commit, but only when the ring service is listening to the cancelled leases (when it has the token but can no longer hand out leases), and when there are no more remaining leases.
+	// Notify the channel about the commit, but only when the ring service is enabled and listening to the cancelled leases (when it has the token but can no longer hand out leases), and when there are no more remaining leases.
 	remainingLeases, _ := FindAllActiveLeases(ctx, tx)
-	if s.LeaseNotificationChan != nil && s.HasRingToken(ctx, lease.Repository) && !s.CanStartLease(ctx, lease.Repository) && len(remainingLeases) == 0 {
+	notifyTokenRing := s.Config.EnableMultiGateway && s.HasRingToken(ctx, lease.Repository) && !s.CanStartLease(ctx, lease.Repository)
+	if s.LeaseNotificationChan != nil && notifyTokenRing && len(remainingLeases) == 0 {
 		s.LeaseNotificationChan <- fmt.Sprintf("Lease committed: %s", token)
 	}
 

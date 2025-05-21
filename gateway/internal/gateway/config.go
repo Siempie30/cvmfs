@@ -18,6 +18,8 @@ type Config struct {
 	PProfPortRangeMax int `mapstructure:"pprof_port_range_max"`
 	// MaxLeaseTime is the maximum lease duration in seconds
 	MaxLeaseTime time.Duration `mapstructure:"max_lease_time"`
+	// EnableMultiGateway enables the token ring algorithm to support multiple gateways per repository
+	EnableMultiGateway bool `mapstructure:"enable_multi_gateway"`
 	// LeaseAcquisitionTime is the time in seconds after the gateway receives a token, in which it can hand out leases
 	LeaseAcquisitionTime time.Duration `mapstructure:"gw_lease_acquisition_time"`
 	// LogLevel sets the logging level
@@ -45,6 +47,7 @@ func ReadConfig() (*Config, error) {
 	pflag.Int("pprof_port", 6060, "pprof port on localhost")
 	pflag.Int("pprof_port_range_max", 6260, "pprof port on localhost")
 	pflag.Int("max_lease_time", 7200, "maximum lease time in seconds")
+	pflag.Bool("enable_multi_gateway", false, "enable token ring algorithm to support multiple gateways per repository")
 	pflag.Int("gw_lease_acquisition_time", 10, "amount of time in seconds after gateway receives a token, in which it can hand out leases")
 	pflag.String("log_level", "info", "log level (debug|info|warn|error|fatal|panic)")
 	pflag.Bool("log_timestamps", false, "enable timestamps in logging output")

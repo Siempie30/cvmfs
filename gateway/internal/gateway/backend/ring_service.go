@@ -359,6 +359,11 @@ func (s *Services) HasRingToken(ctx context.Context, repository string) bool {
 }
 
 func (s *Services) CanStartLease(ctx context.Context, repository string) bool {
+	// If the multi-gateway feature is not enabled, leasee can be started regardlessly
+	if !s.Config.EnableMultiGateway {
+		return true
+	}
+
 	// Check if the token is received
 	if !s.HasRingToken(ctx, repository) {
 		return false
