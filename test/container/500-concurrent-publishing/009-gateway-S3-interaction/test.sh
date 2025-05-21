@@ -15,7 +15,6 @@ docker cp cvmfs-s3:/data/stratum0bucket/test.repo.org/data/. $SCRIPT_DIR/tmp/1 |
 
 echo "\n---Creating gateway 2"
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
-cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
 docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E test.repo.org || exit 5
 

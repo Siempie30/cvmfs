@@ -2,9 +2,6 @@ SCRIPT_DIR=$(dirname $0)
 UTIL_SCRIPT="$SCRIPT_DIR/../test_util.sh"
 . $UTIL_SCRIPT
 
-echo "---Passing token to gateway 1"
-execute_in_container cvmfs-pub1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 1
-
 echo "\n---Transaction 1: pub 1, unimportant change"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 2
 execute_in_container cvmfs-pub1 "echo abc > /cvmfs/test.repo.org/testfile"

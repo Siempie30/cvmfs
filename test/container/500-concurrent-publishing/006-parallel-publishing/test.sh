@@ -1,10 +1,6 @@
 UTIL_SCRIPT="$(dirname $0)/../test_util.sh"
 . $UTIL_SCRIPT
 
-# Post the token to the first gateway
-echo "---Handing out token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 1
-
 echo "\n\n---Creating subdirectories"
 # Start transaction
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 2

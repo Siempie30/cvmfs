@@ -8,12 +8,7 @@ done
 
 echo "\n\n---Adding repos to publisher"
 for i in $(seq 100); do
-  execute_in_container cvmfs-pub1 "/scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F ${i}test.repo.org -M" || exit 2
-done
-
-echo "\n\n---Handing out token for each repo"
-for i in $(seq 100); do
-    execute_in_container cvmfs-pub1 "curl -X POST --data '{\"repo\":\"${i}test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 3
+  execute_in_container cvmfs-pub1 "/scripts/setup_connected_publisher.sh -G http://cvmfs-gw1 -F ${i}test.repo.org" || exit 2
 done
 
 echo "\n\n---Starting transactions"
