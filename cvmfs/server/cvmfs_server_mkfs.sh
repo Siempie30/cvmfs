@@ -338,15 +338,17 @@ cvmfs_server_mkfs() {
   local rdonly_dir="${CVMFS_SPOOL_DIR}/rdonly"
   local scratch_dir="${CVMFS_SPOOL_DIR}/scratch/current"
 
-  # Check for gateways in token ring
-if [ x"$upstream_type" == "xgw" ] && [ $multiple_gateways -eq 1 ]; then
+  # Create token ring database
+  if [ x"$upstream_type" = xgw ]; then
     local token_ring
-    token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
+    if [ $multiple_gateways -eq 1 ]; then
+      token_ring="`get_token_ring $upstream $name`" || die "failed to get token ring information"
+    else
+      # If the multiple gateways is not enabled, we still create a database (only containing the current gateway), in case the user switches to multi gateway at a later point
+      token_ring=$(echo "$upstream" | awk -F',' '{print $NF}')
+    fi
     if [ x"$token_ring" != x"" ]; then
-      echo "Note: the repository $name is part of a token ring, with gateways $token_ring"
       create_tokenring_db $name $token_ring $upstream || die "failed to create token ring database"
-    else 
-      echo "Warning: the repository $name is a gateway but not part of a token ring"
     fi
   fi
 
