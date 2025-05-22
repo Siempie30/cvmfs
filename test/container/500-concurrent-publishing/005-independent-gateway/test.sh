@@ -8,25 +8,25 @@ execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test2.repo.o
 execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test3.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring" || exit 3
 
 # Start transactions
-echo "\n\n---Starting transactions"
+echo "\n---Starting transactions"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction test1.repo.org" || exit 4
 execute_in_container cvmfs-pub2 "cvmfs_server transaction test2.repo.org" || exit 5
 execute_in_container cvmfs-pub1 "cvmfs_server transaction test3.repo.org" || exit 6
 
 # Apply changes
-echo "\n\n---Applying changes"
+echo "\n---Applying changes"
 execute_in_container cvmfs-pub1 "echo 'repo1-pub1' > /cvmfs/test1.repo.org/repo1-pub1" || exit 7
 execute_in_container cvmfs-pub2 "echo 'repo2-pub2' > /cvmfs/test2.repo.org/repo2-pub2" || exit 8
 execute_in_container cvmfs-pub1 "echo 'repo3-pub1' > /cvmfs/test3.repo.org/repo3-pub1" || exit 9
 
 # Publish changes
-echo "\n\n---Publishing changes"
+echo "\n---Publishing changes"
 execute_in_container cvmfs-pub1 "cvmfs_server publish test1.repo.org" || exit 10
 execute_in_container cvmfs-pub2 "cvmfs_server publish test2.repo.org" || exit 11
 execute_in_container cvmfs-pub1 "cvmfs_server publish test3.repo.org" || exit 12
 
 # Verify changes for each repo on each gateway
-echo "\n\n---Verifying changes"
+echo "\n---Verifying changes"
 execute_in_container cvmfs-gw1 "cvmfs_server mount test1.repo.org" || exit 13
 execute_in_container cvmfs-gw1 "cvmfs_server mount test2.repo.org" || exit 14
 execute_in_container cvmfs-gw2 "cvmfs_server mount test1.repo.org" || exit 15
@@ -45,32 +45,32 @@ execute_in_container cvmfs-gw3 "cat /cvmfs/test3.repo.org/repo3-pub1 | tee | gre
 for attempt in $(seq 1 20); do
     has_token=$(docker exec -it cvmfs-pub3 curl -s -X GET --data '{"repo":"test3.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
     if [ "$has_token" = "true" ]; then
-        echo "\n\n---Gateway 3 has token, continuing"
+        echo "\n---Gateway 3 has token, continuing"
         break
     fi
     sleep 0.5
 done
 
 # Start transactions
-echo "\n\n---Starting transactions"
+echo "\n---Starting transactions"
 execute_in_container cvmfs-pub3 "cvmfs_server transaction test1.repo.org" || exit 25
 execute_in_container cvmfs-pub1 "cvmfs_server transaction test2.repo.org" || exit 26
 execute_in_container cvmfs-pub3 "cvmfs_server transaction test3.repo.org" || exit 27
 
 # Apply changes
-echo "\n\n---Applying changes"
+echo "\n---Applying changes"
 execute_in_container cvmfs-pub3 "echo 'repo1-pub3' > /cvmfs/test1.repo.org/repo1-pub3" || exit 28
 execute_in_container cvmfs-pub1 "echo 'repo2-pub1' > /cvmfs/test2.repo.org/repo2-pub1" || exit 29
 execute_in_container cvmfs-pub3 "echo 'repo3-pub3' > /cvmfs/test3.repo.org/repo3-pub3" || exit 30
 
 # Publish changes
-echo "\n\n---Publishing changes"
+echo "\n---Publishing changes"
 execute_in_container cvmfs-pub3 "cvmfs_server publish test1.repo.org" || exit 31
 execute_in_container cvmfs-pub1 "cvmfs_server publish test2.repo.org" || exit 32
 execute_in_container cvmfs-pub3 "cvmfs_server publish test3.repo.org" || exit 33
 
 # Verify changes for each repo on each gateway
-echo "\n\n---Verifying changes"
+echo "\n---Verifying changes"
 execute_in_container cvmfs-gw1 "cvmfs_server mount test1.repo.org" || exit 34
 execute_in_container cvmfs-gw1 "cvmfs_server mount test2.repo.org" || exit 35
 execute_in_container cvmfs-gw2 "cvmfs_server mount test1.repo.org" || exit 36

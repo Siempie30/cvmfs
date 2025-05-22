@@ -84,4 +84,4 @@ if [ "$has_token" != "false" ]; then exit 16; fi
 
 sleep 4
 has_token=$(docker exec -it cvmfs-gw3 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
-if [ "$has_token" != "true" ]; then exit 21; fi
+if [ "$has_token" != "true" ]; then exit 17; fi

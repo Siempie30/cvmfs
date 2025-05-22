@@ -24,7 +24,7 @@ execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 6
 execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 7
 
 # Post the token to the first gateway
-echo "\n\n---Handing out token to gateway 1"
+echo "\n---Handing out token to gateway 1"
 execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 6
 
 sleep 3
@@ -34,7 +34,7 @@ has_token=$(docker exec -it cvmfs-pub1 curl -s -X GET --data '{"repo":"test.repo
 if [ "$has_token" != "true" ]; then exit 7; fi
 
 # Start a transaction and make changes on the publisher
-echo "\n\n---Starting transaction on publisher"
+echo "\n---Starting transaction on publisher"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 8
 execute_in_container cvmfs-pub1 "echo 'abc' > /cvmfs/test.repo.org/testfile" || exit 9
 
@@ -45,7 +45,7 @@ has_token=$(docker exec -it cvmfs-pub1 curl -s -X GET --data '{"repo":"test.repo
 if [ "$has_token" != "true" ]; then exit 10; fi
 
 # Publish changes
-echo "\n\n---Publishing changes"
+echo "\n---Publishing changes"
 execute_in_container cvmfs-pub1 "cvmfs_server publish" || exit 11
 
 # Check that gateway 1 no longer has the token, and that gateway 2 has received it.
@@ -61,7 +61,7 @@ execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 16
 execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 17
 
 # Post the token to the first gateway
-echo "\n\n---Handing out token to gateway 1"
+echo "\n---Handing out token to gateway 1"
 execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 16
 
 sleep 3
@@ -71,7 +71,7 @@ has_token=$(docker exec -it cvmfs-pub1 curl -s -X GET --data '{"repo":"test.repo
 if [ "$has_token" != "true" ]; then exit 17; fi
 
 # Start a transaction, make changes and publish on the publisher
-echo "\n\n---Starting transaction on publisher"
+echo "\n---Starting transaction on publisher"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 18
 execute_in_container cvmfs-pub1 "echo 'abc' > /cvmfs/test.repo.org/testfile" || exit 19
 execute_in_container cvmfs-pub1 "cvmfs_server publish" || exit 20
