@@ -60,3 +60,30 @@ execute_in_container cvmfs-pub1 "echo def > /cvmfs/$REPO_NAME/testfile" || exit 
 
 echo "\n\n---Publishing changes"
 execute_in_container cvmfs-pub1 "cvmfs_server publish" || exit 18
+
+echo "\n\n---Verifying changes on gateway 2"
+execute_in_container cvmfs-gw2 "cvmfs_server mount; cat /cvmfs/$REPO_NAME/testfile" || exit 19
+docker exec  cvmfs-gw2 cat /cvmfs/$REPO_NAME/testfile | tee | grep def ||  exit 20
+
+echo "\n\n---Stopping both gateways"
+execute_in_container cvmfs-gw1 "systemctl stop cvmfs-gateway" || exit 21
+execute_in_container cvmfs-gw2 "systemctl stop cvmfs-gateway" || exit 22
+
+echo "\n\n---Disabling multi-gateway mode on gateway 1 and publisher"
+jq 'del(.enable_multi_gateway)' $SCRIPT_DIR/../config/gw1/user.json > tmp.json && mv tmp.json $SCRIPT_DIR/../config/gw1/user.json
+jq '.repos |= map(del(.token_ring))' $SCRIPT_DIR/../config/gw1/repo.json > tmp.json && mv tmp.json $SCRIPT_DIR/../config/gw1/repo.json
+execute_in_container cvmfs-pub1 "sed -i '/^CVMFS_MULTIPLE_GATEWAYS=true$/d' /etc/cvmfs/repositories.d/$REPO_NAME/server.conf"
+
+echo "\n\n---Starting gateway 1"
+execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 23
+
+echo "\n\n---Starting transaction on publisher 1"
+execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 24
+execute_in_container cvmfs-pub1 "echo ghi > /cvmfs/$REPO_NAME/testfile" || exit 25
+
+echo "\n\n---Publishing changes"
+execute_in_container cvmfs-pub1 "cvmfs_server publish" || exit 26
+
+echo "\n\n---Verifying changes on gateway 1"
+execute_in_container cvmfs-gw1 "cvmfs_server mount; cat /cvmfs/$REPO_NAME/testfile" || exit 27
+docker exec  cvmfs-gw1 cat /cvmfs/$REPO_NAME/testfile | tee | grep ghi ||  exit 28
