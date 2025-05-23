@@ -371,7 +371,7 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
   }
 
   // Determine the default gateway address
-  std::string default_gateway_query = "SELECT address FROM gateway WHERE default_gw = 1 LIMIT 1;";
+  std::string default_gateway_query = "SELECT address FROM gateway WHERE default_gw = 1 ORDER BY address LIMIT 1;";
   sqlite3_stmt* stmt = NULL;
 
   rc = sqlite3_prepare_v2(db, default_gateway_query.c_str(), -1, &stmt, NULL);
@@ -462,7 +462,7 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
                EPublish::kFailSqlite);
       }
       // Set a new default gateway: the first gateway with status 0
-      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE rowid = (SELECT rowid FROM gateway WHERE status = " + std::to_string(kGatewayUp) + " LIMIT 1);";
+      std::string set_default_query = "UPDATE gateway SET default_gw = 1 WHERE rowid = (SELECT rowid FROM gateway WHERE status = " + std::to_string(kGatewayUp) + " ORDER BY address LIMIT 1);";
       rc = sqlite3_exec(db, set_default_query.c_str(), NULL, NULL, &errmsg);
       if (rc != SQLITE_OK) {
       sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
