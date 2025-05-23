@@ -736,7 +736,7 @@ func (s *Services) RemoveLocally(ctx context.Context, repository string, address
 // specified repository. It retrieves this information from the gateway db.
 func (s *Services) GetRingGateways(ctx context.Context, tx *sql.Tx, repository string) ([]string, error) {
 	// Query the database
-	rows, err := tx.QueryContext(ctx, "SELECT Address FROM TokenRing WHERE Repository = ?;", repository)
+	rows, err := tx.QueryContext(ctx, "SELECT Address FROM TokenRing WHERE Repository = ? ORDER BY Address;", repository)
 	if err != nil {
 		return nil, fmt.Errorf("could not query token ring: %w", err)
 	}
@@ -766,7 +766,7 @@ func (s *Services) GetRingGatewaysStatus(ctx context.Context, repository string)
 	defer tx.Rollback()
 
 	// Query the database
-	rows, err := tx.QueryContext(ctx, "SELECT Address, Status FROM TokenRing WHERE Repository = ?;", repository)
+	rows, err := tx.QueryContext(ctx, "SELECT Address, Status FROM TokenRing WHERE Repository = ? ORDER BY Address;", repository)
 	if err != nil {
 		return nil, fmt.Errorf("could not query token ring: %w", err)
 	}
