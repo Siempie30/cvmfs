@@ -3,7 +3,7 @@ UTIL_SCRIPT="$(dirname $0)/../test_util.sh"
 
 # Post the token to the first gateway
 echo "---Handing out token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 1
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 1
 
 sleep 3
 
@@ -25,7 +25,7 @@ execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 7
 
 # Post the token to the first gateway
 echo "\n---Handing out token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 6
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 6
 
 sleep 3
 
@@ -62,7 +62,7 @@ execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 17
 
 # Post the token to the first gateway
 echo "\n---Handing out token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 16
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 16
 
 sleep 3
 

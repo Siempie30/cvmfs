@@ -57,7 +57,7 @@ echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 9; fi
 
 echo "\n---Passing token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 10
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 10
 
 sleep 3
 

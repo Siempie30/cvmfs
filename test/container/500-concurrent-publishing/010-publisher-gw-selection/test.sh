@@ -7,7 +7,7 @@ echo "---Stopping gateway 1"
 execute_in_container cvmfs-gw1 "systemctl stop cvmfs-gateway" || exit 1
 
 echo "\n---Handing out token to gateway 2"
-execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring" || exit 2
+execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring/creation" || exit 2
 
 # To make sure gateway 2 has time to update its token ring configuration by attempting to pass it to gw1
 sleep 3

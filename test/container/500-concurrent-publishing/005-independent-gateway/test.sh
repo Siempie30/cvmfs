@@ -3,9 +3,9 @@ UTIL_SCRIPT="$(dirname $0)/../test_util.sh"
 
 # Post the token to the gateways
 echo "---Handing out token to gateways"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test1.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 1
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test2.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring" || exit 2
-execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test3.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring" || exit 3
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test1.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 1
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test2.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 2
+execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test3.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring/creation" || exit 3
 
 # Start transactions
 echo "\n---Starting transactions"

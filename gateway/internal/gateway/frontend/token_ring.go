@@ -14,7 +14,9 @@ import (
 func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 	return func(w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 		if h.Method == "POST" {
-			if strings.HasSuffix(h.URL.Path, "status") {
+			if strings.HasSuffix(h.URL.Path, "creation") {
+				handleCreateToken(services, w, h, ps)
+			} else if strings.HasSuffix(h.URL.Path, "status") {
 				handleUpdateStatus(services, w, h, ps)
 			} else if strings.HasSuffix(h.URL.Path, "removal") {
 				handleRemoveFromRing(services, w, h, ps)
@@ -28,6 +30,36 @@ func MakeTokenRingHandler(services be.ActionController) httprouter.Handle {
 		} else {
 			handleGetTokenRing(services, w, h, ps)
 		}
+	}
+}
+
+// POST method to create a token for specified repo, and invalidate any existing token
+func handleCreateToken(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
+	fmt.Println("Received request to create token")
+
+	ctx := h.Context()
+	var reqMsg struct {
+		Repo string `json:"repo"`
+	}
+	if err := json.NewDecoder(h.Body).Decode(&reqMsg); err != nil {
+		httpWrapError(ctx, err, "invalid request body", w, http.StatusBadRequest)
+		return
+	}
+
+	// Invalidate any existing token (only one token can exist at the same time)
+	err := services.SendInvalidationRequest(ctx, reqMsg.Repo)
+	if err != nil {
+		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
+		return
+	}
+	services.InvalidateToken(ctx, reqMsg.Repo)
+	// Accept the new token
+	err = services.AcceptRingToken(ctx, reqMsg.Repo)
+	if err != nil {
+		fmt.Println("Error creating token: ", err)
+		replyJSON(ctx, w, message{"acknowledgement": "error", "error": err.Error()})
+	} else {
+		replyJSON(ctx, w, message{"acknowledgement": "ok"})
 	}
 }
 
@@ -101,7 +133,7 @@ func handleRemoveFromRing(services be.ActionController, w http.ResponseWriter, h
 	}
 }
 
-// POST method to post token for specified rpeo to this gateway
+// POST method to post token for specified repo to this gateway
 func handlePostTokenRing(services be.ActionController, w http.ResponseWriter, h *http.Request, ps httprouter.Params) {
 	ctx := h.Context()
 	var reqMsg struct {
