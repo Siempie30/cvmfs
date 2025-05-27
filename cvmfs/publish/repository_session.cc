@@ -689,7 +689,7 @@ LeaseReply Publisher::Session::AcquireInMultiGw(const gateway::GatewayKey &gw_ke
   }
   bool gwUnavailable{true};
   // As long as 1. not all gateway addresses have been attempted and 2. The reason the update request failed is because of an unavailable gateway
-  for (int i = 0; i < addresses.size() && gwUnavailable; ++i) {
+  for (size_t i = 0; i < addresses.size() && gwUnavailable; ++i) {
     gwUnavailable = UpdateGatewayDb(settings_.repo_path, addresses[i]);
   }
   
@@ -701,7 +701,7 @@ LeaseReply Publisher::Session::AcquireInMultiGw(const gateway::GatewayKey &gw_ke
   GetRingGwsByPriority(settings_.repo_path, addresses);
 
   // As long as 1. not all gateway addresses have been attempted and 2. The reason the lease request failed is because of an unavailable gateway
-  int i;
+  size_t i;
   for (i = 0; i < addresses.size() && gwUnavailable; ++i) {
     // Loop, starting at the start index (where our 'main' gateway is), and wrap around using modulo.
     LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", addresses[i].c_str());
