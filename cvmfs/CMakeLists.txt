@@ -370,19 +370,7 @@ if (BUILD_CVMFS)
     DESTINATION /usr/lib/systemd/system
     PERMISSIONS   OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   )
-  # Apparmor fusermount3 profile extension
-  install (
-    FILES pkg/apparmor.local.fusermount3
-    DESTINATION /etc/apparmor.d/local
-    RENAME fusermount3
-    PERMISSIONS   OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-  )
 
-  install (
-    FILES pkg/logrotate.d/cvmfs-statsdb
-    DESTINATION /etc/logrotate.d
-    PERMISSIONS   OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-  )
   endif()
 
 endif (BUILD_CVMFS)
@@ -988,6 +976,12 @@ if (BUILD_SERVER)
     PERMISSIONS  OWNER_READ GROUP_READ WORLD_READ
   )
 
+  install (
+    FILES pkg/logrotate.d/cvmfs-statsdb pkg/logrotate.d/cvmfs
+    DESTINATION /etc/logrotate.d
+    PERMISSIONS   OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  )
+
   if (BUILD_GEOAPI)
     install(
       CODE "FILE(MAKE_DIRECTORY \$ENV{DESTDIR}/var/lib/cvmfs-server/geo)"
@@ -1010,6 +1004,7 @@ if (BUILD_SERVER)
       DIRECTORY_PERMISSIONS  OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     )
   endif (BUILD_GEOAPI)
+
 endif (BUILD_SERVER)
 
 
