@@ -59,13 +59,13 @@ func NewFrontend(services be.ActionController, port int, timeout time.Duration) 
 	router.DELETE(APIRoot+"/leases-by-path/*path", amw(MakeAdminLeasesHandler(services)))
 	router.POST(APIRoot+"/gc", amw(MakeGCHandler(services)))
 
-	// Token ring
-	router.GET(APIRoot+"/token-ring", tag(MakeTokenRingHandler(services)))
-	router.POST(APIRoot+"/token-ring", tag(MakeTokenRingHandler(services)))
-	router.POST(APIRoot+"/token-ring/creation", tag(MakeTokenRingHandler(services)))
-	router.POST(APIRoot+"/token-ring/removal", tag(MakeTokenRingHandler(services)))
-	router.POST(APIRoot+"/token-ring/addition", tag(MakeTokenRingHandler(services)))
-	router.POST(APIRoot+"/token-ring/status", tag(MakeTokenRingHandler(services)))
+	// High availability (HA) gateways token ring
+	router.GET(APIRoot+"/hagroup", tag(MakeTokenRingHandler(services)))
+	router.POST(APIRoot+"/hagroup", tag(MakeTokenRingHandler(services)))
+	router.POST(APIRoot+"/hagroup/creation", tag(MakeTokenRingHandler(services)))
+	router.POST(APIRoot+"/hagroup/removal", tag(MakeTokenRingHandler(services)))
+	router.POST(APIRoot+"/hagroup/addition", tag(MakeTokenRingHandler(services)))
+	router.POST(APIRoot+"/hagroup/status", tag(MakeTokenRingHandler(services)))
 
 	// Configure and start the HTTP server
 	srv := &http.Server{
