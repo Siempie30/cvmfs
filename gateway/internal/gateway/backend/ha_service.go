@@ -212,7 +212,7 @@ func (s *Services) PostRingToken(repository string) error {
 		fmt.Println("Error getting next gateway:", err)
 		return err
 	}
-	err = s.RetryPostToken(ctx, repository, nextGw)
+	err = retryPostToken(ctx, s, repository, nextGw)
 	if err != nil {
 		fmt.Println("Error posting token to next gateway:", err)
 		return err
@@ -222,7 +222,7 @@ func (s *Services) PostRingToken(repository string) error {
 }
 
 // retryPostToken posts the token to the specified gateway. targetGw should be the gateway's address
-func (s *Services) RetryPostToken(ctx context.Context, repository string, targetGw string) error {
+func retryPostToken(ctx context.Context, s *Services, repository string, targetGw string) error {
 	// Post the token to the next gateway
 	fmt.Println("Target gateway is: ", targetGw)
 	// If the target is the same as the current address, skip posting
@@ -263,7 +263,7 @@ func (s *Services) RetryPostToken(ctx context.Context, repository string, target
 		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
 		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
 		s.SetGwStatus(ctx, repository, targetGw, 3)
-		err = s.RetryPostToken(ctx, repository, nextGw)
+		err = retryPostToken(ctx, s, repository, nextGw)
 		return err
 	}
 	req.Close = true
@@ -279,7 +279,7 @@ func (s *Services) RetryPostToken(ctx context.Context, repository string, target
 		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
 		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
 		s.SetGwStatus(ctx, repository, targetGw, 3)
-		err = s.RetryPostToken(ctx, repository, nextGw)
+		err = retryPostToken(ctx, s, repository, nextGw)
 		return err
 	}
 	defer resp.Body.Close()
@@ -301,12 +301,12 @@ func (s *Services) RetryPostToken(ctx context.Context, repository string, target
 				fmt.Printf("Error message: %s\n", errMsg)
 			}
 			fmt.Println("received error acknowledgment:", ack, "attempting next gateway in ring")
-			err = s.RetryPostToken(ctx, repository, nextGw)
+			err = retryPostToken(ctx, s, repository, nextGw)
 			return err
 		}
 	} else {
 		fmt.Println("Acknowledgment not found in response. Attempting next gateway in ring")
-		err = s.RetryPostToken(ctx, repository, nextGw)
+		err = retryPostToken(ctx, s, repository, nextGw)
 		return err
 	}
 
