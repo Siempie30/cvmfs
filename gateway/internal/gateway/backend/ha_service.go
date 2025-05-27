@@ -238,7 +238,7 @@ func (s *Services) RetryPostToken(ctx context.Context, repository string, target
 		s.AcceptRingToken(ctx, repository)
 		return nil
 	}
-	url := fmt.Sprintf("%s/token-ring", targetGw)
+	url := fmt.Sprintf("%s/hagroup", targetGw)
 	fmt.Println("Posting token for:", repository, "to:", url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
@@ -461,7 +461,7 @@ func (s *Services) RequestStatusUpdate(ctx context.Context, repository string, a
 			fmt.Println("Skipping update request to self:", selfAddress)
 			continue
 		}
-		url := fmt.Sprintf("%s/token-ring/status", line)
+		url := fmt.Sprintf("%s/hagroup/status", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create status update request:", err)
@@ -531,7 +531,7 @@ func (s *Services) RequestAddition(ctx context.Context, tx *sql.Tx, repository s
 			fmt.Println("Skipping addition request to self:", address)
 			continue
 		}
-		url := fmt.Sprintf("%s/token-ring/addition", line)
+		url := fmt.Sprintf("%s/hagroup/addition", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw addition request:", err)
@@ -583,7 +583,7 @@ func (s *Services) RequestRemoval(ctx context.Context, repository string, addres
 			fmt.Println("Skipping removal request to self:", address)
 			continue
 		}
-		url := fmt.Sprintf("%s/token-ring/removal", line)
+		url := fmt.Sprintf("%s/hagroup/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create gw removal request:", err)
@@ -686,7 +686,7 @@ func (s *Services) SendInvalidationRequest(ctx context.Context, repository strin
 			fmt.Println("Skipping invalidation request to self:", address)
 			continue
 		}
-		url := fmt.Sprintf("%s/token-ring/invalidation", line)
+		url := fmt.Sprintf("%s/hagroup/invalidation", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			fmt.Println("could not create token invalidation request:", err)

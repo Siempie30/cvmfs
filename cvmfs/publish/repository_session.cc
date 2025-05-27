@@ -317,7 +317,7 @@ bool Publisher::Session::UpdateGatewayDb(const std::string& repo_path, const std
   // Make curl call to gateway to retrieve gateway addresses
   CurlBuffer buffer;
   CURL* h_curl = PrepareCurl("GET");
-  std::string url = src_gateway + "/token-ring";
+  std::string url = src_gateway + "/hagroup";
 
   const std::string payload = "{\"repo\" : \"" + repo_name + "\"}";
   curl_easy_setopt(h_curl, CURLOPT_POSTFIELDSIZE_LARGE,

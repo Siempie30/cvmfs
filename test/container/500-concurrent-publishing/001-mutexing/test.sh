@@ -1,7 +1,7 @@
 UTIL_SCRIPT="$(dirname $0)/../test_util.sh"
 . $UTIL_SCRIPT
 
-execute_in_container cvmfs-pub1 "curl -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 1
+execute_in_container cvmfs-pub1 "curl -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/hagroup/creation" || exit 1
 
 echo "---Transaction 1: pub 1 (to gw1)"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 2

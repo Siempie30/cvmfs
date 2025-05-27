@@ -46,23 +46,23 @@ EXPECTED="{
   \"address\": \"http://cvmfs-gw3:4929/api/v1\",
   \"status\": 0
 }"
-OUTPUT=$(execute_in_container cvmfs-gw1 "curl -s -X GET --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.gateways[]'")
+OUTPUT=$(execute_in_container cvmfs-gw1 "curl -s -X GET --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.gateways[]'")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 7; fi
-OUTPUT=$(execute_in_container cvmfs-gw2 "curl -s -X GET --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring | jq '.gateways[]'")
+OUTPUT=$(execute_in_container cvmfs-gw2 "curl -s -X GET --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw2:4929/api/v1/hagroup | jq '.gateways[]'")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 8; fi
-OUTPUT=$(execute_in_container cvmfs-gw3 "curl -s -X GET --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.gateways[]'")
+OUTPUT=$(execute_in_container cvmfs-gw3 "curl -s -X GET --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw3:4929/api/v1/hagroup | jq '.gateways[]'")
 echo "$OUTPUT"
 if [ "$OUTPUT" != "$EXPECTED" ]; then exit 9; fi
 
 echo "\n---Passing token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 10
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test.repo.org\"}' http://cvmfs-gw1:4929/api/v1/hagroup/creation" || exit 10
 
 sleep 3
 
 echo "\n---Verifying gateway 2 has token"
-has_token=$(docker exec -it cvmfs-gw2 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw2:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw2 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw2:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "true" ]; then exit 11; fi
 
 echo "\n---Removing gateway 3"
@@ -71,7 +71,7 @@ execute_in_container cvmfs-gw3 "systemctl stop cvmfs-gateway" || exit 12
 sleep 3
 
 echo "\n---Verifying gateway 1 has token"
-has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "true" ]; then exit 13; fi
 
 echo "\n---Verifying updated token ring tables"
@@ -88,9 +88,9 @@ if [ "$OUTPUT" != "$EXPECTED" ]; then exit 15; fi
 sleep 3
 
 echo "\n---Verifying gateway 2 has token and gateway 1 doesn't"
-has_token=$(docker exec -it cvmfs-gw2 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw2:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw2 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw2:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "true" ]; then exit 16; fi
-has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "false" ]; then exit 17; fi
 
 echo "\n---Stopping gateway 2"
@@ -99,17 +99,17 @@ execute_in_container cvmfs-gw2 "systemctl stop cvmfs-gateway" || exit 18
 echo "\n---Verifying gateway 1 has token during cycle time (16 seconds)"
 
 sleep 4
-has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "false" ]; then exit 18; fi
 
 sleep 4
-has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "false" ]; then exit 19; fi
 
 sleep 4
-has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "false" ]; then exit 20; fi
 
 sleep 4
-has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/token-ring | jq '.has_token')
+has_token=$(docker exec -it cvmfs-gw1 curl -s -X GET --data '{"repo":"test.repo.org"}' http://cvmfs-gw1:4929/api/v1/hagroup | jq '.has_token')
 if [ "$has_token" != "true" ]; then exit 21; fi

@@ -3,9 +3,9 @@ UTIL_SCRIPT="$(dirname $0)/../test_util.sh"
 
 # Post the token to the gateways
 echo "---Handing out token to gateways"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test1.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 1
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test2.repo.org\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 2
-execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test3.repo.org\"}' http://cvmfs-gw2:4929/api/v1/token-ring/creation" || exit 3
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test1.repo.org\"}' http://cvmfs-gw1:4929/api/v1/hagroup/creation" || exit 1
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"test2.repo.org\"}' http://cvmfs-gw1:4929/api/v1/hagroup/creation" || exit 2
+execute_in_container cvmfs-gw2 "curl -s -X POST --data '{\"repo\":\"test3.repo.org\"}' http://cvmfs-gw2:4929/api/v1/hagroup/creation" || exit 3
 
 # Start transactions
 echo "\n---Starting transactions"
@@ -43,7 +43,7 @@ execute_in_container cvmfs-gw3 "cat /cvmfs/test3.repo.org/repo3-pub1 | tee | gre
 
 # Wait for token for repo 3 to arrive at gateway 3 (the repo 3 token was the last to be posted)
 for attempt in $(seq 1 20); do
-    has_token=$(docker exec -it cvmfs-pub3 curl -s -X GET --data '{"repo":"test3.repo.org"}' http://cvmfs-gw3:4929/api/v1/token-ring | jq '.has_token')
+    has_token=$(docker exec -it cvmfs-pub3 curl -s -X GET --data '{"repo":"test3.repo.org"}' http://cvmfs-gw3:4929/api/v1/hagroup | jq '.has_token')
     if [ "$has_token" = "true" ]; then
         echo "\n---Gateway 3 has token, continuing"
         break

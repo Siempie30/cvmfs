@@ -52,7 +52,7 @@ execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 13
 execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 14
 
 echo "\n---Passing token to gateway 1"
-execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"$REPO_NAME\"}' http://cvmfs-gw1:4929/api/v1/token-ring/creation" || exit 15
+execute_in_container cvmfs-gw1 "curl -s -X POST --data '{\"repo\":\"$REPO_NAME\"}' http://cvmfs-gw1:4929/api/v1/hagroup/creation" || exit 15
 
 echo "\n---Starting transaction on publisher 1"
 execute_in_container cvmfs-pub1 "cvmfs_server transaction" || exit 16

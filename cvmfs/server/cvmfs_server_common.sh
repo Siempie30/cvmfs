@@ -1416,7 +1416,7 @@ get_token_ring() {
   # Use API to get token ring
   token_ring=$(curl -X GET \
     --data "{\"repo\":\"$name\"}" \
-    "$gateway_address/token-ring")
+    "$gateway_address/hagroup")
   if [ $? -ne 0 ]; then
     echo "Failed to get token ring from stratum0" >&2
     return 1
