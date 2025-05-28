@@ -9,3 +9,5 @@ docker rm -f cvmfs-gw3 && docker volume rm 500-concurrent-publishing_var_spool_g
 docker rm -f cvmfs-gw4 && docker volume rm 500-concurrent-publishing_var_spool_gw4
 docker rm -f cvmfs-gw5 && docker volume rm 500-concurrent-publishing_var_spool_gw5
 docker rm -f cvmfs-s3 && docker volume rm 500-concurrent-publishing_minio-data
+SCRIPT_DIR=$(dirname $0)
+rm -rf $SCRIPT_DIR/../keys/*
