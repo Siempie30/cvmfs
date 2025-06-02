@@ -81,26 +81,44 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 		// Loop through the gateways per repo
 		fmt.Println("Repo:", repoName)
 		foundSelf := false
+
+		// Attempt to retrieve token ring configuration from all specified gateways, until successful
+		retrievedRing := false
+		var gwAddresses []gwStatus
 		for _, gateway := range cfg.TokenRing {
-			fmt.Println("Gateway:", gateway)
-			// Insert the repo into the token ring table
+			fmt.Println("Retrieving ring data from gateway")
+			gwAddresses, err = retrieveRingFromGw(gateway, repoName)
+			if err != nil {
+				fmt.Println("Error retrieving ring data from", gateway, ":", err)
+				continue
+			}
+			retrievedRing = true
+			break
+		}
+		if !retrievedRing {
+			outcome = "could not retrieve token ring from any gateway for repo " + repoName
+			return fmt.Errorf("%s", outcome)
+		}
+
+		for _, gw := range gwAddresses {
+			// Insert the repo and gateway into the token ring table
 			res, err := tx.ExecContext(ctx,
-				"INSERT INTO TokenRing (Address, Repository, Status) VALUES (?, ?, 0);",
-				gateway, repoName)
+				"INSERT INTO TokenRing (Address, Repository, Status) VALUES (?, ?, ?);",
+				gw.Address, repoName, gw.Status)
 			if err != nil {
 				outcome = err.Error()
 				return fmt.Errorf("could not insert token ring entry: %w", err)
 			}
 			numInserts, err := res.RowsAffected()
 			if err != nil {
-				outcome = "new token ring entry" + gateway + "for repo" + repoName + "not inserted"
-				return fmt.Errorf("new token ring entry %s for repo %s not inserted. error: %s", gateway, repoName, err.Error())
+				outcome = "new token ring entry" + gw.Address + "for repo" + repoName + "not inserted"
+				return fmt.Errorf("new token ring entry %s for repo %s not inserted. error: %s", gw.Address, repoName, err.Error())
 			}
 			if err == nil && numInserts == 0 {
-				outcome = "new token ring entry" + gateway + "for repo" + repoName + "not inserted"
-				return fmt.Errorf("new token ring entry %s for repo %s not inserted", gateway, repoName)
+				outcome = "new token ring entry" + gw.Address + "for repo" + repoName + "not inserted"
+				return fmt.Errorf("new token ring entry %s for repo %s not inserted", gw.Address, repoName)
 			}
-			if gateway == address {
+			if gw.Address == address {
 				foundSelf = true
 			}
 		}
@@ -124,6 +142,49 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 	}
 
 	return nil
+}
+
+// Retrieves array of gateways and status from the specified gateway for a specific repository, using the API
+func retrieveRingFromGw(gwAddress string, repo string) ([]gwStatus, error) {
+	var statuses []gwStatus
+
+	url := fmt.Sprintf("%s/hagroup", gwAddress)
+	payload := map[string]string{
+		"repo": repo,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GET request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve ring from gateway: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var response struct {
+		Gateways []gwStatus `json:"gateways"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	statuses = response.Gateways
+
+	fmt.Println("Statuses found:", statuses)
+
+	return statuses, nil
 }
 
 func (s *Services) AcceptRingToken(ctx context.Context, repository string) error {
