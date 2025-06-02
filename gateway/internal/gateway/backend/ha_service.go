@@ -96,8 +96,13 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 			break
 		}
 		if !retrievedRing {
-			outcome = "could not retrieve token ring from any gateway for repo " + repoName
-			return fmt.Errorf("%s", outcome)
+			fmt.Println("Could not retrieve token ring from any gateway for repo", repoName, ", using local address instead")
+			for _, gw := range cfg.TokenRing {
+				gwAddresses = append(gwAddresses, gwStatus{
+					Address: gw,
+					Status:  0, // Assuming up status
+				})
+			}
 		}
 
 		for _, gw := range gwAddresses {
