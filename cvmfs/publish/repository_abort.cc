@@ -19,7 +19,6 @@ namespace {
 void TrySessionDrop(publish::Publisher::Session *session,
                     bool ignore_invalid_lease, bool multi_gateway = false)
 {
-                    bool ignore_invalid_lease) {
   try {
     session->Drop(multi_gateway);
   } catch (const publish::EPublish &e) {
