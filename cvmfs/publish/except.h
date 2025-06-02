@@ -35,11 +35,10 @@ class EPublish : public std::runtime_error {
     kFailSqlite,              // SQLite error  
   };
 
-  explicit EPublish(const std::string& what, EFailures f = kFailUnspecified)
-    : std::runtime_error(what + "\n\nStacktrace:\n" + GetStacktrace())
-    , failure_(f)
-    , msg_holder_(what)
-  {}
+  explicit EPublish(const std::string &what, EFailures f = kFailUnspecified)
+      : std::runtime_error(what + "\n\nStacktrace:\n" + GetStacktrace())
+      , failure_(f)
+      , msg_holder_(what) { }
 
   virtual ~EPublish() throw();
 
