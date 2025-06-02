@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	gw "github.com/cvmfs/gateway/internal/gateway"
 )
 
 // Map to store whether this gateway possesses the token per repository
@@ -29,11 +31,17 @@ type gwStatus struct {
 	Status  int    `json:"status"`
 }
 
+// Initialize the token ring service by populating the token ring table in the database
 func InitTokenRing(s *Services) error {
 	ctx := context.Background()
+	t0 := time.Now()
+	outcome := "success"
+	defer logAction(ctx, "init_token_ring", &outcome, t0)
+
 	// Initialize the token state
 	repos, err := s.GetRepos(ctx)
 	if err != nil {
+		outcome = err.Error()
 		return fmt.Errorf("Error getting repositories: %w", err)
 	}
 	tokenMutex.Lock()
@@ -45,12 +53,16 @@ func InitTokenRing(s *Services) error {
 	// Populate the database's token ring table
 	err = populateDbTokenring(ctx, s)
 	if err != nil {
+		outcome = err.Error()
 		return fmt.Errorf("Error populating token ring table: %w", err)
 	}
 
 	return nil
 }
 
+// Populate the token ring table in the database with the gateways and their statuses for each repository.
+// It attempts to retrieve the token ring configuration from the gateways specified in the repository configuration.
+// If it fails to retrieve the configuration from all of the gateways, it uses the addresses in the configuration, with status 0 (up).
 func populateDbTokenring(ctx context.Context, s *Services) error {
 	t0 := time.Now()
 	outcome := "success"
@@ -78,25 +90,24 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 
 	// Loop through the repos
 	for repoName, cfg := range repos {
-		// Loop through the gateways per repo
-		fmt.Println("Repo:", repoName)
 		foundSelf := false
 
-		// Attempt to retrieve token ring configuration from all specified gateways, until successful
+		// Attempt to retrieve token ring configuration from one of the specified gateways, until successful
 		retrievedRing := false
 		var gwAddresses []gwStatus
 		for _, gateway := range cfg.TokenRing {
-			fmt.Println("Retrieving ring data from gateway")
 			gwAddresses, err = retrieveRingFromGw(gateway, repoName)
 			if err != nil {
-				fmt.Println("Error retrieving ring data from", gateway, ":", err)
+				errStr := fmt.Sprintf("Error retrieving ring data from gateway %s for repo %s: %v", gateway, repoName, err)
+				gw.LogC(ctx, errStr, gw.LogDebug)
 				continue
 			}
 			retrievedRing = true
 			break
 		}
 		if !retrievedRing {
-			fmt.Println("Could not retrieve token ring from any gateway for repo", repoName, ", using local address instead")
+			errStr := fmt.Sprintf("Could not retrieve token ring from any gateway for repo %s, using local address instead", repoName)
+			gw.LogC(ctx, errStr, gw.LogDebug)
 			for _, gw := range cfg.TokenRing {
 				gwAddresses = append(gwAddresses, gwStatus{
 					Address: gw,
@@ -128,7 +139,7 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 			}
 		}
 		if !foundSelf {
-			// If this gateway is not in the ring, request other gateways to add it and add it locally
+			// If this gateway is not in the ring, request other gateways to add it, and add it locally
 			err = s.RequestAddition(ctx, tx, repoName, address)
 			if err != nil {
 				outcome = err.Error()
@@ -143,6 +154,7 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 	}
 
 	if err := tx.Commit(); err != nil {
+		outcome = "could not commit transaction: " + err.Error()
 		return fmt.Errorf("could not commit transaction: %w", err)
 	}
 
@@ -151,8 +163,6 @@ func populateDbTokenring(ctx context.Context, s *Services) error {
 
 // Retrieves array of gateways and status from the specified gateway for a specific repository, using the API
 func retrieveRingFromGw(gwAddress string, repo string) ([]gwStatus, error) {
-	var statuses []gwStatus
-
 	url := fmt.Sprintf("%s/hagroup", gwAddress)
 	payload := map[string]string{
 		"repo": repo,
@@ -185,18 +195,18 @@ func retrieveRingFromGw(gwAddress string, repo string) ([]gwStatus, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	statuses = response.Gateways
-
-	fmt.Println("Statuses found:", statuses)
-
-	return statuses, nil
+	return response.Gateways, nil
 }
 
 func (s *Services) AcceptRingToken(ctx context.Context, repository string) error {
+	outcome := "success"
+	defer logAction(ctx, "accept_ring_token", &outcome, time.Now())
+
 	tokenMutex.Lock()
 	reposMap, err := s.GetRepos(ctx)
 	if err != nil {
 		tokenMutex.Unlock()
+		outcome = "failed to get repositories: " + err.Error()
 		return fmt.Errorf("Error getting repositories: %w", err)
 	}
 	// Check if the repository is managed by this gateway
@@ -209,95 +219,97 @@ func (s *Services) AcceptRingToken(ctx context.Context, repository string) error
 	}
 	if !repoFound {
 		tokenMutex.Unlock()
+		outcome = "repository not found: " + repository
 		return fmt.Errorf("repository %s not found in repos", repository)
 	}
 
 	if hasToken[repository] {
 		tokenMutex.Unlock()
-		fmt.Println("Token already accepted for", repository)
+		outcome = "token already accepted for " + repository
 		return fmt.Errorf("token already accepted for %s, are there multiple tokens at play?", repository)
 	}
 	defer tokenMutex.Unlock()
 	hasToken[repository] = true
-	fmt.Println("Token accepted for", repository)
+	gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Token accepted for repository: %s", repository)
 
 	// Gateway has received the token, so it can start accepting leases for duration of LeaseAcquisitionTime
 	tokenReceptionTime[repository] = time.Now()
 	time.AfterFunc(s.Config.LeaseAcquisitionTime, func() {
 		var err error
 		ctx := context.Background()
-		result, err := s.GetLeases(ctx) // Using background context is not really intented and slightly hacky
+		result, err := s.GetLeases(ctx)
 		if err != nil {
-			fmt.Println("Error getting leases:", err)
+			gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error getting leases: %v", err)
 			return
 		}
 		if len(result) == 0 {
 			// If there's no leases active, post the token to the next gateway right away
-			fmt.Println("No active leases, posting token immediately")
+			gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("No active leases, posting token immediately")
 			err = s.PostRingToken(repository)
 		} else {
 			// Wait for either the lease notification to signal 0 leases, or for the max lease time
-
 			select {
 			case <-s.LeaseNotificationChan:
-				// TODO(siemv): I believe this only works if there is only one active lease after the lease acquisition period has passed. Check this!
 				result, _ := s.GetLeases(ctx)
 				if len(result) == 0 { // No more active leases, so token can be posted early
-					fmt.Println("Last lease cancelled or committed, posting token")
+					gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Last lease cancelled or committed, posting token")
 					err = s.PostRingToken(repository)
 					break
 				}
 			case <-time.After(s.Config.MaxLeaseTime):
 				// Max lease time reached, so post the token
-				fmt.Println("Max lease time reached, posting token")
+				gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Max lease time reached, posting token")
 				err = s.PostRingToken(repository)
 				break
 			}
 		}
 
 		if err != nil {
-			fmt.Println("Error posting token:", err)
+			gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error posting token: %v", err)
 		} else {
-			fmt.Println("Token posted successfully")
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Token posted successfully")
 		}
 	})
-	return nil
 
+	return nil
 }
 
 // PostRingToken posts the token to the next gateway in the ring.
 func (s *Services) PostRingToken(repository string) error {
 	ctx := context.Background()
+	outcome := "success"
+	defer logAction(ctx, "post_ring_token", &outcome, time.Now())
+
 	address, err := getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
-		fmt.Println("Error getting address:", err)
-		return err
+		outcome = "could not get own address: " + err.Error()
+		return fmt.Errorf("could not get own address: %w", err)
 	}
 	nextGw, err := s.GetNextRingGateway(ctx, repository, address, 0)
 	if err != nil {
-		fmt.Println("Error getting next gateway:", err)
-		return err
+		outcome = "error getting next gateway: " + err.Error()
+		return fmt.Errorf("error getting next gateway: %w", err)
 	}
 	err = retryPostToken(ctx, s, repository, nextGw)
 	if err != nil {
-		fmt.Println("Error posting token to next gateway:", err)
-		return err
+		outcome = "error posting token to next gateway: " + err.Error()
+		return fmt.Errorf("error posting token to next gateway: %w", err)
 	}
-	fmt.Println("Token posted to next gateway")
+
 	return nil
 }
 
 // retryPostToken posts the token to the specified gateway. targetGw should be the gateway's address
 func retryPostToken(ctx context.Context, s *Services, repository string, targetGw string) error {
-	// Post the token to the next gateway
-	fmt.Println("Target gateway is: ", targetGw)
 	// If the target is the same as the current address, skip posting
 	address, err := getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
-		fmt.Println("Error getting address:", err)
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error getting address: %v", err)
+		return fmt.Errorf("error getting address: %w", err)
 	}
 	if targetGw == address {
-		fmt.Println("Target gateway is the same as current address, skipping posting")
+		gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Target gateway is the same as current address, skipping posting")
+		// Update token state to prevent issue when re-accepting the token
 		tokenMutex.Lock()
 		hasToken[repository] = false
 		tokenMutex.Unlock()
@@ -305,13 +317,13 @@ func retryPostToken(ctx context.Context, s *Services, repository string, targetG
 		return nil
 	}
 	url := fmt.Sprintf("%s/hagroup", targetGw)
-	fmt.Println("Posting token for:", repository, "to:", url)
+	gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Posting token for: %s to: %s", repository, url)
 
 	// Get the gateway next to the target. This will be used if the token is not successfully posted to the target
 	nextGw, err := s.GetNextRingGateway(ctx, repository, targetGw, 0)
 	if err != nil {
-		fmt.Println("Error getting next gateway:", err)
-		return err
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error getting next gateway: %v", err)
+		return fmt.Errorf("error getting next gateway: %w", err)
 	}
 
 	// Create the payload with the repository information
@@ -320,13 +332,13 @@ func retryPostToken(ctx context.Context, s *Services, repository string, targetG
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println("Error marshaling payload:", err)
-		return err
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error marshaling payload: %v", err)
+		return fmt.Errorf("error marshaling payload: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		fmt.Println("Error creating request: ", err, "attempting next gateway in ring")
+		gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Error creating request: %v, attempting next gateway in ring", err)
 		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
 		s.SetGwStatus(ctx, repository, targetGw, 3)
 		err = retryPostToken(ctx, s, repository, nextGw)
@@ -342,7 +354,7 @@ func retryPostToken(ctx context.Context, s *Services, repository string, targetG
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println("Error posting token:", err, "attempting next gateway in ring")
+		gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Error posting token: %v, attempting next gateway in ring", err)
 		s.RequestStatusUpdate(ctx, repository, targetGw, 3)
 		s.SetGwStatus(ctx, repository, targetGw, 3)
 		err = retryPostToken(ctx, s, repository, nextGw)
@@ -353,34 +365,29 @@ func retryPostToken(ctx context.Context, s *Services, repository string, targetG
 	// Parse the response
 	var responseMessage map[string]string
 	if err := json.NewDecoder(resp.Body).Decode(&responseMessage); err != nil {
-		fmt.Println("Error decoding response:", err)
-		return err
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error decoding response: %v", err)
+		return fmt.Errorf("error decoding response: %w", err)
 	}
 
 	// Check the acknowledgment status
 	if ack, ok := responseMessage["acknowledgement"]; ok {
 		if ack == "ok" {
-			fmt.Println("Acknowledgment received: ok")
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Acknowledgment received: ok")
 		} else {
-			fmt.Printf("Acknowledgment received: %s\n", ack)
 			if errMsg, exists := responseMessage["error"]; exists {
-				fmt.Printf("Error message: %s\n", errMsg)
+				gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Error message: %s", errMsg)
 			}
-			fmt.Println("received error acknowledgment:", ack, "attempting next gateway in ring")
+			gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("received error acknowledgment: %s, attempting next gateway in ring", ack)
 			err = retryPostToken(ctx, s, repository, nextGw)
 			return err
 		}
 	} else {
-		fmt.Println("Acknowledgment not found in response. Attempting next gateway in ring")
+		gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Acknowledgment not found in response. Attempting next gateway in ring")
 		err = retryPostToken(ctx, s, repository, nextGw)
 		return err
 	}
 
 	// Update token state
-	address, err = getAddress(strconv.Itoa(s.Config.Port))
-	if err != nil {
-		fmt.Println("Error getting address:", err)
-	}
 	if targetGw != address { // Only set hasToken to false if the token is not posted to self
 		tokenMutex.Lock()
 		hasToken[repository] = false
@@ -389,12 +396,12 @@ func retryPostToken(ctx context.Context, s *Services, repository string, targetG
 			// Calculate cycle time
 			gateways, err := s.GetRingGatewaysStatus(ctx, repository)
 			if err != nil {
-				fmt.Println("Error getting gateways:", err)
+				gw.LogC(ctx, "token_ring", gw.LogError).Msgf("Error getting gateways: %v", err)
 				return
 			}
 			var functionalGateways []gwStatus
 			for _, gateway := range gateways {
-				if gateway.Status <= 1 {
+				if gateway.Status <= 1 { // Gateways with status 0 (up) or 1 (high load) are considered functional
 					functionalGateways = append(functionalGateways, gateway)
 				}
 			}
@@ -405,8 +412,7 @@ func retryPostToken(ctx context.Context, s *Services, repository string, targetG
 			time.Sleep(t_cycle)
 			// Check if the reception time has been updated to a more recent value (meaning that the token has completed a full cycle)
 			if !tokenReceptionTime[repository].After(time.Now().Add(-t_cycle)) {
-				// If not, generate a new token
-				fmt.Println("Cycle time reached, invalidating and regenerating token")
+				gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("Cycle time reached for repository %s, invalidating and regenerating token", repository)
 				s.SendInvalidationRequest(ctx, repository)
 				s.InvalidateToken(ctx, repository)
 				// Take ownership of the new token
@@ -424,6 +430,10 @@ func (s *Services) HasRingToken(ctx context.Context, repository string) bool {
 	return hasToken[repository]
 }
 
+// Determines if a lease may be started based on
+// 1. If the multiple gateway feature is enabled
+// 2. If the gateway has the token for the specified repository
+// 3. If the gateway is still within the lease acquisition time
 func (s *Services) CanStartLease(ctx context.Context, repository string) bool {
 	// If the multi-gateway feature is not enabled, leasee can be started regardlessly
 	if !s.Config.EnableMultiGateway {
@@ -444,6 +454,7 @@ func (s *Services) CanStartLease(ctx context.Context, repository string) bool {
 	return time.Since(receptionTime) < s.Config.LeaseAcquisitionTime
 }
 
+// getAddress constructs the address of this gateway using the hostname and port.
 func getAddress(port string) (string, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -455,7 +466,7 @@ func getAddress(port string) (string, error) {
 
 // GetNextRingGateway returns the next gateway in the ring for the specified repository
 // according to the current address. The maxStatus argument is used to ignore gateways with a status
-// greateer than the specified value.
+// greater than the specified value.
 // If the current address is not found in the ring, an error is returned.
 func (s *Services) GetNextRingGateway(ctx context.Context, repository string, currentAddress string, maxStatus int) (string, error) {
 	// Start a transaction
@@ -519,24 +530,25 @@ func (s *Services) RequestStatusUpdate(ctx context.Context, repository string, a
 
 	selfAddress, err := getAddress(strconv.Itoa(s.Config.Port))
 	if err != nil {
-		fmt.Println("could not get address:", err)
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("could not get own address: %v", err)
+		return fmt.Errorf("could not get own address: %w", err)
 	}
 	// Send HTTP addition request to each address except the current one
 	for _, line := range lines {
 		if line == selfAddress {
-			fmt.Println("Skipping update request to self:", selfAddress)
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Skipping update request to self: %s", selfAddress)
 			continue
 		}
 		url := fmt.Sprintf("%s/hagroup/status", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
-			fmt.Println("could not create status update request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogError).Msgf("could not create status update request: %v", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Println("could not send status update request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogError).Msgf("could not send status update request: %v", err)
 			continue
 		}
 		defer resp.Body.Close()
@@ -586,27 +598,28 @@ func (s *Services) RequestAddition(ctx context.Context, tx *sql.Tx, repository s
 		return fmt.Errorf("could not marshal payload: %w", err)
 	}
 
+	selfAddress, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("could not get own address: %v", err)
+		return fmt.Errorf("could not get own address: %w", err)
+	}
+
 	// Send HTTP addition request to each address except the current one
 	for _, line := range lines {
-		address, err := getAddress(strconv.Itoa(s.Config.Port))
-		if err != nil {
-			fmt.Println("could not get address:", err)
-			continue
-		}
-		if line == address {
-			fmt.Println("Skipping addition request to self:", address)
+		if line == selfAddress {
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Skipping addition request to self: %s", selfAddress)
 			continue
 		}
 		url := fmt.Sprintf("%s/hagroup/addition", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
-			fmt.Println("could not create gw addition request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogInfo).Msgf("could not create gateway addition request: %v", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Println("could not send gw addition request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogWarn).Msgf("could not send gateway addition request: %v", err)
 			continue
 		}
 		defer resp.Body.Close()
@@ -643,33 +656,40 @@ func (s *Services) RequestRemoval(ctx context.Context, repository string, addres
 		return fmt.Errorf("could not marshal payload: %w", err)
 	}
 
+	selfAddress, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("could not get own address: %v", err)
+		return fmt.Errorf("could not get own address: %w", err)
+	}
+
 	// Send HTTP removal request to each address except the current one
 	for _, line := range lines {
-		if line == address {
-			fmt.Println("Skipping removal request to self:", address)
+		if line == selfAddress {
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Skipping removal request to self: %s", selfAddress)
 			continue
 		}
 		url := fmt.Sprintf("%s/hagroup/removal", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
-			fmt.Println("could not create gw removal request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogWarn).Msgf("could not create gateway removal request: %v", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Println("could not send gw removal request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogWarn).Msgf("could not send gateway removal request: %v", err)
 			continue
 		}
 		defer resp.Body.Close()
 	}
-	fmt.Println("Removal request of", address, "sent to all gateways")
+	gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Removal request of %s sent to all gateways", selfAddress)
 	return nil
 }
 
 // Add a gateway to the token ring for the specified repository
 // If the repository does not exist or the address is already in the ring, an error is returned
+// If the transaction is nil, a new transaction is started and committed at the end
 func (s *Services) AddToRing(ctx context.Context, tx *sql.Tx, repository string, address string) error {
 	t0 := time.Now()
 
@@ -746,22 +766,26 @@ func (s *Services) SendInvalidationRequest(ctx context.Context, repository strin
 	}
 
 	// Send HTTP invalidation request to each address, except itself
-	address, err := getAddress(strconv.Itoa(s.Config.Port))
+	selfAddress, err := getAddress(strconv.Itoa(s.Config.Port))
+	if err != nil {
+		gw.LogC(ctx, "token_ring", gw.LogError).Msgf("could not get own address: %v", err)
+		return fmt.Errorf("could not get own address: %w", err)
+	}
 	for _, line := range lines {
-		if line == address {
-			fmt.Println("Skipping invalidation request to self:", address)
+		if line == selfAddress {
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("Skipping invalidation request to self: %s", selfAddress)
 			continue
 		}
 		url := fmt.Sprintf("%s/hagroup/invalidation", line)
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
-			fmt.Println("could not create token invalidation request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("could not create token invalidation request: %v", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Println("could not send gw invalidation request:", err)
+			gw.LogC(ctx, "token_ring", gw.LogDebug).Msgf("could not send gateway invalidation request: %v", err)
 			continue
 		}
 		defer resp.Body.Close()
