@@ -10,7 +10,7 @@ docker exec -it cvmfs-gw1 systemctl start cvmfs-gateway
 for i in $(seq 2 5); do
     cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw${i}/user.json
     cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw${i}/repo.json
-    docker exec -it cvmfs-gw${i} /scripts/gateway_mkfs.sh -E $REPO_NAME || exit 2
+    docker exec -it cvmfs-gw${i} /scripts/gateway_mkfs.sh -A $REPO_NAME || exit 2
     docker exec -it cvmfs-gw${i} systemctl start cvmfs-gateway    
 done
 

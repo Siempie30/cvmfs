@@ -17,7 +17,7 @@ echo "\n---Creating gateway 2"
 cp $SCRIPT_DIR/user.json $SCRIPT_DIR/../config/gw2/user.json
 cp $SCRIPT_DIR/token_ring.json $SCRIPT_DIR/../config/gw2/token_ring.json
 cp $SCRIPT_DIR/repo.json $SCRIPT_DIR/../config/gw2/repo.json
-docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -E test.repo.org || exit 3
+docker exec -it cvmfs-gw2 /scripts/gateway_mkfs.sh -A test.repo.org || exit 3
 docker exec -it cvmfs-gw2 systemctl start cvmfs-gateway
 
 echo "\n---Verifying updated token ring tables"

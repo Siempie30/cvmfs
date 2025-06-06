@@ -46,7 +46,7 @@ jq '. + {"enable_multi_gateway": "true"}' $SCRIPT_DIR/user.json > $SCRIPT_DIR/..
 execute_in_container cvmfs-pub1 "echo \"CVMFS_MULTIPLE_GATEWAYS=true\" >> /etc/cvmfs/repositories.d/$REPO_NAME/server.conf" || exit 11
 
 echo "\n---Starting second gateway"
-execute_in_container cvmfs-gw2 "/scripts/gateway_mkfs.sh -E $REPO_NAME" || exit 12
+execute_in_container cvmfs-gw2 "/scripts/gateway_mkfs.sh -A $REPO_NAME" || exit 12
 execute_in_container cvmfs-gw2 "systemctl start cvmfs-gateway" || exit 13
 
 execute_in_container cvmfs-gw1 "systemctl start cvmfs-gateway" || exit 14
