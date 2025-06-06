@@ -168,8 +168,6 @@ cvmfs_server_attach() {
     esac
   done
 
-  # TODO(siemv): check if upstream type is s3 and if s3 config is set. If either of these is not set, die with an error message.
-
   # get stratum0 URL, s3 config, and repository name
   shift $(($OPTIND-1))
   check_parameter_count 3 $#
