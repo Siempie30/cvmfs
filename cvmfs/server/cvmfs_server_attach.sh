@@ -108,13 +108,10 @@ cvmfs_server_attach() {
 
   # parameter handling
   OPTIND=1
-  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:I" option; do
+  while getopts "Xu:o:mf:vgG:a:zk:pRV:Z:x:I" option; do
     case $option in
       X)
         external_data=true
-      ;;
-      w)
-        stratum0=$OPTARG
       ;;
       u)
         upstream=$OPTARG
@@ -143,9 +140,6 @@ cvmfs_server_attach() {
       z)
         garbage_collectable=true
       ;;
-      s)
-        s3_config=$OPTARG
-      ;;
       k)
         keys_import_location=$OPTARG
       ;;
@@ -168,7 +162,7 @@ cvmfs_server_attach() {
         ignore_manifest_overwrite=1
       ;;
       ?)
-        shift $(($OPTIND-2))
+        shift $(($OPTIND-3))
         usage "Command mkfs: Unrecognized option: $1"
       ;;
     esac
@@ -176,10 +170,12 @@ cvmfs_server_attach() {
 
   # TODO(siemv): check if upstream type is s3 and if s3 config is set. If either of these is not set, die with an error message.
 
-  # get repository name
+  # get stratum0 URL, s3 config, and repository name
   shift $(($OPTIND-1))
-  check_parameter_count 1 $#
-  name=$(get_repository_name $1)
+  check_parameter_count 3 $#
+  stratum0="$1"
+  s3_config="$2"
+  name=$(get_repository_name $3)
 
   is_valid_repo_name "$name" || die "invalid repository name: $name"
   is_root                    || die "Only root can create a new repository"
@@ -189,26 +185,18 @@ cvmfs_server_attach() {
   [ x"$hash_algo" = x"" ] && hash_algo=sha1
   [ x"$compression_alg" = x"" ] && compression_alg=default
 
-  # upstream generation (defaults to local upstream)
+  # upstream generation (defaults to S3 upstream)
   if [ x"$upstream" = x"" ]; then
-    if [ x"$s3_config" != x"" ]; then
-      local subpath=$(parse_url $stratum0 path)
-      upstream=$(make_s3_upstream $name $s3_config $subpath)
-    else
-      upstream=$(make_local_upstream $name)
-    fi
+    local subpath=$(parse_url $stratum0 path)
+    upstream=$(make_s3_upstream $name $s3_config $subpath)
   fi
 
-  # stratum0 URL generation (defaults to local URL)
-  if [ x"$s3_config" != x"" ]; then
-    [ x"$stratum0" = x"" ] && die "Please specify the HTTP-URL for S3 (add option -w)"
-    stratum0=$(mangle_s3_cvmfs_url $name "$stratum0")
-  elif [ x"$stratum0" = x"" ]; then
-    stratum0="$(mangle_local_cvmfs_url $name)"
-  fi
+  # stratum0 URL generation
+  stratum0=$(mangle_s3_cvmfs_url $name "$stratum0")
 
   # sanity checks
   local upstream_type=$(get_upstream_type $upstream)
+  [ x"$upstream_type" == x"S3" ]    || die "Can only attach to S3 upstream type"
   check_repository_existence $name  && die "The repository $name already exists"
 
   check_upstream_validity $upstream
@@ -219,10 +207,6 @@ cvmfs_server_attach() {
   check_autofs_on_cvmfs             && die "Autofs on /cvmfs has to be disabled"
   lower_hardlink_restrictions
   ensure_swissknife_suid $unionfs   || die "Need CAP_SYS_ADMIN for cvmfs_swissknife"
-  if is_local_upstream $upstream; then
-    check_apache                    || die "Apache must be installed and running"
-    ensure_enabled_apache_modules
-  fi
   if [ "x$auto_tag_timespan" != "x" ]; then
     date --date "$auto_tag_timespan" +%s >/dev/null 2>&1 || die "Auto tags time span cannot be parsed"
     [ x"$autotagging" = x"false" ] &&
@@ -232,21 +216,14 @@ cvmfs_server_attach() {
   # check if the keychain for the repository to create is already in place
   local keys_location="/etc/cvmfs/keys"
   mkdir -p $keys_location
-  local keys="${name}.crt ${name}.pub"
-  if [ x"$upstream_type" = xgw ]; then
-      keys="$keys ${name}.gw"
-  else
-      keys="$keys ${name}.key"
-  fi
+  local keys="${name}.crt ${name}.pub ${name}.key"
   if [ $require_masterkeycard -eq 1 ]; then
-      local reason
-      reason="`masterkeycard_cert_available`" || die "masterkeycard not available: $reason"
+    local reason
+    reason="`masterkeycard_cert_available`" || die "masterkeycard not available: $reason"
   elif masterkeycard_cert_available >/dev/null; then
-      require_masterkeycard=1
+    require_masterkeycard=1
   else
-      if [ x"$upstream_type" != xgw ]; then
-          keys="${name}.masterkey $keys"
-      fi
+    keys="${name}.masterkey $keys"
   fi
   local keys_are_there=0
   for k in $keys; do
