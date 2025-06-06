@@ -101,7 +101,6 @@ cvmfs_server_attach() {
   local external_data=false
   local require_masterkeycard=0
   local ignore_manifest_overwrite=0
-  local multiple_gateways=0
 
   local configure_apache=1
   local voms_authz=""
@@ -109,7 +108,7 @@ cvmfs_server_attach() {
 
   # parameter handling
   OPTIND=1
-  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:IM" option; do
+  while getopts "Xw:u:o:mf:vgG:a:zs:k:pRV:Z:x:I" option; do
     case $option in
       X)
         external_data=true
@@ -167,9 +166,6 @@ cvmfs_server_attach() {
       ;;
       I)
         ignore_manifest_overwrite=1
-      ;;
-      M)
-        multiple_gateways=1
       ;;
       ?)
         shift $(($OPTIND-2))
@@ -279,6 +275,7 @@ cvmfs_server_attach() {
 
   # create system-wide configuration
   echo -n "Creating Configuration Files... "
+  local multiple_gateways=0 # Only relevant when creating an fs on a publisher
   create_config_files_for_new_repository "$name"                \
                                          "$upstream"            \
                                          "$stratum0"            \
