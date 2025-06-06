@@ -36,12 +36,11 @@ CVMFS_S3_USE_HTTPS=false" > /etc/cvmfs/s3.conf
 
 CREATE_CMD="cvmfs_server"
 if [ "$USE_ATTACH_CMD" = true ]; then
-  CREATE_CMD="$CREATE_CMD attach"
+  CREATE_CMD="$CREATE_CMD attach -o root http://cvmfs-s3:9000/stratum0bucket /etc/cvmfs/s3.conf"
 else
-  CREATE_CMD="$CREATE_CMD mkfs"
+  CREATE_CMD="$CREATE_CMD mkfs -o root -s /etc/cvmfs/s3.conf -w http://cvmfs-s3:9000/stratum0bucket "
 fi
-CREATE_CMD="$CREATE_CMD -s /etc/cvmfs/s3.conf -w http://cvmfs-s3:9000/stratum0bucket -o root"
 CREATE_CMD="$CREATE_CMD $REPO_NAME"
 
-# Execute the mkfs command
+# Execute the create command
 $CREATE_CMD
