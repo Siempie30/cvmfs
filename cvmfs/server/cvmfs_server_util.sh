@@ -1175,6 +1175,17 @@ Supported Commands:
                   [-x proxy url] [-M multi-gateway upstream storage ]
                   <fully qualified repository name>
                   Creates a new repository with a given name
+  attach          [-w stratum0 url] [-u upstream storage] [-o owner]
+                  [-f union filesystem type] [-s S3 config file]
+                  [-g disable auto tags] [-G Set timespan for auto tags]
+                  [-a hash algorithm (default: SHA-1)]
+                  [-z enable garbage collection] [-v volatile content]
+                  [-Z compression algorithm (default: zlib)]
+                  [-k path to existing keychain] [-p no apache config]
+                  [-R require masterkeycard key ]
+                  [-V VOMS authorization] [-X (external data)]
+                  [-x proxy url] <fully qualified repository name>
+                  Attaches an existing repository on an S3 backend to local repositories
   add-replica     [-u stratum1 upstream storage] [-o owner] [-w stratum1 url]
                   [-a silence apache warning] [-z enable garbage collection]
                   [-n alias name] [-s S3 config file] [-p no apache config]
