@@ -1364,6 +1364,19 @@ static void cvmfs_open(fuse_req_t req, fuse_ino_t ino,
   fuse_reply_err(req, -fd);
 }
 
+#if (FUSE_USE_VERSION < 35)
+static void cvmfs_ioctl(fuse_req_t req, fuse_ino_t ino, int cmd,
+            void *arg, struct fuse_file_info *fi, unsigned int flags,
+            const void *in_buf, size_t in_bufsz, size_t out_bufsz) {
+#else
+static void cvmfs_ioctl(fuse_req_t req, fuse_ino_t ino, unsigned int cmd,
+            void *arg, struct fuse_file_info *fi, unsigned int flags,
+            const void *in_buf, size_t in_bufsz, size_t out_bufsz) {
+#endif
+
+  LogCvmfs(kLogCvmfs, kLogDebug, "Received ioctl command");
+  fuse_reply_ioctl(req, 0, NULL, 0);
+}
 
 /**
  * Redirected to pread into cache.
@@ -2120,6 +2133,7 @@ static void SetCvmfsOperations(struct fuse_lowlevel_ops *cvmfs_operations) {
   cvmfs_operations->getxattr = cvmfs_getxattr;
   cvmfs_operations->listxattr = cvmfs_listxattr;
   cvmfs_operations->forget = cvmfs_forget;
+  cvmfs_operations->ioctl = cvmfs_ioctl;
 #if (FUSE_VERSION >= 29)
   cvmfs_operations->forget_multi = cvmfs_forget_multi;
 #endif
