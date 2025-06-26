@@ -668,7 +668,7 @@ LeaseReply Publisher::Session::AcquireInMultiGw(const gateway::GatewayKey &gw_ke
   ResetCurrentGw(settings_.repo_path);
 
   // Update gateway db
-  LogCvmfs(kLogPublish, kLogStderr, "Updating gateway database");
+  LogCvmfs(kLogPublish, kLogDebug, "Updating gateway database");
   std::vector<std::string> addresses;
   GetRingGwsByPriority(settings_.repo_path, addresses);
   if (addresses.empty()) {
@@ -690,8 +690,8 @@ LeaseReply Publisher::Session::AcquireInMultiGw(const gateway::GatewayKey &gw_ke
   // As long as 1. not all gateway addresses have been attempted and 2. The reason the lease request failed is because of an unavailable gateway
   size_t i;
   for (i = 0; i < addresses.size() && gwUnavailable; ++i) {
-    // Loop, starting at the start index (where our 'main' gateway is), and wrap around using modulo.
-    LogCvmfs(kLogPublish, kLogStderr, "attempted publish address: %s", addresses[i].c_str());
+    // Gateways are sorted by priority, so the first one is the best available
+    LogCvmfs(kLogPublish, kLogDebug, "attempted publish address: %s", addresses[i].c_str());
     settings_.service_endpoint = addresses[i];
     gwUnavailable = MakeAcquireRequest(gw_key, settings_.repo_path, settings_.service_endpoint,
                        settings_.llvl, &buffer);
@@ -775,11 +775,11 @@ void Publisher::Session::Drop(bool multi_gateway) {
   }
   LogCvmfs(kLogPublish, kLogStderr, "attempted abort address: %s", address.c_str());
   
-  // Make the drop request at the default gateway
   bool gwUnavailable = MakeDropRequest(gw_key, token, address, settings_.llvl, &buffer);
   LeaseReply rep;
   if (gwUnavailable) {
-    // If gateway is unavailable, treat it as a success and drop the lease
+    // If gateway is unavailable, treat it as a success so the lease is dropped anyway
+    LogCvmfs(kLogUploadGateway, kLogDebug, "Gateway is unavailable, dropping lease");
     rep = kLeaseReplySuccess;    
   } else {
     rep = ParseDropReply(buffer, settings_.llvl);
